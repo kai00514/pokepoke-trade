@@ -2,8 +2,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -12,17 +11,23 @@ import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Copy, Send, UserCircle } from "lucide-react"
+import { ArrowLeft, Copy, Send, UserCircle, Loader2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import type { Card as CardInfo } from "@/components/detailed-search-modal" // Re-using card type
+import type { Card as CardInfo } from "@/components/detailed-search-modal"
+import { getTradePostDetailsById, addCommentToTradePost } from "@/lib/actions/trade-actions"
 
 // Define types for post details and comments
 interface Comment {
   id: string
   author: string
-  avatar?: string
+  avatar?: string | null
   text: string
-  timestamp: string // e.g., "19日前" or a Date object
+  timestamp: string
+}
+
+interface Author {
+  username: string
+  avatarUrl: string | null
 }
 
 interface TradePostDetails {
@@ -32,31 +37,11 @@ interface TradePostDetails {
   wantedCards: CardInfo[]
   offeredCards: CardInfo[]
   description: string
-  authorNotes?: string // The "testtest" part in the image
-  originalPostId: string // The "ID : 111111111111"
+  authorNotes?: string
+  originalPostId: string
   comments: Comment[]
-}
-
-// Sample Data (Replace with actual data fetching)
-const samplePostDetails: TradePostDetails = {
-  id: "1",
-  title: "aaaaaa",
-  status: "進行中",
-  wantedCards: [{ id: "w1", name: "ナゾノクサ", imageUrl: "/placeholder.svg?width=150&height=210" }],
-  offeredCards: [
-    { id: "o1", name: "ヒトカゲ", imageUrl: "/placeholder.svg?width=150&height=210" },
-    { id: "o2", name: "ゼニガメ", imageUrl: "/placeholder.svg?width=150&height=210" },
-  ],
-  description: "This is the main description of the trade post, if available.",
-  authorNotes: "testtest",
-  originalPostId: "111111111111",
-  comments: [
-    { id: "c1", author: "ゲスト", text: "hello", timestamp: "19日前" },
-    { id: "c2", author: "ゲスト", text: "aaaaaa", timestamp: "19日前" },
-    { id: "c3", author: "ゲスト", text: "hellohello", timestamp: "19日前" },
-    { id: "c4", author: "ゲスト", text: "hello", timestamp: "19日前" },
-    { id: "c5", author: "ゲスト", text: "aaaaaaaaaa", timestamp: "19日前" },
-  ],
+  author: Author
+  createdAt: string
 }
 
 export default function TradeDetailPage() {
@@ -66,25 +51,40 @@ export default function TradeDetailPage() {
   const [post, setPost] = useState<TradePostDetails | null>(null)
   const [newComment, setNewComment] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false)
 
   const postId = params.id as string
 
-  useEffect(() => {
-    // Simulate data fetching
-    if (postId) {
-      setIsLoading(true)
-      setTimeout(() => {
-        // In a real app, fetch post data using postId
-        // For now, use sample data if postId matches, or handle not found
-        if (postId === samplePostDetails.id) {
-          setPost(samplePostDetails)
-        } else {
-          setPost(null) // Or redirect to a 404 page
-        }
-        setIsLoading(false)
-      }, 500)
+  const fetchPostDetails = useCallback(async () => {
+    if (!postId) return
+    setIsLoading(true)
+    try {
+      const result = await getTradePostDetailsById(postId)
+      if (result.success && result.post) {
+        setPost(result.post as TradePostDetails)
+      } else {
+        setPost(null)
+        toast({
+          title: "エラー",
+          description: result.error || "投稿の読み込みに失敗しました。",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "エラー",
+        description: "予期しないエラーが発生しました。",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
-  }, [postId])
+  }, [postId, toast])
+
+  useEffect(() => {
+    fetchPostDetails()
+  }, [fetchPostDetails])
 
   const handleCopyToClipboard = () => {
     if (post?.originalPostId) {
@@ -96,22 +96,37 @@ export default function TradeDetailPage() {
     }
   }
 
-  const handleCommentSubmit = (e: React.FormEvent) => {
+  const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newComment.trim()) return
+    if (!newComment.trim() || !postId) return
 
-    // Simulate comment submission
-    const submittedComment: Comment = {
-      id: `c${Date.now()}`,
-      author: "自分", // Or logged-in user
-      text: newComment.trim(),
-      timestamp: "たった今",
+    setIsSubmittingComment(true)
+    try {
+      const result = await addCommentToTradePost(postId, newComment.trim())
+      if (result.success) {
+        setNewComment("")
+        toast({
+          title: "コメントを投稿しました",
+        })
+        // Re-fetch post details to show the new comment
+        await fetchPostDetails()
+      } else {
+        toast({
+          title: "コメント投稿エラー",
+          description: result.error || "コメントの投稿に失敗しました。",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "エラー",
+        description: "予期しないエラーが発生しました。",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmittingComment(false)
     }
-    setPost((prevPost) => (prevPost ? { ...prevPost, comments: [...prevPost.comments, submittedComment] } : null))
-    setNewComment("")
-    toast({
-      title: "コメントを投稿しました",
-    })
   }
 
   if (isLoading) {
@@ -119,7 +134,7 @@ export default function TradeDetailPage() {
       <div className="flex flex-col min-h-screen">
         <AuthHeader />
         <main className="flex-grow container mx-auto px-4 py-8 flex justify-center items-center">
-          <p className="text-slate-500">読み込み中...</p>
+          <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
         </main>
         <Footer />
       </div>
@@ -172,11 +187,39 @@ export default function TradeDetailPage() {
           タイムラインに戻る
         </Link>
 
-        {/* Trade Post Details Card */}
         <div className="bg-white p-6 sm:p-8 rounded-lg shadow-xl mb-8">
           <div className="flex justify-between items-start mb-4">
-            <h1 className="text-2xl font-bold text-slate-800">{post.title}</h1>
-            <Badge variant="outline" className="bg-sky-100 text-sky-700 border-sky-300 whitespace-nowrap">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800">{post.title}</h1>
+              <div className="flex items-center mt-2 text-sm text-slate-500">
+                {post.author.avatarUrl ? (
+                  <Image
+                    src={post.author.avatarUrl || "/placeholder.svg"}
+                    alt={post.author.username}
+                    width={24}
+                    height={24}
+                    className="rounded-full mr-2"
+                  />
+                ) : (
+                  <UserCircle className="h-6 w-6 text-slate-400 mr-2" />
+                )}
+                <span>{post.author.username}</span>
+                <span className="mx-2">•</span>
+                <span>{post.createdAt}</span>
+              </div>
+            </div>
+            <Badge
+              variant="outline"
+              className={`whitespace-nowrap ${
+                post.status === "募集中"
+                  ? "bg-green-100 text-green-700 border-green-300"
+                  : post.status === "進行中"
+                    ? "bg-amber-100 text-amber-700 border-amber-300"
+                    : post.status === "完了"
+                      ? "bg-blue-100 text-blue-700 border-blue-300"
+                      : "bg-gray-100 text-gray-700 border-gray-300"
+              }`}
+            >
               {post.status}
             </Badge>
           </div>
@@ -188,6 +231,7 @@ export default function TradeDetailPage() {
 
           {post.authorNotes && (
             <div className="bg-slate-100 p-4 rounded-md mb-6">
+              <h3 className="font-semibold text-slate-800 mb-2">投稿者からのコメント</h3>
               <p className="text-sm text-slate-700 whitespace-pre-wrap">{post.authorNotes}</p>
             </div>
           )}
@@ -201,7 +245,6 @@ export default function TradeDetailPage() {
           </div>
         </div>
 
-        {/* Comments Section */}
         <div className="bg-white rounded-lg shadow-xl">
           <div className="bg-purple-600 text-white p-4 rounded-t-lg">
             <h2 className="text-xl font-semibold">コメント</h2>
@@ -250,14 +293,21 @@ export default function TradeDetailPage() {
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 className="flex-grow bg-white"
+                disabled={isSubmittingComment}
               />
               <Button
                 type="submit"
                 className="bg-purple-600 hover:bg-purple-700 text-white"
-                disabled={!newComment.trim()}
+                disabled={!newComment.trim() || isSubmittingComment}
               >
-                <Send className="h-4 w-4 mr-0 sm:mr-2" />
-                <span className="hidden sm:inline">投稿</span>
+                {isSubmittingComment ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-0 sm:mr-2" />
+                    <span className="hidden sm:inline">投稿</span>
+                  </>
+                )}
               </Button>
             </div>
           </form>

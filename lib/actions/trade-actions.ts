@@ -4,15 +4,7 @@ import { createServerClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { v4 as uuidv4 } from "uuid"
 import type { Card } from "@/components/detailed-search-modal"
-import type { User } from "@supabase/supabase-js" // Userタイプをインポート
-
-export interface TradeFormData {
-  title: string
-  wantedCards: Card[]
-  offeredCards: Card[]
-  appId?: string
-  comment?: string
-}
+import type { User } from "@supabase/supabase-js"
 
 // Helper function to extract username and avatar
 function getUserProfileData(user: User | null | undefined) {
@@ -20,6 +12,14 @@ function getUserProfileData(user: User | null | undefined) {
     user?.user_metadata?.username || user?.user_metadata?.name || user?.email?.split("@")[0] || "ユーザー"
   const avatarUrl = user?.user_metadata?.avatar_url || null
   return { username, avatarUrl }
+}
+
+export interface TradeFormData {
+  title: string
+  wantedCards: Card[]
+  offeredCards: Card[]
+  appId?: string
+  comment?: string
 }
 
 export async function createTradePost(formData: TradeFormData) {
@@ -116,8 +116,6 @@ export async function getTradePostsWithCards(limit = 10, offset = 0) {
 
     const usersMap = new Map<string, User>()
     if (ownerIds.length > 0) {
-      // Fetch users one by one - potential N+1 issue.
-      // For a large number of unique owners, consider an RPC or a different strategy.
       for (const ownerId of ownerIds) {
         if (ownerId) {
           const { data: userData, error: userError } = await supabase.auth.admin.getUserById(ownerId)
@@ -325,7 +323,7 @@ export async function getTradePostDetailsById(postId: string) {
 
     const { data: commentsData, error: commentsError } = await supabase
       .from("trade_comments")
-      .select("id, user_id, user_name, content, created_at") // user_id for potential future avatar lookup
+      .select("id, user_id, user_name, content, created_at")
       .eq("post_id", postId)
       .eq("is_deleted", false)
       .order("created_at", { ascending: true })
@@ -334,8 +332,17 @@ export async function getTradePostDetailsById(postId: string) {
       console.error(`Error fetching comments for post ${postId}:`, commentsError)
     }
 
-    // If you need comment author avatars from auth.users, you'd fetch them similarly to post authors
-    // For now, using user_name stored in trade_comments
+    const commentAuthorIds = Array.from(new Set(commentsData?.map((c) => c.user_id).filter(Boolean) || []))
+    const commentAuthorsMap = new Map<string, User>()
+    if (commentAuthorIds.length > 0) {
+      for (const authorId of commentAuthorIds) {
+        const { data: authorData, error: authorError } = await supabase.auth.admin.getUserById(authorId)
+        if (!authorError && authorData.user) {
+          commentAuthorsMap.set(authorId, authorData.user)
+        }
+      }
+    }
+
     const comments =
       commentsData?.map((comment: any) => {
         const createdAt = new Date(comment.created_at)
@@ -346,10 +353,13 @@ export async function getTradePostDetailsById(postId: string) {
         else if (diffSeconds < 86400) timestamp = `${Math.floor(diffSeconds / 3600)}時間前`
         else if (diffSeconds < 2592000) timestamp = `${Math.floor(diffSeconds / 86400)}日前`
 
+        const authorUser = comment.user_id ? commentAuthorsMap.get(comment.user_id) : null
+        const { avatarUrl } = getUserProfileData(authorUser)
+
         return {
           id: comment.id,
-          author: comment.user_name || "ゲスト", // Using denormalized user_name
-          avatar: null, // Placeholder. Fetch if needed via comment.user_id and supabase.auth.admin.getUserById
+          author: comment.user_name || "ゲスト",
+          avatar: avatarUrl,
           text: comment.content,
           timestamp: timestamp,
         }
@@ -369,7 +379,7 @@ export async function getTradePostDetailsById(postId: string) {
       wantedCards,
       offeredCards,
       description: postData.comment || "",
-      authorNotes: null,
+      authorNotes: postData.comment || "",
       originalPostId: postData.custom_id || postData.id.substring(0, 8),
       comments,
       author: authorInfo,
@@ -398,13 +408,12 @@ export async function addCommentToTradePost(postId: string, content: string) {
       return { success: false, error: "コメント内容を入力してください。" }
     }
 
-    // Get username from session user_metadata
     const { username } = getUserProfileData(session.user)
 
     const { error } = await supabase.from("trade_comments").insert({
       post_id: postId,
       user_id: session.user.id,
-      user_name: username, // Use username from session
+      user_name: username,
       content: content,
       is_guest: false,
     })
