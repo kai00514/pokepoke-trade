@@ -10,7 +10,7 @@ import { Check, X, Diamond, StarIcon, Loader2, type LucideIcon } from "lucide-re
 import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 import { createBrowserClient } from "@/lib/supabase/client"
-import ImagePreviewOverlay from "./image-preview-overlay" // Import the new component
+import ImagePreviewOverlay from "./image-preview-overlay"
 
 export interface Card {
   id: string
@@ -28,12 +28,12 @@ const typesForUI = [
   { name: "炎", icon: "/images/types/炎.png", id: "炎" },
   { name: "水", icon: "/images/types/水.png", id: "水" },
   { name: "電気", icon: "/images/types/電気.png", id: "電気" },
-  { name: "エスパー", icon: "/images/types/エスパー.png", id: "エスパー" }, // Corrected from /念.png
+  { name: "エスパー", icon: "/images/types/エスパー.png", id: "エスパー" },
   { name: "格闘", icon: "/images/types/格闘.png", id: "格闘" },
   { name: "悪", icon: "/images/types/悪.png", id: "悪" },
   { name: "鋼", icon: "/images/types/鋼.png", id: "鋼" },
   { name: "無色", icon: "/images/types/無色.png", id: "無色" },
-  { name: "ドラゴン", icon: "/images/types/ドラゴン.png", id: "ドラゴン" }, // Corrected from /ト竜.png
+  { name: "ドラゴン", icon: "/images/types/ドラゴン.png", id: "ドラゴン" },
 ]
 
 interface RarityOption {
@@ -84,25 +84,26 @@ export default function DetailedSearchModal({
 
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
   const isLongPressTriggeredRef = useRef(false)
+  const isInitializedRef = useRef(false)
 
-  const prevIsOpen = useRef(isOpen)
   const { toast } = useToast()
   const supabase = createBrowserClient()
 
+  // モーダルが開いたときに初期選択カードを設定
   useEffect(() => {
-    if (isOpen) {
-      if (!prevIsOpen.current) {
-        setCurrentSelectedCards(initialSelectedCards)
-      }
-    } else {
-      // Reset preview state when modal closes
+    if (isOpen && !isInitializedRef.current) {
+      console.log("Modal opened, setting initial cards:", initialSelectedCards)
+      setCurrentSelectedCards([...initialSelectedCards])
+      isInitializedRef.current = true
+    } else if (!isOpen) {
+      // モーダルが閉じたときにリセット
+      isInitializedRef.current = false
       setIsPreviewOverlayOpen(false)
       setPreviewImageUrl(null)
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current)
       }
     }
-    prevIsOpen.current = isOpen
   }, [isOpen, initialSelectedCards])
 
   useEffect(() => {
@@ -136,7 +137,6 @@ export default function DetailedSearchModal({
         query = query.eq("rarity_code", selectedRarityDBValue)
       }
       query = query.order("id", { ascending: true })
-      // query = query.limit(100) // Consider re-adding if performance is an issue
 
       const { data, error } = await query
       if (error) {
@@ -193,14 +193,14 @@ export default function DetailedSearchModal({
     if (!isLongPressTriggeredRef.current) {
       toggleCardSelection(card)
     }
-    isLongPressTriggeredRef.current = false // Reset here instead of at start
+    isLongPressTriggeredRef.current = false
   }
 
   const cancelLongPress = () => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current)
     }
-    isLongPressTriggeredRef.current = false // Ensure it's reset if interaction ends prematurely
+    isLongPressTriggeredRef.current = false
   }
 
   const handleSelectionComplete = () => {
@@ -208,8 +208,8 @@ export default function DetailedSearchModal({
       toast({ title: "選択エラー", description: "カードを1枚選択してください。", variant: "destructive" })
       return
     }
-    onSelectionComplete(currentSelectedCards)
-    onOpenChange(false)
+    console.log("Completing selection with cards:", currentSelectedCards)
+    onSelectionComplete([...currentSelectedCards]) // 配列をコピーして渡す
   }
 
   const selectionText = useMemo(() => {
@@ -313,7 +313,7 @@ export default function DetailedSearchModal({
                         key={card.id}
                         onMouseDown={() => handleCardPressStart(card)}
                         onMouseUp={() => handleCardPressEnd(card)}
-                        onTouchStart={() => handleCardPressStart(card)} // e.preventDefault() を削除
+                        onTouchStart={() => handleCardPressStart(card)}
                         onTouchEnd={() => handleCardPressEnd(card)}
                         onMouseLeave={cancelLongPress}
                         onTouchCancel={cancelLongPress}
@@ -340,7 +340,6 @@ export default function DetailedSearchModal({
                             <Check className="h-10 w-10 text-white stroke-[3px]" />
                           </div>
                         )}
-                        {/* Card name display removed from here */}
                       </button>
                     ))}
                   </div>

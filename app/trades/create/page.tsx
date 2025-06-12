@@ -35,6 +35,7 @@ export default function CreateTradePage() {
   const [modalSelectionContext, setModalSelectionContext] = useState<SelectionContextType>(null)
   const [modalMaxSelection, setModalMaxSelection] = useState<number | undefined>(undefined)
   const [currentModalTitle, setCurrentModalTitle] = useState("カードを選択")
+  const [modalInitialCards, setModalInitialCards] = useState<SelectedCardType[]>([])
 
   const { toast } = useToast()
   const router = useRouter()
@@ -78,26 +79,48 @@ export default function CreateTradePage() {
   }
 
   const openModal = (context: SelectionContextType, maxSelection: number | undefined, title: string) => {
+    // 現在の選択状態を取得
+    const currentCards = context === "wanted" ? wantedCards : offeredCards
+
+    // モーダルの状態を設定
     setModalSelectionContext(context)
     setModalMaxSelection(maxSelection)
     setCurrentModalTitle(title)
+    setModalInitialCards([...currentCards]) // 配列をコピーして設定
+
+    // モーダルを開く
     setIsModalOpen(true)
   }
 
   const handleModalSelectionComplete = (selected: SelectedCardType[]) => {
+    console.log("Modal selection complete:", {
+      context: modalSelectionContext,
+      selectedCount: selected.length,
+      selected: selected.map((c) => ({ id: c.id, name: c.name })),
+    })
+
     if (modalSelectionContext === "wanted") {
-      setWantedCards(selected)
+      setWantedCards([...selected]) // 配列をコピーして設定
       if (formErrors.wantedCards) {
         setFormErrors((prev) => ({ ...prev, wantedCards: "" }))
       }
     } else if (modalSelectionContext === "offered") {
-      setOfferedCards(selected)
+      setOfferedCards([...selected]) // 配列をコピーして設定
       if (formErrors.offeredCards) {
         setFormErrors((prev) => ({ ...prev, offeredCards: "" }))
       }
     }
+
+    // モーダルを閉じる
     setIsModalOpen(false)
     setModalSelectionContext(null)
+    setModalInitialCards([])
+  }
+
+  const handleModalClose = () => {
+    setIsModalOpen(false)
+    setModalSelectionContext(null)
+    setModalInitialCards([])
   }
 
   const removeCard = (cardId: string, context: "wanted" | "offered") => {
@@ -368,16 +391,16 @@ export default function CreateTradePage() {
         </div>
       </main>
       <Footer />
-      {isModalOpen && (
-        <DetailedSearchModal
-          isOpen={isModalOpen}
-          onOpenChange={setIsModalOpen}
-          onSelectionComplete={handleModalSelectionComplete}
-          maxSelection={modalMaxSelection}
-          initialSelectedCards={modalSelectionContext === "wanted" ? wantedCards : offeredCards}
-          modalTitle={currentModalTitle}
-        />
-      )}
+
+      {/* DetailedSearchModal */}
+      <DetailedSearchModal
+        isOpen={isModalOpen}
+        onOpenChange={handleModalClose}
+        onSelectionComplete={handleModalSelectionComplete}
+        maxSelection={modalMaxSelection}
+        initialSelectedCards={modalInitialCards}
+        modalTitle={currentModalTitle}
+      />
     </div>
   )
 }
