@@ -9,7 +9,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { Check, X, Diamond, StarIcon, Loader2, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
-import { getSupabaseClient } from "@/lib/supabase/client"
+import { createBrowserClient } from "@/lib/supabase/client"
 import ImagePreviewOverlay from "./image-preview-overlay" // Import the new component
 
 export interface Card {
@@ -87,7 +87,7 @@ export default function DetailedSearchModal({
 
   const prevIsOpen = useRef(isOpen)
   const { toast } = useToast()
-  const supabase = getSupabaseClient()
+  const supabase = createBrowserClient()
 
   useEffect(() => {
     if (isOpen) {
