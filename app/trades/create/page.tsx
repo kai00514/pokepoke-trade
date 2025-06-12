@@ -1,17 +1,22 @@
 "use client"
 
-import { useState } from "react" // Removed useEffect and useSearchParams as they are no longer needed for pre-filling
+import type React from "react"
+
+import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { InfoIcon, ArrowLeft, Trash2 } from "lucide-react"
+import { InfoIcon, ArrowLeft, Trash2, Loader2 } from "lucide-react"
 import DetailedSearchModal from "@/components/detailed-search-modal"
 import type { Card as SelectedCardType } from "@/components/detailed-search-modal"
+import { useToast } from "@/components/ui/use-toast"
+import { createTradePost } from "@/lib/actions/trade-actions"
 
 type SelectionContextType = "wanted" | "offered" | null
 
@@ -21,18 +26,21 @@ export default function CreateTradePage() {
   const [offeredCards, setOfferedCards] = useState<SelectedCardType[]>([])
   const [appId, setAppId] = useState("")
   const [comment, setComment] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalSelectionContext, setModalSelectionContext] = useState<SelectionContextType>(null)
   const [modalMaxSelection, setModalMaxSelection] = useState<number | undefined>(undefined)
   const [currentModalTitle, setCurrentModalTitle] = useState("カードを選択")
 
+  const { toast } = useToast()
+  const router = useRouter()
+
   const openModal = (context: SelectionContextType, maxSelection: number | undefined, title: string) => {
     setModalSelectionContext(context)
     setModalMaxSelection(maxSelection)
     setCurrentModalTitle(title)
     const initialSelection = context === "wanted" ? wantedCards : offeredCards
-    // Note: The DetailedSearchModal's useEffect for initialSelectedCards will handle this
     setIsModalOpen(true)
   }
 
@@ -51,6 +59,73 @@ export default function CreateTradePage() {
       setWantedCards((prev) => prev.filter((card) => card.id !== cardId))
     } else {
       setOfferedCards((prev) => prev.filter((card) => card.id !== cardId))
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // バリデーション
+    if (!tradeTitle.trim()) {
+      toast({
+        title: "入力エラー",
+        description: "トレード目的を入力してください。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (wantedCards.length === 0) {
+      toast({
+        title: "入力エラー",
+        description: "求めるカードを選択してください。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (offeredCards.length === 0) {
+      toast({
+        title: "入力エラー",
+        description: "譲れるカードを選択してください。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+
+      const result = await createTradePost({
+        title: tradeTitle,
+        wantedCards,
+        offeredCards,
+        appId,
+        comment,
+      })
+
+      if (result.success) {
+        toast({
+          title: "投稿成功",
+          description: "トレード投稿が作成されました。",
+        })
+        router.push("/")
+      } else {
+        toast({
+          title: "投稿エラー",
+          description: result.error || "投稿の作成に失敗しました。",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error submitting trade post:", error)
+      toast({
+        title: "エラー",
+        description: "予期しないエラーが発生しました。",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -76,6 +151,7 @@ export default function CreateTradePage() {
               className="absolute top-0 right-0 h-6 w-6 bg-red-500 text-white opacity-0 group-hover:opacity-100 hover:bg-red-600 transition-opacity"
               onClick={() => removeCard(card.id, context)}
               aria-label={`Remove ${card.name}`}
+              disabled={isSubmitting}
             >
               <Trash2 className="h-3 w-3" />
             </Button>
@@ -106,7 +182,7 @@ export default function CreateTradePage() {
             </AlertDescription>
           </Alert>
 
-          <form className="space-y-6">
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="tradeTitle" className="block text-sm font-medium text-slate-700 mb-1">
                 トレード目的 <span className="text-red-500">*</span>
@@ -117,6 +193,7 @@ export default function CreateTradePage() {
                 onChange={(e) => setTradeTitle(e.target.value)}
                 placeholder="例：リザードンex求む"
                 required
+                disabled={isSubmitting}
               />
             </div>
 
@@ -128,6 +205,7 @@ export default function CreateTradePage() {
                 type="button"
                 onClick={() => openModal("wanted", 1, "求めるカードを選択")}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                disabled={isSubmitting}
               >
                 カードを選択 (最大1枚)
               </Button>
@@ -142,6 +220,7 @@ export default function CreateTradePage() {
                 type="button"
                 onClick={() => openModal("offered", 15, "譲れるカードを選択")}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                disabled={isSubmitting}
               >
                 カードを選択 (最大15枚)
               </Button>
@@ -157,6 +236,7 @@ export default function CreateTradePage() {
                 value={appId}
                 onChange={(e) => setAppId(e.target.value)}
                 placeholder="ポケポケアプリのID (任意)"
+                disabled={isSubmitting}
               />
               <p className="text-xs text-slate-500 mt-1">ログイン中です。ポケポケIDは任意です。</p>
             </div>
@@ -171,12 +251,24 @@ export default function CreateTradePage() {
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="コメントを入力 (256文字まで)"
                 rows={4}
+                disabled={isSubmitting}
               />
             </div>
 
             <div className="pt-4">
-              <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 text-white text-base py-3">
-                登録する
+              <Button
+                type="submit"
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white text-base py-3"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    登録中...
+                  </>
+                ) : (
+                  "登録する"
+                )}
               </Button>
             </div>
           </form>

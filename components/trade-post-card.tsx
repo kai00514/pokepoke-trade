@@ -2,13 +2,13 @@
 
 import type React from "react"
 
-import Link from "next/link" // Add Link import
+import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Copy, MessageSquare } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast" // Add useToast for copy functionality
+import { Copy, MessageSquare, UserCircle } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 
 type CardInfo = {
   name: string
@@ -16,15 +16,17 @@ type CardInfo = {
 }
 
 type TradePost = {
-  id: string // This id will be used for the route
+  id: string
   title: string
   date: string
   status: string
   wantedCard: CardInfo
-  offeredCard: CardInfo // For simplicity, keeping this as single for the card display
-  // Detail page will handle multiple if data structure allows
+  offeredCard: CardInfo
   comments: number
-  postId: string // This is the "display ID" or "originalPostId"
+  postId: string
+  username?: string
+  avatarUrl?: string | null
+  rawData?: any
 }
 
 interface TradePostCardProps {
@@ -35,7 +37,8 @@ export default function TradePostCard({ post }: TradePostCardProps) {
   const { toast } = useToast()
 
   const handleCopyToClipboard = (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent card click when copying ID
+    e.stopPropagation()
+    e.preventDefault()
     navigator.clipboard.writeText(post.postId)
     toast({
       title: "コピーしました",
@@ -46,17 +49,41 @@ export default function TradePostCard({ post }: TradePostCardProps) {
   return (
     <Card className="w-full shadow-lg hover:shadow-xl transition-shadow duration-200">
       <Link href={`/trades/${post.id}`} className="block">
-        {" "}
-        {/* Entire card links to detail page */}
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start">
             <div>
               <CardTitle className="text-xl font-semibold text-slate-800 group-hover:text-purple-600 transition-colors">
                 {post.title}
               </CardTitle>
-              <p className="text-xs text-slate-500">{post.date}</p>
+              <div className="flex items-center mt-1">
+                {post.avatarUrl ? (
+                  <Image
+                    src={post.avatarUrl || "/placeholder.svg"}
+                    alt={post.username || "ユーザー"}
+                    width={20}
+                    height={20}
+                    className="rounded-full mr-2"
+                  />
+                ) : (
+                  <UserCircle className="h-5 w-5 text-slate-400 mr-2" />
+                )}
+                <p className="text-xs text-slate-500">
+                  {post.username || "ユーザー"} • {post.date}
+                </p>
+              </div>
             </div>
-            <Badge variant="outline" className="bg-sky-100 text-sky-700 border-sky-300 whitespace-nowrap">
+            <Badge
+              variant="outline"
+              className={`bg-sky-100 text-sky-700 border-sky-300 whitespace-nowrap ${
+                post.status === "募集中"
+                  ? "bg-green-100 text-green-700 border-green-300"
+                  : post.status === "進行中"
+                    ? "bg-amber-100 text-amber-700 border-amber-300"
+                    : post.status === "完了"
+                      ? "bg-blue-100 text-blue-700 border-blue-300"
+                      : "bg-gray-100 text-gray-700 border-gray-300"
+              }`}
+            >
               {post.status}
             </Badge>
           </div>
@@ -106,20 +133,18 @@ export default function TradePostCard({ post }: TradePostCardProps) {
             variant="ghost"
             size="sm"
             className="text-xs h-auto py-1 px-2 text-slate-600 hover:bg-slate-200"
-            onClick={handleCopyToClipboard} // Use updated handler
+            onClick={handleCopyToClipboard}
           >
             <Copy className="mr-1 h-3 w-3" /> コピー
           </Button>
         </div>
         <Button
-          asChild // Make button behave as a Link
+          asChild
           variant="default"
           size="sm"
           className="bg-violet-500 hover:bg-violet-600 text-white text-xs h-auto py-1.5 px-3"
         >
           <Link href={`/trades/${post.id}`}>
-            {" "}
-            {/* Link to detail page */}
             <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
             詳細
             {post.comments > 0 && (

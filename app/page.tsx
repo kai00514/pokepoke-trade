@@ -1,59 +1,70 @@
 "use client"
 
-import { useState } from "react"
-import Link from "next/link" // Ensure Link is imported
+import { useState, useEffect } from "react"
+import Link from "next/link"
 import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
 import TradePostCard from "@/components/trade-post-card"
 import AdPlaceholder from "@/components/ad-placeholder"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { PlusCircle, Search } from "lucide-react"
+import { PlusCircle, Search, Loader2 } from "lucide-react"
 import DetailedSearchModal from "@/components/detailed-search-modal"
 import type { Card as SelectedCardType } from "@/components/detailed-search-modal"
-
-const tradePostsData = [
-  {
-    id: "1",
-    title: "aaaaaa",
-    date: "2025/05/30",
-    status: "進行中",
-    wantedCard: {
-      name: "ナゾノクサ",
-      image: "/placeholder.svg?width=100&height=140",
-    },
-    offeredCard: {
-      name: "ヒトカゲ",
-      image: "/placeholder.svg?width=100&height=140",
-    },
-    comments: 0,
-    postId: "未設定",
-  },
-  {
-    id: "2",
-    title: "aaa",
-    date: "2025/05/18",
-    status: "進行中",
-    wantedCard: {
-      name: "ナゾノクサ",
-      image: "/placeholder.svg?width=100&height=140",
-    },
-    offeredCard: {
-      name: "シェルダー",
-      image: "/placeholder.svg?width=100&height=140",
-    },
-    comments: 2,
-    postId: "DEF456",
-  },
-]
+import { getTradePostsWithCards } from "@/lib/actions/trade-actions"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function TradeBoardPage() {
   const [isDetailedSearchOpen, setIsDetailedSearchOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [tradePosts, setTradePosts] = useState<any[]>([])
+  const [searchKeyword, setSearchKeyword] = useState("")
+  const { toast } = useToast()
+
+  useEffect(() => {
+    async function fetchTradePosts() {
+      setIsLoading(true)
+      try {
+        const result = await getTradePostsWithCards(20, 0)
+        if (result.success) {
+          setTradePosts(result.posts)
+        } else {
+          toast({
+            title: "データ取得エラー",
+            description: result.error || "投稿の取得に失敗しました。",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("Error fetching trade posts:", error)
+        toast({
+          title: "エラー",
+          description: "予期しないエラーが発生しました。",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchTradePosts()
+  }, [toast])
 
   const handleDetailedSearchSelectionComplete = (selectedCards: SelectedCardType[]) => {
     console.log("Selected cards from detailed search:", selectedCards)
     setIsDetailedSearchOpen(false)
   }
+
+  const filteredPosts = tradePosts.filter((post) => {
+    if (!searchKeyword.trim()) return true
+
+    const keyword = searchKeyword.toLowerCase()
+    return (
+      post.title.toLowerCase().includes(keyword) ||
+      post.wantedCard.name.toLowerCase().includes(keyword) ||
+      post.offeredCard.name.toLowerCase().includes(keyword)
+    )
+  })
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
@@ -72,7 +83,6 @@ export default function TradeBoardPage() {
             </div>
 
             <div className="mb-8 flex justify-center">
-              {/* Ensure this Button uses asChild and Link correctly points to /trades/create */}
               <Button
                 asChild
                 variant="default"
@@ -90,7 +100,13 @@ export default function TradeBoardPage() {
 
             <div className="mb-6 p-4 bg-white rounded-lg shadow">
               <div className="flex flex-col sm:flex-row gap-2">
-                <Input type="text" placeholder="キーワード検索" className="flex-grow" />
+                <Input
+                  type="text"
+                  placeholder="キーワード検索"
+                  className="flex-grow"
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                />
                 <Button variant="default" className="bg-violet-500 hover:bg-violet-600 text-white">
                   <Search className="mr-2 h-4 w-4 sm:hidden" /> 検索
                 </Button>
@@ -104,11 +120,21 @@ export default function TradeBoardPage() {
               </div>
             </div>
 
-            <div className="space-y-6">
-              {tradePostsData.map((post) => (
-                <TradePostCard key={post.id} post={post} />
-              ))}
-            </div>
+            {isLoading ? (
+              <div className="flex justify-center items-center py-20">
+                <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
+              </div>
+            ) : filteredPosts.length > 0 ? (
+              <div className="space-y-6">
+                {filteredPosts.map((post) => (
+                  <TradePostCard key={post.id} post={post} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-20 text-slate-500">
+                {searchKeyword ? "検索条件に一致する投稿がありません。" : "投稿がありません。"}
+              </div>
+            )}
           </section>
 
           <aside className="w-full lg:w-1/5 space-y-6 hidden lg:block">
