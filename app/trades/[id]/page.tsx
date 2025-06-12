@@ -156,19 +156,19 @@ export default function TradeDetailPage() {
 
   const renderCardList = (cards: CardInfo[], title: string) => (
     <div>
-      <h2 className="text-lg font-semibold text-slate-700 mb-2">{title}</h2>
+      <h2 className="text-lg font-semibold text-slate-700 mb-3">{title}</h2>
       {cards.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <div className="flex flex-wrap gap-3">
           {cards.map((card) => (
-            <div key={card.id} className="border rounded-lg p-2 bg-slate-50 text-center shadow-sm">
+            <div key={card.id} className="flex flex-col items-center">
               <Image
-                src={card.imageUrl || "/placeholder.svg?width=100&height=140"}
+                src={card.imageUrl || "/placeholder.svg?width=80&height=112"}
                 alt={card.name}
-                width={100}
-                height={140}
-                className="rounded-md object-contain mx-auto mb-1 aspect-[5/7]"
+                width={80}
+                height={112}
+                className="rounded-md object-contain border border-slate-200 bg-slate-50 shadow-sm"
               />
-              <p className="text-xs font-medium text-slate-600 truncate">{card.name}</p>
+              <p className="text-xs font-medium text-slate-600 mt-1 text-center max-w-[80px] truncate">{card.name}</p>
             </div>
           ))}
         </div>
