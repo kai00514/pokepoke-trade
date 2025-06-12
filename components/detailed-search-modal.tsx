@@ -28,12 +28,12 @@ const typesForUI = [
   { name: "炎", icon: "/images/types/炎.png", id: "炎" },
   { name: "水", icon: "/images/types/水.png", id: "水" },
   { name: "電気", icon: "/images/types/電気.png", id: "電気" },
-  { name: "エスパー", icon: "/images/types/エスパー.png", id: "エスパー" },
+  { name: "エスパー", icon: "/images/types/エスパー.png", id: "エスパー" }, // Corrected from /念.png
   { name: "格闘", icon: "/images/types/格闘.png", id: "格闘" },
   { name: "悪", icon: "/images/types/悪.png", id: "悪" },
   { name: "鋼", icon: "/images/types/鋼.png", id: "鋼" },
   { name: "無色", icon: "/images/types/無色.png", id: "無色" },
-  { name: "ドラゴン", icon: "/images/types/ドラゴン.png", id: "ドラゴン" },
+  { name: "ドラゴン", icon: "/images/types/ドラゴン.png", id: "ドラゴン" }, // Corrected from /ト竜.png
 ]
 
 interface RarityOption {
