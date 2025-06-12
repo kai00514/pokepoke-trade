@@ -46,6 +46,7 @@ export async function createTradePost(formData: TradeFormData) {
     const postId = uuidv4()
     const userId = session.user.id
 
+    // Insert main trade post
     const { error: postError } = await supabase.from("trade_posts").insert({
       id: postId,
       title: formData.title,
@@ -62,25 +63,31 @@ export async function createTradePost(formData: TradeFormData) {
       return { success: false, error: `投稿の作成に失敗しました: ${postError.message}` }
     }
 
-    const wantedCardsData = formData.wantedCards.map((card, index) => ({
-      post_id: postId,
-      card_id: Number.parseInt(card.id),
-      is_primary: index === 0,
-    }))
-    const { error: wantedCardsError } = await supabase.from("trade_post_wanted_cards").insert(wantedCardsData)
-    if (wantedCardsError) {
-      console.error("Error adding wanted cards:", wantedCardsError)
-      return { success: false, error: `求めるカードの保存に失敗しました: ${wantedCardsError.message}` }
+    // Insert wanted cards
+    if (formData.wantedCards.length > 0) {
+      const wantedCardsData = formData.wantedCards.map((card, index) => ({
+        post_id: postId,
+        card_id: Number.parseInt(card.id),
+        is_primary: index === 0,
+      }))
+      const { error: wantedCardsError } = await supabase.from("trade_post_wanted_cards").insert(wantedCardsData)
+      if (wantedCardsError) {
+        console.error("Error adding wanted cards:", wantedCardsError)
+        return { success: false, error: `求めるカードの保存に失敗しました: ${wantedCardsError.message}` }
+      }
     }
 
-    const offeredCardsData = formData.offeredCards.map((card) => ({
-      post_id: postId,
-      card_id: Number.parseInt(card.id),
-    }))
-    const { error: offeredCardsError } = await supabase.from("trade_post_offered_cards").insert(offeredCardsData)
-    if (offeredCardsError) {
-      console.error("Error adding offered cards:", offeredCardsError)
-      return { success: false, error: `譲れるカードの保存に失敗しました: ${offeredCardsError.message}` }
+    // Insert offered cards
+    if (formData.offeredCards.length > 0) {
+      const offeredCardsData = formData.offeredCards.map((card) => ({
+        post_id: postId,
+        card_id: Number.parseInt(card.id),
+      }))
+      const { error: offeredCardsError } = await supabase.from("trade_post_offered_cards").insert(offeredCardsData)
+      if (offeredCardsError) {
+        console.error("Error adding offered cards:", offeredCardsError)
+        return { success: false, error: `譲れるカードの保存に失敗しました: ${offeredCardsError.message}` }
+      }
     }
 
     revalidatePath("/")
@@ -280,13 +287,10 @@ export async function getTradePostDetailsById(postId: string) {
   try {
     const supabase = await createServerClient()
 
+    // First, get the main post data
     const { data: postData, error: postError } = await supabase
       .from("trade_posts")
-      .select(
-        `*, 
-        trade_post_wanted_cards ( card_id, is_primary, cards (id, name, image_url) ), 
-        trade_post_offered_cards ( card_id, cards (id, name, image_url) )`,
-      )
+      .select("*")
       .eq("id", postId)
       .single()
 
@@ -299,6 +303,7 @@ export async function getTradePostDetailsById(postId: string) {
       }
     }
 
+    // Get author info
     let authorInfo = { username: "ユーザー", avatarUrl: null }
     if (postData.owner_id) {
       const { data: userData, error: userError } = await supabase.auth.admin.getUserById(postData.owner_id)
@@ -309,18 +314,70 @@ export async function getTradePostDetailsById(postId: string) {
       }
     }
 
-    const wantedCards = postData.trade_post_wanted_cards.map((wc: any) => ({
-      id: wc.cards.id.toString(),
-      name: wc.cards.name,
-      imageUrl: wc.cards.image_url,
-      isPrimary: wc.is_primary,
-    }))
-    const offeredCards = postData.trade_post_offered_cards.map((oc: any) => ({
-      id: oc.cards.id.toString(),
-      name: oc.cards.name,
-      imageUrl: oc.cards.image_url,
-    }))
+    // Get wanted cards relationships
+    const { data: wantedRelations, error: wantedError } = await supabase
+      .from("trade_post_wanted_cards")
+      .select("card_id, is_primary")
+      .eq("post_id", postId)
 
+    if (wantedError) {
+      console.error(`Error fetching wanted cards for post ${postId}:`, wantedError)
+    }
+
+    // Get offered cards relationships
+    const { data: offeredRelations, error: offeredError } = await supabase
+      .from("trade_post_offered_cards")
+      .select("card_id")
+      .eq("post_id", postId)
+
+    if (offeredError) {
+      console.error(`Error fetching offered cards for post ${postId}:`, offeredError)
+    }
+
+    // Get all card IDs
+    const allCardIds = new Set<number>()
+    wantedRelations?.forEach((r) => allCardIds.add(r.card_id))
+    offeredRelations?.forEach((r) => allCardIds.add(r.card_id))
+
+    // Get card details
+    const cardsMap = new Map<number, { id: string; name: string; image_url: string }>()
+    if (allCardIds.size > 0) {
+      const { data: cardDetails, error: cardsError } = await supabase
+        .from("cards")
+        .select("id, name, image_url")
+        .in("id", Array.from(allCardIds))
+
+      if (cardsError) {
+        console.error(`Error fetching card details for post ${postId}:`, cardsError)
+      } else {
+        cardDetails?.forEach((c) => cardsMap.set(c.id, { ...c, id: c.id.toString() }))
+      }
+    }
+
+    // Map wanted cards
+    const wantedCards =
+      wantedRelations?.map((wc) => {
+        const card = cardsMap.get(wc.card_id)
+        return {
+          id: card?.id || wc.card_id.toString(),
+          name: card?.name || "不明",
+          imageUrl: card?.image_url || "/placeholder.svg?width=100&height=140",
+          isPrimary: wc.is_primary,
+        }
+      }) || []
+
+    // Map offered cards
+    const offeredCards =
+      offeredRelations?.map((oc) => {
+        const card = cardsMap.get(oc.card_id)
+        return {
+          id: card?.id || oc.card_id.toString(),
+          name: card?.name || "不明",
+          imageUrl: card?.image_url || "/placeholder.svg?width=100&height=140",
+        }
+      }) || []
+
+    // Get comments
     const { data: commentsData, error: commentsError } = await supabase
       .from("trade_comments")
       .select("id, user_id, user_name, content, created_at")
@@ -332,6 +389,7 @@ export async function getTradePostDetailsById(postId: string) {
       console.error(`Error fetching comments for post ${postId}:`, commentsError)
     }
 
+    // Get comment authors
     const commentAuthorIds = Array.from(new Set(commentsData?.map((c) => c.user_id).filter(Boolean) || []))
     const commentAuthorsMap = new Map<string, User>()
     if (commentAuthorIds.length > 0) {

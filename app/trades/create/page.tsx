@@ -40,7 +40,6 @@ export default function CreateTradePage() {
     setModalSelectionContext(context)
     setModalMaxSelection(maxSelection)
     setCurrentModalTitle(title)
-    const initialSelection = context === "wanted" ? wantedCards : offeredCards
     setIsModalOpen(true)
   }
 
@@ -100,8 +99,8 @@ export default function CreateTradePage() {
         title: tradeTitle,
         wantedCards,
         offeredCards,
-        appId,
-        comment,
+        appId: appId.trim() || undefined,
+        comment: comment.trim() || undefined,
       })
 
       if (result.success) {
