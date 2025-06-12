@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import Header from "@/components/header"
+import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { PlusCircle, Users, ListChecks, BarChartBig, Zap, type Icon } from "lucide-react"
@@ -171,7 +171,7 @@ export default function DecksPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-100">
-      <Header />
+      <AuthHeader />
       <main className="flex-grow container mx-auto px-0 sm:px-4 pb-8">
         <div className="my-6 flex justify-center px-4 sm:px-0">
           <Button

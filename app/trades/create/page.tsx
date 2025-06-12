@@ -3,7 +3,7 @@
 import { useState } from "react" // Removed useEffect and useSearchParams as they are no longer needed for pre-filling
 import Link from "next/link"
 import Image from "next/image"
-import Header from "@/components/header"
+import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -87,7 +87,7 @@ export default function CreateTradePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-100">
-      <Header />
+      <AuthHeader />
       <main className="flex-grow container mx-auto px-4 py-8">
         <Link href="/" className="inline-flex items-center text-sm text-purple-600 hover:text-purple-700 mb-6">
           <ArrowLeft className="h-4 w-4 mr-1" />

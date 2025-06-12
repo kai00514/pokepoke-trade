@@ -7,7 +7,7 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import Header from "@/components/header"
+import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -117,7 +117,7 @@ export default function TradeDetailPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col min-h-screen">
-        <Header />
+        <AuthHeader />
         <main className="flex-grow container mx-auto px-4 py-8 flex justify-center items-center">
           <p className="text-slate-500">読み込み中...</p>
         </main>
@@ -129,7 +129,7 @@ export default function TradeDetailPage() {
   if (!post) {
     return (
       <div className="flex flex-col min-h-screen">
-        <Header />
+        <AuthHeader />
         <main className="flex-grow container mx-auto px-4 py-8 text-center">
           <h1 className="text-2xl font-bold mb-4">投稿が見つかりません</h1>
           <Button onClick={() => router.push("/")}>タイムラインに戻る</Button>
@@ -165,7 +165,7 @@ export default function TradeDetailPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      <Header />
+      <AuthHeader />
       <main className="flex-grow container mx-auto px-4 py-8">
         <Link href="/" className="inline-flex items-center text-sm text-purple-600 hover:text-purple-700 mb-6 group">
           <ArrowLeft className="h-4 w-4 mr-1 transition-transform group-hover:-translate-x-1" />

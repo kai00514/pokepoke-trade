@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react" // useEffect, useMemo を追加
 import Link from "next/link"
 import Image from "next/image"
-import Header from "@/components/header"
+import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -448,7 +448,7 @@ export default function CreateDeckPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      <Header />
+      <AuthHeader />
 
       {/* Desktop Layout */}
       <div className="hidden lg:block">

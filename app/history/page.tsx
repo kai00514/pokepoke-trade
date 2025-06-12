@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import Header from "@/components/header"
+import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
 import { Archive, MessageCircle, Users, type LucideIcon } from "lucide-react" // Changed Users to Archive for "My Posts"
 import { cn } from "@/lib/utils"
@@ -152,7 +152,7 @@ export default function HistoryPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      <Header />
+      <AuthHeader />
       <main className="flex-grow container mx-auto px-0 sm:px-4 pb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 text-center my-6 sm:my-8 px-4 sm:px-0">履歴</h1>
 

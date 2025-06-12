@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"] }) // Noto Sans JPなどに変更推奨
 export const metadata: Metadata = {
   title: "ポケリンクトレード掲示板",
   description: "ポケットポケットのカードをトレードしましょう！",
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({

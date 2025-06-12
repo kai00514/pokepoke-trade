@@ -1,4 +1,4 @@
-import Header from "@/components/header"
+import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
 import { Construction, CalendarClock } from "lucide-react"
@@ -7,7 +7,7 @@ import Link from "next/link"
 export default function MatchingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      <Header />
+      <AuthHeader />
       <main className="flex-grow container mx-auto px-4 py-12 flex flex-col items-center justify-center text-center">
         <h1 className="text-3xl font-bold text-slate-800 mb-8">マッチング</h1>
         <Card className="w-full max-w-md p-8 shadow-lg">
