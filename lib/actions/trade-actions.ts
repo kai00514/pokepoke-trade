@@ -333,6 +333,15 @@ export async function getTradePostsWithCards(limit = 10, offset = 0) {
 
 export async function getTradePostDetailsById(postId: string) {
   try {
+    // Skip processing for "create" route to avoid UUID parsing errors
+    if (postId === "create") {
+      return {
+        success: false,
+        error: "Invalid post ID",
+        post: null,
+      }
+    }
+
     const supabase = await createServerClient()
 
     // First, get the main post data
