@@ -12,10 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ArrowLeft, ChevronDown, ChevronUp, Trash2, Save, Loader2, Check } from "lucide-react" // Search, Loader2, Check を追加
 import { cn } from "@/lib/utils"
-// DetailedSearchModal はページ内検索に置き換えるため、不要であれば削除
-// import DetailedSearchModal from "@/components/detailed-search-modal"
-import DeckCompositionChart from "@/components/deck-composition-chart"
-import DeckCardItem from "@/components/deck-card-item"
 import type { Card as CardType } from "@/components/detailed-search-modal" // CardType のインポートパスを確認
 import { createBrowserClient } from "@/lib/supabase/client" // Supabaseクライアントを追加
 import { useToast } from "@/components/ui/use-toast" // Toastを追加
@@ -344,31 +340,6 @@ export default function CreateDeckPage() {
       </div>
 
       {renderDeckSlots()}
-
-      {deckCards.length > 0 && (
-        <div className="space-y-2 mt-4">
-          <h4 className="font-medium text-slate-700">デッキリスト</h4>
-          <ScrollArea className="h-48 border rounded-md">
-            <div className="space-y-1 p-2">
-              {deckCards.map((card) => (
-                <DeckCardItem
-                  key={card.id}
-                  card={card}
-                  onQuantityChange={handleQuantityChange}
-                  onRemove={handleRemoveCardFromDeckList}
-                />
-              ))}
-            </div>
-          </ScrollArea>
-        </div>
-      )}
-
-      {deckCards.length > 0 && (
-        <div className="mt-4">
-          <h4 className="font-medium text-slate-700 mb-2">デッキ構成比</h4>
-          <DeckCompositionChart cards={deckCards} />
-        </div>
-      )}
     </div>
   )
 
@@ -414,7 +385,7 @@ export default function CreateDeckPage() {
 
       {!isLoadingSearch && searchedCards.length > 0 && (
         <ScrollArea className="h-[400px] sm:h-[500px] border rounded-md p-2 bg-slate-50">
-          <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+          <div className="grid grid-cols-5 xs:grid-cols-5 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-5 xl:grid-cols-6 gap-2">
             {searchedCards.map((card) => {
               const cardInDeck = deckCards.find((c) => c.id === card.id)
               const isMaxed = cardInDeck && cardInDeck.quantity >= (card.category === "energy" ? maxDeckSize : 4)
