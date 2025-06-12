@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -12,11 +12,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { InfoIcon, ArrowLeft, Trash2, Loader2 } from "lucide-react"
+import { InfoIcon, ArrowLeft, Trash2, Loader2, AlertCircle } from "lucide-react"
 import DetailedSearchModal from "@/components/detailed-search-modal"
 import type { Card as SelectedCardType } from "@/components/detailed-search-modal"
 import { useToast } from "@/components/ui/use-toast"
 import { createTradePost } from "@/lib/actions/trade-actions"
+import { createBrowserClient } from "@/lib/supabase/client"
 
 type SelectionContextType = "wanted" | "offered" | null
 
@@ -27,6 +28,8 @@ export default function CreateTradePage() {
   const [appId, setAppId] = useState("")
   const [comment, setComment] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({})
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalSelectionContext, setModalSelectionContext] = useState<SelectionContextType>(null)
@@ -35,6 +38,44 @@ export default function CreateTradePage() {
 
   const { toast } = useToast()
   const router = useRouter()
+  const supabase = createBrowserClient()
+
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession()
+      setIsAuthenticated(!!data.session)
+    }
+
+    checkAuth()
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session)
+    })
+
+    return () => {
+      authListener.subscription.unsubscribe()
+    }
+  }, [supabase.auth])
+
+  const validateForm = () => {
+    const errors: { [key: string]: string } = {}
+
+    if (!tradeTitle.trim()) {
+      errors.title = "トレード目的を入力してください。"
+    }
+
+    if (wantedCards.length === 0) {
+      errors.wantedCards = "求めるカードを選択してください。"
+    }
+
+    if (offeredCards.length === 0) {
+      errors.offeredCards = "譲れるカードを選択してください。"
+    }
+
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
 
   const openModal = (context: SelectionContextType, maxSelection: number | undefined, title: string) => {
     setModalSelectionContext(context)
@@ -46,8 +87,14 @@ export default function CreateTradePage() {
   const handleModalSelectionComplete = (selected: SelectedCardType[]) => {
     if (modalSelectionContext === "wanted") {
       setWantedCards(selected)
+      if (formErrors.wantedCards) {
+        setFormErrors((prev) => ({ ...prev, wantedCards: "" }))
+      }
     } else if (modalSelectionContext === "offered") {
       setOfferedCards(selected)
+      if (formErrors.offeredCards) {
+        setFormErrors((prev) => ({ ...prev, offeredCards: "" }))
+      }
     }
     setIsModalOpen(false)
     setModalSelectionContext(null)
@@ -64,29 +111,22 @@ export default function CreateTradePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // バリデーション
-    if (!tradeTitle.trim()) {
+    // Check authentication first
+    if (isAuthenticated === false) {
       toast({
-        title: "入力エラー",
-        description: "トレード目的を入力してください。",
+        title: "認証エラー",
+        description: "投稿するにはログインが必要です。",
         variant: "destructive",
       })
+      router.push("/auth/login")
       return
     }
 
-    if (wantedCards.length === 0) {
+    // Validate form
+    if (!validateForm()) {
       toast({
         title: "入力エラー",
-        description: "求めるカードを選択してください。",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (offeredCards.length === 0) {
-      toast({
-        title: "入力エラー",
-        description: "譲れるカードを選択してください。",
+        description: "必須項目を入力してください。",
         variant: "destructive",
       })
       return
@@ -108,7 +148,13 @@ export default function CreateTradePage() {
           title: "投稿成功",
           description: "トレード投稿が作成されました。",
         })
-        router.push("/")
+
+        // Redirect to the newly created post or the timeline
+        if (result.postId) {
+          router.push(`/trades/${result.postId}`)
+        } else {
+          router.push("/")
+        }
       } else {
         toast({
           title: "投稿エラー",
@@ -130,7 +176,16 @@ export default function CreateTradePage() {
 
   const renderSelectedCards = (cards: SelectedCardType[], context: "wanted" | "offered") => {
     if (cards.length === 0) {
-      return <p className="text-sm text-slate-500 mt-2">カードが選択されていません</p>
+      return (
+        <div>
+          <p className="text-sm text-slate-500 mt-2">カードが選択されていません</p>
+          {formErrors[context === "wanted" ? "wantedCards" : "offeredCards"] && (
+            <p className="text-sm text-red-500 mt-1">
+              {formErrors[context === "wanted" ? "wantedCards" : "offeredCards"]}
+            </p>
+          )}
+        </div>
+      )
     }
     return (
       <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
@@ -160,6 +215,19 @@ export default function CreateTradePage() {
     )
   }
 
+  // Show loading state while checking authentication
+  if (isAuthenticated === null) {
+    return (
+      <div className="flex flex-col min-h-screen bg-slate-100">
+        <AuthHeader />
+        <main className="flex-grow container mx-auto px-4 py-8 flex items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
+        </main>
+        <Footer />
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-100">
       <AuthHeader />
@@ -171,6 +239,19 @@ export default function CreateTradePage() {
 
         <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md max-w-2xl mx-auto">
           <h1 className="text-2xl font-bold text-slate-800 mb-6 text-center">トレードカードを登録</h1>
+
+          {!isAuthenticated && (
+            <Alert className="mb-6 bg-amber-50 border-amber-200">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              <AlertTitle className="text-amber-700 font-semibold">ログインが必要です</AlertTitle>
+              <AlertDescription className="text-amber-600 text-sm">
+                トレード投稿を作成するには、ログインが必要です。
+                <Link href="/auth/login" className="text-purple-600 font-medium ml-1 hover:underline">
+                  ログインする
+                </Link>
+              </AlertDescription>
+            </Alert>
+          )}
 
           <Alert className="mb-6 bg-blue-50 border-blue-200">
             <InfoIcon className="h-5 w-5 text-blue-600" />
@@ -189,11 +270,18 @@ export default function CreateTradePage() {
               <Input
                 id="tradeTitle"
                 value={tradeTitle}
-                onChange={(e) => setTradeTitle(e.target.value)}
+                onChange={(e) => {
+                  setTradeTitle(e.target.value)
+                  if (formErrors.title) {
+                    setFormErrors((prev) => ({ ...prev, title: "" }))
+                  }
+                }}
                 placeholder="例：リザードンex求む"
                 required
                 disabled={isSubmitting}
+                className={formErrors.title ? "border-red-500" : ""}
               />
+              {formErrors.title && <p className="text-sm text-red-500 mt-1">{formErrors.title}</p>}
             </div>
 
             <div>
@@ -237,7 +325,11 @@ export default function CreateTradePage() {
                 placeholder="ポケポケアプリのID (任意)"
                 disabled={isSubmitting}
               />
-              <p className="text-xs text-slate-500 mt-1">ログイン中です。ポケポケIDは任意です。</p>
+              <p className="text-xs text-slate-500 mt-1">
+                {isAuthenticated
+                  ? "ログイン中です。ポケポケIDは任意です。"
+                  : "ログインするとユーザー情報が自動的に紐づけられます。"}
+              </p>
             </div>
 
             <div>
@@ -251,14 +343,16 @@ export default function CreateTradePage() {
                 placeholder="コメントを入力 (256文字まで)"
                 rows={4}
                 disabled={isSubmitting}
+                maxLength={256}
               />
+              <p className="text-xs text-right text-slate-500 mt-1">{comment.length}/256</p>
             </div>
 
             <div className="pt-4">
               <Button
                 type="submit"
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white text-base py-3"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isAuthenticated === false}
               >
                 {isSubmitting ? (
                   <>

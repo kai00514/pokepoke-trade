@@ -24,6 +24,8 @@ export interface TradeFormData {
 
 export async function createTradePost(formData: TradeFormData) {
   try {
+    console.log("Creating trade post with data:", JSON.stringify(formData, null, 2))
+
     const supabase = await createServerClient()
     const {
       data: { session },
@@ -33,6 +35,7 @@ export async function createTradePost(formData: TradeFormData) {
       return { success: false, error: "認証が必要です。ログインしてください。" }
     }
 
+    // Validate input data
     if (!formData.title.trim()) {
       return { success: false, error: "タイトルを入力してください。" }
     }
@@ -46,15 +49,17 @@ export async function createTradePost(formData: TradeFormData) {
     const postId = uuidv4()
     const userId = session.user.id
 
-    // Insert main trade post
+    console.log("Inserting trade post with ID:", postId)
+
+    // Step 1: Insert main trade post
     const { error: postError } = await supabase.from("trade_posts").insert({
       id: postId,
-      title: formData.title,
+      title: formData.title.trim(),
       owner_id: userId,
-      custom_id: formData.appId || null,
-      comment: formData.comment || null,
+      custom_id: formData.appId?.trim() || null,
+      comment: formData.comment?.trim() || null,
       want_card_id: formData.wantedCards[0]?.id ? Number.parseInt(formData.wantedCards[0].id) : null,
-      status: "OPEN",
+      status: "OPEN", // Must match the check constraint
       is_authenticated: true,
     })
 
@@ -63,34 +68,77 @@ export async function createTradePost(formData: TradeFormData) {
       return { success: false, error: `投稿の作成に失敗しました: ${postError.message}` }
     }
 
-    // Insert wanted cards
+    console.log("Trade post created successfully")
+
+    // Step 2: Insert wanted cards
     if (formData.wantedCards.length > 0) {
       const wantedCardsData = formData.wantedCards.map((card, index) => ({
         post_id: postId,
         card_id: Number.parseInt(card.id),
-        is_primary: index === 0,
+        is_primary: index === 0, // First card is primary
       }))
+
+      console.log("Inserting wanted cards:", wantedCardsData)
+
       const { error: wantedCardsError } = await supabase.from("trade_post_wanted_cards").insert(wantedCardsData)
+
       if (wantedCardsError) {
         console.error("Error adding wanted cards:", wantedCardsError)
+        // Try to clean up the main post if wanted cards insertion fails
+        await supabase.from("trade_posts").delete().eq("id", postId)
         return { success: false, error: `求めるカードの保存に失敗しました: ${wantedCardsError.message}` }
       }
+
+      console.log("Wanted cards inserted successfully")
     }
 
-    // Insert offered cards
+    // Step 3: Insert offered cards
     if (formData.offeredCards.length > 0) {
       const offeredCardsData = formData.offeredCards.map((card) => ({
         post_id: postId,
         card_id: Number.parseInt(card.id),
       }))
+
+      console.log("Inserting offered cards:", offeredCardsData)
+
       const { error: offeredCardsError } = await supabase.from("trade_post_offered_cards").insert(offeredCardsData)
+
       if (offeredCardsError) {
         console.error("Error adding offered cards:", offeredCardsError)
+        // Try to clean up if offered cards insertion fails
+        await supabase.from("trade_post_wanted_cards").delete().eq("post_id", postId)
+        await supabase.from("trade_posts").delete().eq("id", postId)
         return { success: false, error: `譲れるカードの保存に失敗しました: ${offeredCardsError.message}` }
       }
+
+      console.log("Offered cards inserted successfully")
     }
 
+    // Step 4: Create a notification for the post owner
+    try {
+      const { error: notificationError } = await supabase.from("trade_notifications").insert({
+        user_id: userId,
+        type: "TRADE_CREATED",
+        content: `あなたのトレード投稿「${formData.title}」が作成されました。`,
+        related_id: postId,
+        is_read: false,
+      })
+
+      if (notificationError) {
+        console.warn("Failed to create notification:", notificationError)
+        // Non-critical error, don't fail the entire operation
+      } else {
+        console.log("Notification created successfully")
+      }
+    } catch (notifError) {
+      console.warn("Unexpected error creating notification:", notifError)
+    }
+
+    console.log("Trade post creation completed successfully")
+
+    // Revalidate the home page to show the new post
     revalidatePath("/")
+
     return { success: true, postId }
   } catch (error) {
     console.error("Unexpected error creating trade post:", error)
