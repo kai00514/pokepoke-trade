@@ -178,7 +178,7 @@ export default function DetailedSearchModal({
 
   const handleCardPressStart = (card: Card) => {
     isLongPressTriggeredRef.current = false
-    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current) // Clear any existing timer
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
 
     longPressTimerRef.current = setTimeout(() => {
       isLongPressTriggeredRef.current = true
@@ -193,7 +193,7 @@ export default function DetailedSearchModal({
     if (!isLongPressTriggeredRef.current) {
       toggleCardSelection(card)
     }
-    // isLongPressTriggeredRef is reset at the start of the next press
+    isLongPressTriggeredRef.current = false // Reset here instead of at start
   }
 
   const cancelLongPress = () => {
@@ -313,13 +313,10 @@ export default function DetailedSearchModal({
                         key={card.id}
                         onMouseDown={() => handleCardPressStart(card)}
                         onMouseUp={() => handleCardPressEnd(card)}
-                        onTouchStart={(e) => {
-                          e.preventDefault()
-                          handleCardPressStart(card)
-                        }}
+                        onTouchStart={() => handleCardPressStart(card)} // e.preventDefault() を削除
                         onTouchEnd={() => handleCardPressEnd(card)}
-                        onMouseLeave={cancelLongPress} // Cancel timer if mouse leaves
-                        onTouchCancel={cancelLongPress} // Cancel timer if touch is cancelled
+                        onMouseLeave={cancelLongPress}
+                        onTouchCancel={cancelLongPress}
                         className={cn(
                           "aspect-[5/7] relative rounded-md overflow-hidden border-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1 transition-all cursor-pointer",
                           currentSelectedCards.find((sc) => sc.id === card.id)
