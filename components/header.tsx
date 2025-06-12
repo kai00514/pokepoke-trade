@@ -27,18 +27,22 @@ export default function Header() {
             <Plus className="h-5 w-5 sm:h-6 sm:w-6" />
             <span className="sr-only">新規投稿作成</span>
           </Button>
-          <Button
-            variant="default"
-            className="bg-white text-violet-600 hover:bg-violet-100 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2"
-          >
-            新規登録
-          </Button>
-          <Button
-            variant="outline"
-            className="bg-white text-violet-600 border-violet-600 hover:bg-violet-100 hover:text-violet-700 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2"
-          >
-            ログイン
-          </Button>
+          <Link href="/auth/signup">
+            <Button
+              variant="default"
+              className="bg-white text-violet-600 hover:bg-violet-100 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2"
+            >
+              新規登録
+            </Button>
+          </Link>
+          <Link href="/auth/login">
+            <Button
+              variant="outline"
+              className="bg-white text-violet-600 border-violet-600 hover:bg-violet-100 hover:text-violet-700 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2"
+            >
+              ログイン
+            </Button>
+          </Link>
         </div>
       </div>
     </header>
