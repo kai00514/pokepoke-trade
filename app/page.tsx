@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
+import { useState, useEffect, useCallback } from "react"
 import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
 import TradePostCard from "@/components/trade-post-card"
@@ -13,6 +12,7 @@ import DetailedSearchModal from "@/components/detailed-search-modal"
 import type { Card as SelectedCardType } from "@/components/detailed-search-modal"
 import { getTradePostsWithCards } from "@/lib/actions/trade-actions"
 import { useToast } from "@/components/ui/use-toast"
+import { useRouter } from "next/navigation"
 
 export default function TradeBoardPage() {
   const [isDetailedSearchOpen, setIsDetailedSearchOpen] = useState(false)
@@ -20,35 +20,38 @@ export default function TradeBoardPage() {
   const [tradePosts, setTradePosts] = useState<any[]>([])
   const [searchKeyword, setSearchKeyword] = useState("")
   const { toast } = useToast()
+  const router = useRouter()
 
-  useEffect(() => {
-    async function fetchTradePosts() {
-      setIsLoading(true)
-      try {
-        const result = await getTradePostsWithCards(20, 0)
-        if (result.success) {
-          setTradePosts(result.posts)
-        } else {
-          toast({
-            title: "データ取得エラー",
-            description: result.error || "投稿の取得に失敗しました。",
-            variant: "destructive",
-          })
-        }
-      } catch (error) {
-        console.error("Error fetching trade posts:", error)
+  const fetchTradePosts = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const result = await getTradePostsWithCards(20, 0) // Fetch 20 posts initially
+      if (result.success) {
+        setTradePosts(result.posts)
+      } else {
         toast({
-          title: "エラー",
-          description: "予期しないエラーが発生しました。",
+          title: "データ取得エラー",
+          description: result.error || "投稿の取得に失敗しました。",
           variant: "destructive",
         })
-      } finally {
-        setIsLoading(false)
+        setTradePosts([])
       }
+    } catch (error) {
+      console.error("Error fetching trade posts:", error)
+      toast({
+        title: "エラー",
+        description: "予期しないエラーが発生しました。",
+        variant: "destructive",
+      })
+      setTradePosts([])
+    } finally {
+      setIsLoading(false)
     }
-
-    fetchTradePosts()
   }, [toast])
+
+  useEffect(() => {
+    fetchTradePosts()
+  }, [fetchTradePosts])
 
   const handleDetailedSearchSelectionComplete = (selectedCards: SelectedCardType[]) => {
     console.log("Selected cards from detailed search:", selectedCards)
@@ -57,14 +60,17 @@ export default function TradeBoardPage() {
 
   const filteredPosts = tradePosts.filter((post) => {
     if (!searchKeyword.trim()) return true
-
     const keyword = searchKeyword.toLowerCase()
-    return (
-      post.title.toLowerCase().includes(keyword) ||
-      post.wantedCard.name.toLowerCase().includes(keyword) ||
-      post.offeredCard.name.toLowerCase().includes(keyword)
-    )
+    // Ensure post and its properties exist before calling toLowerCase
+    const titleMatch = post.title?.toLowerCase().includes(keyword)
+    const wantedCardNameMatch = post.wantedCard?.name?.toLowerCase().includes(keyword)
+    const offeredCardNameMatch = post.offeredCard?.name?.toLowerCase().includes(keyword)
+    return titleMatch || wantedCardNameMatch || offeredCardNameMatch
   })
+
+  const handleCreatePostClick = () => {
+    router.push("/trades/create")
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
@@ -84,17 +90,15 @@ export default function TradeBoardPage() {
 
             <div className="mb-8 flex justify-center">
               <Button
-                asChild
                 variant="default"
                 className="bg-[#EA585C] hover:bg-[#d44a4f] text-white rounded-md shadow-sm"
                 style={{ padding: "0.625rem 1.25rem" }}
+                onClick={handleCreatePostClick}
               >
-                <Link href="/trades/create">
-                  <div className="flex items-center justify-center">
-                    <PlusCircle className="h-5 w-5 mr-2" />
-                    <span className="text-sm font-medium">トレード希望投稿を作成</span>
-                  </div>
-                </Link>
+                <div className="flex items-center justify-center">
+                  <PlusCircle className="h-5 w-5 mr-2" />
+                  <span className="text-sm font-medium">トレード希望投稿を作成</span>
+                </div>
               </Button>
             </div>
 

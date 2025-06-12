@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -12,7 +11,7 @@ import { useToast } from "@/components/ui/use-toast"
 
 type CardInfo = {
   name: string
-  image: string
+  image: string // Ensure this is always a string, even if it's a placeholder URL
 }
 
 type TradePost = {
@@ -20,8 +19,8 @@ type TradePost = {
   title: string
   date: string
   status: string
-  wantedCard: CardInfo
-  offeredCard: CardInfo
+  wantedCard?: CardInfo // Make optional or ensure it's always populated
+  offeredCard?: CardInfo // Make optional or ensure it's always populated
   comments: number
   postId: string
   username?: string
@@ -46,6 +45,11 @@ export default function TradePostCard({ post }: TradePostCardProps) {
     })
   }
 
+  const wantedCardImage = post.wantedCard?.image || "/placeholder.svg?width=100&height=140"
+  const wantedCardName = post.wantedCard?.name || "不明"
+  const offeredCardImage = post.offeredCard?.image || "/placeholder.svg?width=100&height=140"
+  const offeredCardName = post.offeredCard?.name || "不明"
+
   return (
     <Card className="w-full shadow-lg hover:shadow-xl transition-shadow duration-200">
       <Link href={`/trades/${post.id}`} className="block">
@@ -58,7 +62,7 @@ export default function TradePostCard({ post }: TradePostCardProps) {
               <div className="flex items-center mt-1">
                 {post.avatarUrl ? (
                   <Image
-                    src={post.avatarUrl || "/placeholder.svg"}
+                    src={post.avatarUrl || "/placeholder.svg"} // Removed placeholder here, assuming avatarUrl is either valid or null
                     alt={post.username || "ユーザー"}
                     width={20}
                     height={20}
@@ -74,14 +78,14 @@ export default function TradePostCard({ post }: TradePostCardProps) {
             </div>
             <Badge
               variant="outline"
-              className={`bg-sky-100 text-sky-700 border-sky-300 whitespace-nowrap ${
+              className={`whitespace-nowrap ${
                 post.status === "募集中"
                   ? "bg-green-100 text-green-700 border-green-300"
                   : post.status === "進行中"
                     ? "bg-amber-100 text-amber-700 border-amber-300"
                     : post.status === "完了"
                       ? "bg-blue-100 text-blue-700 border-blue-300"
-                      : "bg-gray-100 text-gray-700 border-gray-300"
+                      : "bg-gray-100 text-gray-700 border-gray-300" // Default/Cancel
               }`}
             >
               {post.status}
@@ -95,13 +99,13 @@ export default function TradePostCard({ post }: TradePostCardProps) {
               <h3 className="text-sm font-medium text-blue-600">求めるカード</h3>
               <div className="border-t-2 border-blue-500 pt-2 flex flex-col items-center sm:items-start">
                 <Image
-                  src={post.wantedCard.image || "/placeholder.svg?width=100&height=140&query=wanted+card+placeholder"}
-                  alt={post.wantedCard.name}
+                  src={wantedCardImage || "/placeholder.svg"}
+                  alt={wantedCardName}
                   width={100}
                   height={140}
                   className="rounded-md object-contain border bg-slate-100 mb-1"
                 />
-                <p className="text-sm font-semibold text-slate-700 text-center sm:text-left">{post.wantedCard.name}</p>
+                <p className="text-sm font-semibold text-slate-700 text-center sm:text-left">{wantedCardName}</p>
               </div>
             </div>
 
@@ -110,13 +114,13 @@ export default function TradePostCard({ post }: TradePostCardProps) {
               <h3 className="text-sm font-medium text-red-600">譲れるカード</h3>
               <div className="border-t-2 border-red-500 pt-2 flex flex-col items-center sm:items-start">
                 <Image
-                  src={post.offeredCard.image || "/placeholder.svg?width=100&height=140&query=offered+card+placeholder"}
-                  alt={post.offeredCard.name}
+                  src={offeredCardImage || "/placeholder.svg"}
+                  alt={offeredCardName}
                   width={100}
                   height={140}
                   className="rounded-md object-contain border bg-slate-100 mb-1"
                 />
-                <p className="text-sm font-semibold text-slate-700 text-center sm:text-left">{post.offeredCard.name}</p>
+                <p className="text-sm font-semibold text-slate-700 text-center sm:text-left">{offeredCardName}</p>
               </div>
             </div>
           </div>
