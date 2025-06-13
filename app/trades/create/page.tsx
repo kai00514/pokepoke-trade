@@ -41,7 +41,7 @@ export default function CreateTradePage() {
   const router = useRouter()
   const supabase = createBrowserClient()
 
-  // Check authentication status
+  // 認証状態のチェックは残すが、投稿の制限は行わない
   useEffect(() => {
     const checkAuth = async () => {
       const { data } = await supabase.auth.getSession()
@@ -134,17 +134,7 @@ export default function CreateTradePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Check authentication first
-    if (isAuthenticated === false) {
-      toast({
-        title: "認証エラー",
-        description: "投稿するにはログインが必要です。",
-        variant: "destructive",
-      })
-      router.push("/auth/login")
-      return
-    }
-
+    // 認証チェックを削除
     // Validate form
     if (!validateForm()) {
       toast({
@@ -238,19 +228,6 @@ export default function CreateTradePage() {
     )
   }
 
-  // Show loading state while checking authentication
-  if (isAuthenticated === null) {
-    return (
-      <div className="flex flex-col min-h-screen bg-slate-100">
-        <AuthHeader />
-        <main className="flex-grow container mx-auto px-4 py-8 flex items-center justify-center">
-          <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
-        </main>
-        <Footer />
-      </div>
-    )
-  }
-
   return (
     <div className="flex flex-col min-h-screen bg-slate-100">
       <AuthHeader />
@@ -262,19 +239,6 @@ export default function CreateTradePage() {
 
         <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md max-w-2xl mx-auto">
           <h1 className="text-2xl font-bold text-slate-800 mb-6 text-center">トレードカードを登録</h1>
-
-          {!isAuthenticated && (
-            <Alert className="mb-6 bg-amber-50 border-amber-200">
-              <AlertCircle className="h-5 w-5 text-amber-600" />
-              <AlertTitle className="text-amber-700 font-semibold">ログインが必要です</AlertTitle>
-              <AlertDescription className="text-amber-600 text-sm">
-                トレード投稿を作成するには、ログインが必要です。
-                <Link href="/auth/login" className="text-purple-600 font-medium ml-1 hover:underline">
-                  ログインする
-                </Link>
-              </AlertDescription>
-            </Alert>
-          )}
 
           <Alert className="mb-6 bg-blue-50 border-blue-200">
             <InfoIcon className="h-5 w-5 text-blue-600" />
