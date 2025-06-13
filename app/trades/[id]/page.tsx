@@ -1,182 +1,152 @@
+// app/trades/[id]/page.tsx
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
+import { useState, useEffect, useCallback } from "react"
+import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Card, CardContent } from "@/components/ui/card"
-import { useToast } from "@/components/ui/use-toast"
-import { ArrowLeft, Send, Loader2, AlertCircle } from "lucide-react"
-import { getTradePostDetailsById, addCommentToTradePost } from "@/lib/actions/trade-actions"
-import { createBrowserClient } from "@/lib/supabase/client"
+import Image from "next/image"
 import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, Copy, Send, UserCircle, Loader2 } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import type { Card as CardInfo } from "@/components/detailed-search-modal"
+import { getTradePostDetailsById, addCommentToTradePost } from "@/lib/actions/trade-actions"
 
+// Define types for post details and comments
 interface Comment {
   id: string
   author: string
-  avatar: string | null
+  avatar?: string | null
   text: string
   timestamp: string
+}
+
+interface Author {
+  username: string
+  avatarUrl: string | null
 }
 
 interface TradePostDetails {
   id: string
   title: string
   status: string
-  wantedCards: {
-    id: string
-    name: string
-    imageUrl: string
-    isPrimary?: boolean
-  }[]
-  offeredCards: {
-    id: string
-    name: string
-    imageUrl: string
-  }[]
+  wantedCards: CardInfo[]
+  offeredCards: CardInfo[]
   description: string
-  authorNotes: string
+  authorNotes?: string
   originalPostId: string
   comments: Comment[]
-  author: {
-    username: string
-    avatarUrl: string | null
-  }
+  author: Author
   createdAt: string
 }
 
-export default function TradePostDetailPage({ params }: { params: { id: string } }) {
-  const [post, setPost] = useState<TradePostDetails | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [comment, setComment] = useState("")
-  const [submittingComment, setSubmittingComment] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
-  const { toast } = useToast()
+export default function TradeDetailPage() {
+  const params = useParams()
   const router = useRouter()
-  const supabase = createBrowserClient()
+  const { toast } = useToast()
+  const [post, setPost] = useState<TradePostDetails | null>(null)
+  const [newComment, setNewComment] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false)
 
-  // Skip fetching for the "create" route
-  const shouldFetchPost = params.id !== "create"
+  const postId = params.id as string
 
+  // Redirect if trying to access create page through dynamic route
   useEffect(() => {
-    // Redirect to the create page if the ID is "create"
-    if (params.id === "create") {
-      router.push("/trades/create")
+    if (postId === "create") {
+      router.replace("/trades/create")
       return
     }
+  }, [postId, router])
 
-    const fetchPostDetails = async () => {
-      try {
-        setLoading(true)
-        const result = await getTradePostDetailsById(params.id)
-        if (result.success && result.post) {
-          setPost(result.post)
-        } else {
-          setError(result.error || "投稿の取得に失敗しました。")
-        }
-      } catch (err) {
-        console.error("Error fetching post details:", err)
-        setError("予期しないエラーが発生しました。")
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    if (shouldFetchPost) {
-      fetchPostDetails()
-    }
-  }, [params.id, router, shouldFetchPost])
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession()
-      setIsAuthenticated(!!data.session)
-    }
-
-    checkAuth()
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      setIsAuthenticated(!!session)
-    })
-
-    return () => {
-      authListener.subscription.unsubscribe()
-    }
-  }, [supabase.auth])
-
-  const handleCommentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!comment.trim()) {
-      toast({
-        title: "コメントエラー",
-        description: "コメント内容を入力してください。",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!isAuthenticated) {
-      toast({
-        title: "認証エラー",
-        description: "コメントするにはログインが必要です。",
-        variant: "destructive",
-      })
-      return
-    }
-
+  const fetchPostDetails = useCallback(async () => {
+    if (!postId || postId === "create") return
+    setIsLoading(true)
     try {
-      setSubmittingComment(true)
-      const result = await addCommentToTradePost(params.id, comment)
-
-      if (result.success) {
-        toast({
-          title: "コメント投稿成功",
-          description: "コメントが投稿されました。",
-        })
-        setComment("")
-
-        // Refresh post data to show the new comment
-        const updatedResult = await getTradePostDetailsById(params.id)
-        if (updatedResult.success && updatedResult.post) {
-          setPost(updatedResult.post)
-        }
+      const result = await getTradePostDetailsById(postId)
+      if (result.success && result.post) {
+        setPost(result.post as TradePostDetails)
       } else {
+        setPost(null)
         toast({
-          title: "コメントエラー",
-          description: result.error || "コメントの投稿に失敗しました。",
+          title: "エラー",
+          description: result.error || "投稿の読み込みに失敗しました。",
           variant: "destructive",
         })
       }
-    } catch (err) {
-      console.error("Error submitting comment:", err)
+    } catch (error) {
+      console.error(error)
       toast({
         title: "エラー",
         description: "予期しないエラーが発生しました。",
         variant: "destructive",
       })
     } finally {
-      setSubmittingComment(false)
+      setIsLoading(false)
     }
-  }
+  }, [postId, toast])
 
-  // Skip rendering for the "create" route
-  if (params.id === "create") {
+  // Don't render anything if this is the create route
+  if (postId === "create") {
     return null
   }
 
-  if (loading) {
+  useEffect(() => {
+    fetchPostDetails()
+  }, [fetchPostDetails])
+
+  const handleCopyToClipboard = useCallback(() => {
+    if (post?.originalPostId) {
+      navigator.clipboard.writeText(post.originalPostId)
+      toast({
+        title: "コピーしました",
+        description: `ID: ${post.originalPostId} をクリップボードにコピーしました。`,
+      })
+    }
+  }, [post?.originalPostId, toast])
+
+  const handleCommentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newComment.trim() || !postId) return
+
+    setIsSubmittingComment(true)
+    try {
+      const result = await addCommentToTradePost(postId, newComment.trim())
+      if (result.success) {
+        setNewComment("")
+        toast({
+          title: "コメントを投稿しました",
+        })
+        // Re-fetch post details to show the new comment
+        await fetchPostDetails()
+      } else {
+        toast({
+          title: "コメント投稿エラー",
+          description: result.error || "コメントの投稿に失敗しました。",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "エラー",
+        description: "予期しないエラーが発生しました。",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmittingComment(false)
+    }
+  }
+
+  if (isLoading) {
     return (
-      <div className="flex flex-col min-h-screen bg-slate-100">
+      <div className="flex flex-col min-h-screen">
         <AuthHeader />
-        <main className="flex-grow container mx-auto px-4 py-8 flex items-center justify-center">
+        <main className="flex-grow container mx-auto px-4 py-8 flex justify-center items-center">
           <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
         </main>
         <Footer />
@@ -184,188 +154,171 @@ export default function TradePostDetailPage({ params }: { params: { id: string }
     )
   }
 
-  if (error || !post) {
+  if (!post) {
     return (
-      <div className="flex flex-col min-h-screen bg-slate-100">
+      <div className="flex flex-col min-h-screen">
         <AuthHeader />
-        <main className="flex-grow container mx-auto px-4 py-8">
-          <Link href="/" className="inline-flex items-center text-sm text-purple-600 hover:text-purple-700 mb-6">
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            タイムラインに戻る
-          </Link>
-
-          <div className="bg-white p-6 rounded-lg shadow-md max-w-2xl mx-auto flex flex-col items-center justify-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-            <h1 className="text-xl font-bold text-slate-800 mb-2">エラーが発生しました</h1>
-            <p className="text-slate-600 mb-6">{error || "投稿の取得に失敗しました。"}</p>
-            <Button asChild>
-              <Link href="/">タイムラインに戻る</Link>
-            </Button>
-          </div>
+        <main className="flex-grow container mx-auto px-4 py-8 text-center">
+          <h1 className="text-2xl font-bold mb-4">投稿が見つかりません</h1>
+          <Button onClick={() => router.push("/")}>タイムラインに戻る</Button>
         </main>
         <Footer />
       </div>
     )
   }
 
+  const renderCardList = (cards: CardInfo[], title: string) => (
+    <div>
+      <h2 className="text-lg font-semibold text-slate-700 mb-3">{title}</h2>
+      {cards.length > 0 ? (
+        <div className="flex flex-wrap gap-3">
+          {cards.map((card) => (
+            <div key={card.id} className="flex flex-col items-center">
+              <Image
+                src={card.imageUrl || "/placeholder.svg?width=80&height=112"}
+                alt={card.name}
+                width={80}
+                height={112}
+                className="rounded-md object-contain border border-slate-200 bg-slate-50 shadow-sm"
+              />
+              <p className="text-xs font-medium text-slate-600 mt-1 text-center max-w-[80px] truncate">{card.name}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-500">該当なし</p>
+      )}
+    </div>
+  )
+
   return (
-    <div className="flex flex-col min-h-screen bg-slate-100">
+    <div className="flex flex-col min-h-screen bg-slate-50">
       <AuthHeader />
       <main className="flex-grow container mx-auto px-4 py-8">
-        <Link href="/" className="inline-flex items-center text-sm text-purple-600 hover:text-purple-700 mb-6">
-          <ArrowLeft className="h-4 w-4 mr-1" />
+        <Link href="/" className="inline-flex items-center text-sm text-purple-600 hover:text-purple-700 mb-6 group">
+          <ArrowLeft className="h-4 w-4 mr-1 transition-transform group-hover:-translate-x-1" />
           タイムラインに戻る
         </Link>
 
-        <div className="bg-white p-6 rounded-lg shadow-md max-w-4xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+        <div className="bg-white p-6 sm:p-8 rounded-lg shadow-xl mb-8">
+          <div className="flex justify-between items-start mb-4">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">{post.title}</h1>
-              <div className="flex items-center mt-2">
-                <div className="flex items-center">
-                  {post.author.avatarUrl ? (
-                    <Image
-                      src={post.author.avatarUrl || "/placeholder.svg"}
-                      alt={post.author.username}
-                      width={24}
-                      height={24}
-                      className="rounded-full"
-                    />
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-purple-200 flex items-center justify-center">
-                      <span className="text-xs font-medium text-purple-700">
-                        {post.author.username.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
-                  <span className="text-sm text-slate-600 ml-2">{post.author.username}</span>
-                </div>
-                <span className="text-xs text-slate-500 ml-4">投稿日: {post.createdAt}</span>
-                <span className="text-xs font-medium ml-4 px-2 py-1 rounded bg-blue-100 text-blue-800">
-                  {post.status}
-                </span>
+              <div className="flex items-center mt-2 text-sm text-slate-500">
+                {post.author.avatarUrl ? (
+                  <Image
+                    src={post.author.avatarUrl || "/placeholder.svg"}
+                    alt={post.author.username}
+                    width={24}
+                    height={24}
+                    className="rounded-full mr-2"
+                  />
+                ) : (
+                  <UserCircle className="h-6 w-6 text-slate-400 mr-2" />
+                )}
+                <span>{post.author.username}</span>
+                <span className="mx-2">•</span>
+                <span>{post.createdAt}</span>
               </div>
             </div>
-            <div className="mt-4 md:mt-0">
-              <span className="text-xs text-slate-500">投稿ID: {post.originalPostId}</span>
-            </div>
+            <Badge
+              variant="outline"
+              className={`whitespace-nowrap ${
+                post.status === "募集中"
+                  ? "bg-green-100 text-green-700 border-green-300"
+                  : post.status === "進行中"
+                    ? "bg-amber-100 text-amber-700 border-amber-300"
+                    : post.status === "完了"
+                      ? "bg-blue-100 text-blue-700 border-blue-300"
+                      : "bg-gray-100 text-gray-700 border-gray-300"
+              }`}
+            >
+              {post.status}
+            </Badge>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-800 mb-3">求めるカード</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {post.wantedCards.map((card) => (
-                  <div
-                    key={card.id}
-                    className={`border rounded-md p-2 ${card.isPrimary ? "bg-purple-50 border-purple-200" : "bg-white"}`}
-                  >
-                    <Image
-                      src={card.imageUrl || "/placeholder.svg"}
-                      alt={card.name}
-                      width={100}
-                      height={140}
-                      className="rounded object-contain aspect-[5/7] mx-auto"
-                    />
-                    <p className="text-xs text-center mt-1 truncate">{card.name}</p>
-                    {card.isPrimary && <p className="text-xs text-center text-purple-600 font-medium">メインカード</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h2 className="text-lg font-semibold text-slate-800 mb-3">譲れるカード</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {post.offeredCards.map((card) => (
-                  <div key={card.id} className="border rounded-md p-2 bg-white">
-                    <Image
-                      src={card.imageUrl || "/placeholder.svg"}
-                      alt={card.name}
-                      width={100}
-                      height={140}
-                      className="rounded object-contain aspect-[5/7] mx-auto"
-                    />
-                    <p className="text-xs text-center mt-1 truncate">{card.name}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div className="space-y-6 mb-6">
+            {renderCardList(post.wantedCards, "求めるカード")}
+            {renderCardList(post.offeredCards, "譲りたいカード")}
           </div>
 
-          {post.description && (
-            <div className="mb-8">
-              <h2 className="text-lg font-semibold text-slate-800 mb-2">コメント</h2>
-              <Card>
-                <CardContent className="p-4">
-                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{post.description}</p>
-                </CardContent>
-              </Card>
+          {post.authorNotes && (
+            <div className="bg-slate-100 p-4 rounded-md mb-6">
+              <h3 className="font-semibold text-slate-800 mb-2">投稿者からのコメント</h3>
+              <p className="text-sm text-slate-700 whitespace-pre-wrap">{post.authorNotes}</p>
             </div>
           )}
 
-          <div className="mb-8">
-            <h2 className="text-lg font-semibold text-slate-800 mb-3">コメント ({post.comments.length})</h2>
+          <div className="flex justify-between items-center bg-slate-100 p-3 rounded-md">
+            <p className="text-sm text-slate-600">ID : {post.originalPostId}</p>
+            <Button variant="outline" size="sm" onClick={handleCopyToClipboard} className="text-xs">
+              <Copy className="mr-1.5 h-3 w-3" />
+              コピー
+            </Button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-xl">
+          <div className="bg-purple-600 text-white p-4 rounded-t-lg">
+            <h2 className="text-xl font-semibold">コメント</h2>
+          </div>
+
+          <div className="p-4 sm:p-6 space-y-4">
             {post.comments.length > 0 ? (
-              <ScrollArea className="h-[300px] rounded-md border">
-                <div className="p-4 space-y-4">
-                  {post.comments.map((comment) => (
-                    <div key={comment.id} className="flex space-x-3">
-                      {comment.avatar ? (
-                        <Image
-                          src={comment.avatar || "/placeholder.svg"}
-                          alt={comment.author}
-                          width={32}
-                          height={32}
-                          className="rounded-full"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center flex-shrink-0">
-                          <span className="text-sm font-medium text-purple-700">
-                            {comment.author.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1">
-                        <div className="flex items-baseline">
-                          <span className="font-medium text-sm">{comment.author}</span>
-                          <span className="text-xs text-slate-500 ml-2">{comment.timestamp}</span>
-                        </div>
-                        <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{comment.text}</p>
-                      </div>
+              post.comments.map((comment) => (
+                <div
+                  key={comment.id}
+                  className="flex items-start space-x-3 pb-4 border-b border-slate-100 last:border-b-0 last:pb-0"
+                >
+                  {comment.avatar ? (
+                    <Image
+                      src={comment.avatar || "/placeholder.svg"}
+                      alt={comment.author}
+                      width={36}
+                      height={36}
+                      className="rounded-full"
+                    />
+                  ) : (
+                    <UserCircle className="h-9 w-9 text-slate-400 flex-shrink-0" />
+                  )}
+                  <div className="flex-grow">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-slate-700">{comment.author}</span>
+                      <span className="text-xs text-slate-400">{comment.timestamp}</span>
                     </div>
-                  ))}
+                    <p className="text-sm text-slate-600 mt-0.5 whitespace-pre-wrap">{comment.text}</p>
+                  </div>
                 </div>
-              </ScrollArea>
+              ))
             ) : (
-              <p className="text-sm text-slate-500 italic">コメントはまだありません。</p>
+              <p className="text-sm text-slate-500 text-center py-4">まだコメントはありません。</p>
             )}
           </div>
 
-          <form onSubmit={handleCommentSubmit} className="space-y-3">
-            <Textarea
-              placeholder={isAuthenticated ? "コメントを入力してください..." : "コメントするにはログインが必要です。"}
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              disabled={!isAuthenticated || submittingComment}
-              rows={3}
-              className="resize-none"
-            />
-            <div className="flex justify-end">
+          <form
+            onSubmit={handleCommentSubmit}
+            className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50 rounded-b-lg"
+          >
+            <div className="flex items-center space-x-2">
+              <Input
+                type="text"
+                placeholder="コメントを入力してください..."
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                className="flex-grow bg-white"
+                disabled={isSubmittingComment}
+              />
               <Button
                 type="submit"
-                disabled={!isAuthenticated || !comment.trim() || submittingComment}
-                className="bg-purple-600 hover:bg-purple-700"
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                disabled={!newComment.trim() || isSubmittingComment}
               >
-                {submittingComment ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    送信中...
-                  </>
+                {isSubmittingComment ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <>
-                    <Send className="mr-2 h-4 w-4" />
-                    コメントする
+                    <Send className="h-4 w-4 mr-0 sm:mr-2" />
+                    <span className="hidden sm:inline">投稿</span>
                   </>
                 )}
               </Button>

@@ -14,133 +14,6 @@ function getUserProfileData(user: User | null | undefined) {
   return { username, avatarUrl }
 }
 
-// Helper function to detect if we're in v0 preview environment
-function isV0Environment() {
-  return typeof window !== "undefined" && window.location.hostname.includes("vusercontent.net")
-}
-
-// Mock data for v0 preview
-function getMockTradePostsData() {
-  return {
-    success: true,
-    posts: [
-      {
-        id: "mock-1",
-        title: "リザードンex求む",
-        date: "2024/12/06",
-        status: "募集中",
-        wantedCard: {
-          name: "リザードンex",
-          image: "/placeholder.svg?width=100&height=140&text=リザードンex",
-        },
-        offeredCard: {
-          name: "ピカチュウex",
-          image: "/placeholder.svg?width=100&height=140&text=ピカチュウex",
-        },
-        comments: 3,
-        postId: "MOCK001",
-        username: "サンプルユーザー",
-        avatarUrl: null,
-        rawData: {
-          wantedCards: [
-            {
-              id: "1",
-              name: "リザードンex",
-              imageUrl: "/placeholder.svg?width=100&height=140&text=リザードンex",
-              isPrimary: true,
-            },
-          ],
-          offeredCards: [
-            {
-              id: "2",
-              name: "ピカチュウex",
-              imageUrl: "/placeholder.svg?width=100&height=140&text=ピカチュウex",
-            },
-          ],
-        },
-      },
-      {
-        id: "mock-2",
-        title: "フシギダネ交換",
-        date: "2024/12/05",
-        status: "募集中",
-        wantedCard: {
-          name: "フシギダネ",
-          image: "/placeholder.svg?width=100&height=140&text=フシギダネ",
-        },
-        offeredCard: {
-          name: "ヒトカゲ",
-          image: "/placeholder.svg?width=100&height=140&text=ヒトカゲ",
-        },
-        comments: 1,
-        postId: "MOCK002",
-        username: "トレーナー太郎",
-        avatarUrl: null,
-        rawData: {
-          wantedCards: [
-            {
-              id: "3",
-              name: "フシギダネ",
-              imageUrl: "/placeholder.svg?width=100&height=140&text=フシギダネ",
-              isPrimary: true,
-            },
-          ],
-          offeredCards: [
-            {
-              id: "4",
-              name: "ヒトカゲ",
-              imageUrl: "/placeholder.svg?width=100&height=140&text=ヒトカゲ",
-            },
-          ],
-        },
-      },
-    ],
-  }
-}
-
-function getMockTradePostDetail(postId: string) {
-  return {
-    success: true,
-    post: {
-      id: postId,
-      title: "リザードンex求む",
-      status: "募集中",
-      wantedCards: [
-        {
-          id: "1",
-          name: "リザードンex",
-          imageUrl: "/placeholder.svg?width=100&height=140&text=リザードンex",
-          isPrimary: true,
-        },
-      ],
-      offeredCards: [
-        {
-          id: "2",
-          name: "ピカチュウex",
-          imageUrl: "/placeholder.svg?width=100&height=140&text=ピカチュウex",
-        },
-      ],
-      description: "リザードンexを探しています。ピカチュウexと交換希望です。",
-      authorNotes: "リザードンexを探しています。ピカチュウexと交換希望です。",
-      originalPostId: "MOCK001",
-      comments: [
-        {
-          id: "comment-1",
-          author: "コメントユーザー",
-          avatar: null,
-          text: "交換希望です！",
-          timestamp: "2時間前",
-        },
-      ],
-      author: {
-        username: "サンプルユーザー",
-        avatarUrl: null,
-      },
-      createdAt: "2024/12/06",
-    },
-  }
-}
-
 export interface TradeFormData {
   title: string
   wantedCards: Card[]
@@ -152,12 +25,6 @@ export interface TradeFormData {
 export async function createTradePost(formData: TradeFormData) {
   try {
     console.log("Creating trade post with data:", JSON.stringify(formData, null, 2))
-
-    // Return mock success for v0 environment
-    if (isV0Environment()) {
-      console.log("V0 environment detected, returning mock success")
-      return { success: true, postId: "mock-" + Date.now() }
-    }
 
     const supabase = await createServerClient()
     const {
@@ -282,12 +149,6 @@ export async function createTradePost(formData: TradeFormData) {
 
 export async function getTradePostsWithCards(limit = 10, offset = 0) {
   try {
-    // Return mock data for v0 environment
-    if (isV0Environment()) {
-      console.log("V0 environment detected, returning mock trade posts")
-      return getMockTradePostsData()
-    }
-
     const supabase = await createServerClient()
 
     const { data: posts, error: postsError } = await supabase
@@ -312,16 +173,11 @@ export async function getTradePostsWithCards(limit = 10, offset = 0) {
     if (ownerIds.length > 0) {
       for (const ownerId of ownerIds) {
         if (ownerId) {
-          try {
-            const { data: userData, error: userError } = await supabase.auth.admin.getUserById(ownerId)
-            if (userError) {
-              console.error(`Error fetching user ${ownerId}:`, userError.message)
-            } else if (userData?.user) {
-              usersMap.set(ownerId, userData.user)
-            }
-          } catch (userFetchError) {
-            console.error(`Failed to fetch user ${ownerId}:`, userFetchError)
-            // Continue with other users
+          const { data: userData, error: userError } = await supabase.auth.admin.getUserById(ownerId)
+          if (userError) {
+            console.error(`Error fetching user ${ownerId}:`, userError.message)
+          } else if (userData?.user) {
+            usersMap.set(ownerId, userData.user)
           }
         }
       }
@@ -463,13 +319,6 @@ export async function getTradePostsWithCards(limit = 10, offset = 0) {
     return { success: true, posts: postsWithCards }
   } catch (error) {
     console.error("Unexpected error fetching trade posts (outer try-catch):", error)
-
-    // Return mock data as fallback for v0 environment
-    if (isV0Environment()) {
-      console.log("Returning mock data as fallback")
-      return getMockTradePostsData()
-    }
-
     const errorMessage = error instanceof Error ? error.message : "予期しないエラーが発生しました。"
     if (error instanceof SyntaxError && error.message.includes("Too Many R")) {
       return {
@@ -484,19 +333,13 @@ export async function getTradePostsWithCards(limit = 10, offset = 0) {
 
 export async function getTradePostDetailsById(postId: string) {
   try {
-    // Skip processing for "create" route to avoid UUID parsing errors
-    if (postId === "create") {
+    // Validate that postId is not "create" or other invalid values
+    if (!postId || postId === "create" || postId.length < 8) {
       return {
         success: false,
-        error: "Invalid post ID",
+        error: "無効な投稿IDです。",
         post: null,
       }
-    }
-
-    // Return mock data for v0 environment
-    if (isV0Environment()) {
-      console.log("V0 environment detected, returning mock post details")
-      return getMockTradePostDetail(postId)
     }
 
     const supabase = await createServerClient()
@@ -520,15 +363,11 @@ export async function getTradePostDetailsById(postId: string) {
     // Get author info
     let authorInfo = { username: "ユーザー", avatarUrl: null }
     if (postData.owner_id) {
-      try {
-        const { data: userData, error: userError } = await supabase.auth.admin.getUserById(postData.owner_id)
-        if (userError) {
-          console.error(`Error fetching author ${postData.owner_id} for post ${postId}:`, userError.message)
-        } else if (userData?.user) {
-          authorInfo = getUserProfileData(userData.user)
-        }
-      } catch (userFetchError) {
-        console.error(`Failed to fetch author for post ${postId}:`, userFetchError)
+      const { data: userData, error: userError } = await supabase.auth.admin.getUserById(postData.owner_id)
+      if (userError) {
+        console.error(`Error fetching author ${postData.owner_id} for post ${postId}:`, userError.message)
+      } else if (userData?.user) {
+        authorInfo = getUserProfileData(userData.user)
       }
     }
 
@@ -612,13 +451,9 @@ export async function getTradePostDetailsById(postId: string) {
     const commentAuthorsMap = new Map<string, User>()
     if (commentAuthorIds.length > 0) {
       for (const authorId of commentAuthorIds) {
-        try {
-          const { data: authorData, error: authorError } = await supabase.auth.admin.getUserById(authorId)
-          if (!authorError && authorData.user) {
-            commentAuthorsMap.set(authorId, authorData.user)
-          }
-        } catch (authorFetchError) {
-          console.error(`Failed to fetch comment author ${authorId}:`, authorFetchError)
+        const { data: authorData, error: authorError } = await supabase.auth.admin.getUserById(authorId)
+        if (!authorError && authorData.user) {
+          commentAuthorsMap.set(authorId, authorData.user)
         }
       }
     }
@@ -669,13 +504,6 @@ export async function getTradePostDetailsById(postId: string) {
     return { success: true, post: formattedPost }
   } catch (error) {
     console.error(`Unexpected error fetching post details for ${postId}:`, error)
-
-    // Return mock data as fallback for v0 environment
-    if (isV0Environment()) {
-      console.log("Returning mock post details as fallback")
-      return getMockTradePostDetail(postId)
-    }
-
     const errorMessage = error instanceof Error ? error.message : "予期しないエラーが発生しました。"
     return { success: false, error: errorMessage, post: null }
   }
@@ -683,12 +511,6 @@ export async function getTradePostDetailsById(postId: string) {
 
 export async function addCommentToTradePost(postId: string, content: string) {
   try {
-    // Return mock success for v0 environment
-    if (isV0Environment()) {
-      console.log("V0 environment detected, returning mock comment success")
-      return { success: true }
-    }
-
     const supabase = await createServerClient()
     const {
       data: { session },
