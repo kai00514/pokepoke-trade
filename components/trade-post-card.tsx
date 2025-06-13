@@ -45,10 +45,9 @@ export default function TradePostCard({ post }: TradePostCardProps) {
     })
   }
 
-  const wantedCardImage = post.wantedCard?.image || "/placeholder.svg?width=100&height=140"
-  const wantedCardName = post.wantedCard?.name || "不明"
-  const offeredCardImage = post.offeredCard?.image || "/placeholder.svg?width=100&height=140"
-  const offeredCardName = post.offeredCard?.name || "不明"
+  // 複数カード表示用
+  const wantedCards = post.rawData?.wantedCards || []
+  const offeredCards = post.rawData?.offeredCards || []
 
   return (
     <Card className="w-full shadow-lg hover:shadow-xl transition-shadow duration-200">
@@ -62,7 +61,7 @@ export default function TradePostCard({ post }: TradePostCardProps) {
               <div className="flex items-center mt-1">
                 {post.avatarUrl ? (
                   <Image
-                    src={post.avatarUrl || "/placeholder.svg"} // Removed placeholder here, assuming avatarUrl is either valid or null
+                    src={post.avatarUrl || "/placeholder.svg"}
                     alt={post.username || "ユーザー"}
                     width={20}
                     height={20}
@@ -85,7 +84,7 @@ export default function TradePostCard({ post }: TradePostCardProps) {
                     ? "bg-amber-100 text-amber-700 border-amber-300"
                     : post.status === "完了"
                       ? "bg-blue-100 text-blue-700 border-blue-300"
-                      : "bg-gray-100 text-gray-700 border-gray-300" // Default/Cancel
+                      : "bg-gray-100 text-gray-700 border-gray-300"
               }`}
             >
               {post.status}
@@ -94,33 +93,49 @@ export default function TradePostCard({ post }: TradePostCardProps) {
         </CardHeader>
         <CardContent className="pt-2 pb-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-4">
-            {/* Wanted Card */}
+            {/* Wanted Cards 横スクロール表示 */}
             <div className="space-y-1">
               <h3 className="text-sm font-medium text-blue-600">求めるカード</h3>
-              <div className="border-t-2 border-blue-500 pt-2 flex flex-col items-center sm:items-start">
-                <Image
-                  src={wantedCardImage || "/placeholder.svg"}
-                  alt={wantedCardName}
-                  width={100}
-                  height={140}
-                  className="rounded-md object-contain border bg-slate-100 mb-1"
-                />
-                <p className="text-sm font-semibold text-slate-700 text-center sm:text-left">{wantedCardName}</p>
+              <div className="border-t-2 border-blue-500 pt-2 flex flex-nowrap overflow-x-auto gap-2 items-center scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
+                {wantedCards.length > 0 ? (
+                  wantedCards.map((card: any) => (
+                    <div key={card.id} className="flex-shrink-0 flex flex-col items-center">
+                      <Image
+                        src={card.imageUrl || "/placeholder.svg?width=100&height=140"}
+                        alt={card.name}
+                        width={100}
+                        height={140}
+                        className="rounded-md object-contain border bg-slate-100 mb-1"
+                      />
+                      <p className="text-xs font-semibold text-slate-700 text-center max-w-[100px] truncate">{card.name}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500">該当なし</p>
+                )}
               </div>
             </div>
 
-            {/* Offered Card */}
+            {/* Offered Cards 横スクロール表示 */}
             <div className="space-y-1">
               <h3 className="text-sm font-medium text-red-600">譲れるカード</h3>
-              <div className="border-t-2 border-red-500 pt-2 flex flex-col items-center sm:items-start">
-                <Image
-                  src={offeredCardImage || "/placeholder.svg"}
-                  alt={offeredCardName}
-                  width={100}
-                  height={140}
-                  className="rounded-md object-contain border bg-slate-100 mb-1"
-                />
-                <p className="text-sm font-semibold text-slate-700 text-center sm:text-left">{offeredCardName}</p>
+              <div className="border-t-2 border-red-500 pt-2 flex flex-nowrap overflow-x-auto gap-2 items-center scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
+                {offeredCards.length > 0 ? (
+                  offeredCards.map((card: any) => (
+                    <div key={card.id} className="flex-shrink-0 flex flex-col items-center">
+                      <Image
+                        src={card.imageUrl || "/placeholder.svg?width=100&height=140"}
+                        alt={card.name}
+                        width={100}
+                        height={140}
+                        className="rounded-md object-contain border bg-slate-100 mb-1"
+                      />
+                      <p className="text-xs font-semibold text-slate-700 text-center max-w-[100px] truncate">{card.name}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500">該当なし</p>
+                )}
               </div>
             </div>
           </div>
