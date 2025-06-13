@@ -28,8 +28,12 @@ export interface TradeFormData {
 
 export async function createTradePost(formData: TradeFormData) {
   try {
+<<<<<<< HEAD
     console.log("[createTradePost] Starting trade post creation...")
 
+=======
+    // createServerClientはawait必須
+>>>>>>> adda169 (トレード投稿機能、タイムラインカード画像複数表示)
     const supabase = await createServerClient()
 
     // 複数の方法でセッションを取得してみる
@@ -39,6 +43,7 @@ export async function createTradePost(formData: TradeFormData) {
       data: { session },
       error: sessionError,
     } = await supabase.auth.getSession()
+<<<<<<< HEAD
 
     console.log("[createTradePost] Session result:", {
       hasSession: !!session,
@@ -139,6 +144,31 @@ export async function createTradePost(formData: TradeFormData) {
     }
 
     console.log("[createTradePost] Trade post created successfully:", insertResult)
+=======
+    const userId = session?.user?.id || null
+    console.log("[DEBUG] owner_id to insert:", userId)
+
+    const postId = uuidv4()
+    // Step 1: Insert main trade post
+    console.log("[DEBUG] inserting trade_posts with owner_id:", userId)
+    const { error: postError } = await supabase.from("trade_posts").insert({
+      id: postId,
+      title: formData.title.trim(),
+      owner_id: userId,
+      custom_id: formData.appId?.trim() || null,
+      comment: formData.comment?.trim() || null,
+      want_card_id: formData.wantedCards[0]?.id ? Number.parseInt(formData.wantedCards[0].id) : null,
+      status: "OPEN",
+      is_authenticated: !!session?.user,
+    })
+    console.log("[DEBUG] postError:", postError)
+    if (postError) {
+      return { success: false, error: `投稿の作成に失敗しました: ${postError.message}` }
+    }
+    // 挿入後の確認
+    const { data: inserted, error: fetchError } = await supabase.from("trade_posts").select("id, owner_id").eq("id", postId).single()
+    console.log("[DEBUG] inserted row:", inserted, fetchError)
+>>>>>>> adda169 (トレード投稿機能、タイムラインカード画像複数表示)
 
     // Step 2: Insert wanted cards
     if (formData.wantedCards.length > 0) {
@@ -147,14 +177,20 @@ export async function createTradePost(formData: TradeFormData) {
         card_id: Number.parseInt(card.id),
         is_primary: index === 0,
       }))
+<<<<<<< HEAD
 
       console.log("[createTradePost] Inserting wanted cards:", wantedCardsData)
 
+=======
+>>>>>>> adda169 (トレード投稿機能、タイムラインカード画像複数表示)
       const { error: wantedCardsError } = await supabase.from("trade_post_wanted_cards").insert(wantedCardsData)
-
+      console.log("[DEBUG] wantedCardsError:", wantedCardsError)
       if (wantedCardsError) {
+<<<<<<< HEAD
         console.error("[createTradePost] Wanted cards error:", wantedCardsError)
         // Cleanup: delete the main post
+=======
+>>>>>>> adda169 (トレード投稿機能、タイムラインカード画像複数表示)
         await supabase.from("trade_posts").delete().eq("id", postId)
         return {
           success: false,
@@ -170,14 +206,20 @@ export async function createTradePost(formData: TradeFormData) {
         post_id: postId,
         card_id: Number.parseInt(card.id),
       }))
+<<<<<<< HEAD
 
       console.log("[createTradePost] Inserting offered cards:", offeredCardsData)
 
+=======
+>>>>>>> adda169 (トレード投稿機能、タイムラインカード画像複数表示)
       const { error: offeredCardsError } = await supabase.from("trade_post_offered_cards").insert(offeredCardsData)
-
+      console.log("[DEBUG] offeredCardsError:", offeredCardsError)
       if (offeredCardsError) {
+<<<<<<< HEAD
         console.error("[createTradePost] Offered cards error:", offeredCardsError)
         // Cleanup: delete related records
+=======
+>>>>>>> adda169 (トレード投稿機能、タイムラインカード画像複数表示)
         await supabase.from("trade_post_wanted_cards").delete().eq("post_id", postId)
         await supabase.from("trade_posts").delete().eq("id", postId)
         return {
@@ -188,6 +230,7 @@ export async function createTradePost(formData: TradeFormData) {
       }
     }
 
+<<<<<<< HEAD
     // Revalidate the path to refresh the data
     revalidatePath("/")
 
@@ -200,6 +243,11 @@ export async function createTradePost(formData: TradeFormData) {
       error: error instanceof Error ? error.message : "予期しないエラーが発生しました。",
       details: error,
     }
+=======
+    return { success: true, postId }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "予期しないエラーが発生しました。" }
+>>>>>>> adda169 (トレード投稿機能、タイムラインカード画像複数表示)
   }
 }
 
