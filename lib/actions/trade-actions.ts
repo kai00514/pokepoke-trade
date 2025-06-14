@@ -28,33 +28,60 @@ export interface TradeFormData {
 
 export async function createTradePost(formData: TradeFormData) {
   try {
+    console.log("[createTradePost] Starting trade post creation...")
+
     const supabase = await createServerClient()
 
-    // Get current session with detailed logging
+    // 複数の方法でセッションを取得してみる
+    console.log("[createTradePost] Getting session...")
+
     const {
       data: { session },
       error: sessionError,
     } = await supabase.auth.getSession()
 
-    console.log("[createTradePost] Session check:", {
+    console.log("[createTradePost] Session result:", {
       hasSession: !!session,
       hasUser: !!session?.user,
       userId: session?.user?.id,
+      userEmail: session?.user?.email,
       sessionError: sessionError?.message,
+      sessionKeys: session ? Object.keys(session) : null,
+      userKeys: session?.user ? Object.keys(session.user) : null,
+    })
+
+    // 追加のセッション確認
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    console.log("[createTradePost] User result:", {
+      hasUser: !!user,
+      userId: user?.id,
+      userEmail: user?.email,
+      userError: userError?.message,
     })
 
     if (sessionError) {
       console.warn("[createTradePost] Session error (continuing as guest):", sessionError)
     }
 
-    const userId = session?.user?.id || null
-    const isAuthenticated = !!session?.user && !!userId
+    if (userError) {
+      console.warn("[createTradePost] User error (continuing as guest):", userError)
+    }
+
+    // セッションとユーザーの両方をチェック
+    const finalUserId = session?.user?.id || user?.id || null
+    const isAuthenticated = !!(session?.user || user) && !!finalUserId
     const guestName = formData.guestName?.trim() || "ゲスト"
 
-    console.log("[createTradePost] Authentication status:", {
-      userId,
+    console.log("[createTradePost] Final authentication status:", {
+      finalUserId,
       isAuthenticated,
       guestName: isAuthenticated ? null : guestName,
+      sessionUserId: session?.user?.id,
+      getUserId: user?.id,
     })
 
     const postId = uuidv4()
@@ -62,41 +89,48 @@ export async function createTradePost(formData: TradeFormData) {
     // Prepare insert data based on authentication status
     let insertData: any
 
-    if (isAuthenticated && userId) {
+    if (isAuthenticated && finalUserId) {
       // Authenticated user post
       insertData = {
         id: postId,
         title: formData.title.trim(),
-        owner_id: userId, // Explicitly set owner_id for authenticated users
-        guest_name: null, // No guest name for authenticated users
+        owner_id: finalUserId, // Use finalUserId
+        guest_name: null,
         custom_id: formData.appId?.trim() || null,
         comment: formData.comment?.trim() || null,
         want_card_id: formData.wantedCards[0]?.id ? Number.parseInt(formData.wantedCards[0].id) : null,
         status: "OPEN",
-        is_authenticated: true, // Explicitly set to true
+        is_authenticated: true,
       }
     } else {
       // Guest user post
       insertData = {
         id: postId,
         title: formData.title.trim(),
-        owner_id: null, // Explicitly set to null for guest users
-        guest_name: guestName, // Set guest name
+        owner_id: null,
+        guest_name: guestName,
         custom_id: formData.appId?.trim() || null,
         comment: formData.comment?.trim() || null,
         want_card_id: formData.wantedCards[0]?.id ? Number.parseInt(formData.wantedCards[0].id) : null,
         status: "OPEN",
-        is_authenticated: false, // Explicitly set to false
+        is_authenticated: false,
       }
     }
 
-    console.log("[createTradePost] Final insert data:", insertData)
+    console.log("[createTradePost] Final insert data:", JSON.stringify(insertData, null, 2))
 
-    // Step 1: Insert main trade post
+    // Step 1: Insert main trade post with detailed error logging
     const { data: insertResult, error: postError } = await supabase.from("trade_posts").insert(insertData).select()
 
     if (postError) {
-      console.error("[createTradePost] Post insert error:", postError)
+      console.error("[createTradePost] Post insert error:", {
+        error: postError,
+        code: postError.code,
+        message: postError.message,
+        details: postError.details,
+        hint: postError.hint,
+        insertData: insertData,
+      })
       return {
         success: false,
         error: `投稿の作成に失敗しました: ${postError.message}`,
@@ -111,7 +145,7 @@ export async function createTradePost(formData: TradeFormData) {
       const wantedCardsData = formData.wantedCards.map((card, index) => ({
         post_id: postId,
         card_id: Number.parseInt(card.id),
-        is_primary: index === 0, // First card is primary
+        is_primary: index === 0,
       }))
 
       console.log("[createTradePost] Inserting wanted cards:", wantedCardsData)
@@ -169,6 +203,7 @@ export async function createTradePost(formData: TradeFormData) {
   }
 }
 
+// 他の関数は変更なし...
 export async function getTradePostsWithCards(limit = 10, offset = 0) {
   try {
     const supabase = await createServerClient()

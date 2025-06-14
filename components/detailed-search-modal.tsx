@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect, useMemo, useRef } from "react"
 import Image from "next/image"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
@@ -85,6 +87,7 @@ export default function DetailedSearchModal({
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
   const isLongPressTriggeredRef = useRef(false)
   const isInitializedRef = useRef(false)
+  const touchStartTimeRef = useRef<number>(0)
 
   const { toast } = useToast()
   const supabase = createBrowserClient()
@@ -176,7 +179,55 @@ export default function DetailedSearchModal({
     })
   }
 
-  const handleCardPressStart = (card: Card) => {
+  // スマホ対応の改善されたタッチイベント処理
+  const handleTouchStart = (card: Card, e: React.TouchEvent) => {
+    e.preventDefault() // デフォルトの動作を防ぐ
+    touchStartTimeRef.current = Date.now()
+    isLongPressTriggeredRef.current = false
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+    }
+
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressTriggeredRef.current = true
+      setPreviewImageUrl(card.imageUrl)
+      setPreviewCardName(card.name)
+      setIsPreviewOverlayOpen(true)
+
+      // バイブレーション（対応デバイスのみ）
+      if (navigator.vibrate) {
+        navigator.vibrate(50)
+      }
+    }, 500)
+  }
+
+  const handleTouchEnd = (card: Card, e: React.TouchEvent) => {
+    e.preventDefault()
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+    }
+
+    const touchDuration = Date.now() - touchStartTimeRef.current
+
+    // 短いタップの場合のみ選択処理を実行
+    if (!isLongPressTriggeredRef.current && touchDuration < 500) {
+      toggleCardSelection(card)
+    }
+
+    isLongPressTriggeredRef.current = false
+  }
+
+  const handleTouchCancel = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+    }
+    isLongPressTriggeredRef.current = false
+  }
+
+  // マウスイベント処理（PC用）
+  const handleMouseDown = (card: Card) => {
     isLongPressTriggeredRef.current = false
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
 
@@ -188,7 +239,7 @@ export default function DetailedSearchModal({
     }, 500)
   }
 
-  const handleCardPressEnd = (card: Card) => {
+  const handleMouseUp = (card: Card) => {
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
     if (!isLongPressTriggeredRef.current) {
       toggleCardSelection(card)
@@ -196,7 +247,7 @@ export default function DetailedSearchModal({
     isLongPressTriggeredRef.current = false
   }
 
-  const cancelLongPress = () => {
+  const handleMouseLeave = () => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current)
     }
@@ -311,19 +362,20 @@ export default function DetailedSearchModal({
                     {fetchedCards.map((card) => (
                       <button
                         key={card.id}
-                        onMouseDown={() => handleCardPressStart(card)}
-                        onMouseUp={() => handleCardPressEnd(card)}
-                        onTouchStart={() => handleCardPressStart(card)}
-                        onTouchEnd={() => handleCardPressEnd(card)}
-                        onMouseLeave={cancelLongPress}
-                        onTouchCancel={cancelLongPress}
+                        onMouseDown={() => handleMouseDown(card)}
+                        onMouseUp={() => handleMouseUp(card)}
+                        onMouseLeave={handleMouseLeave}
+                        onTouchStart={(e) => handleTouchStart(card, e)}
+                        onTouchEnd={(e) => handleTouchEnd(card, e)}
+                        onTouchCancel={handleTouchCancel}
                         className={cn(
-                          "aspect-[5/7] relative rounded-md overflow-hidden border-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1 transition-all cursor-pointer",
+                          "aspect-[5/7] relative rounded-md overflow-hidden border-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1 transition-all cursor-pointer select-none",
                           currentSelectedCards.find((sc) => sc.id === card.id)
                             ? "border-purple-600 shadow-lg scale-105"
                             : "border-transparent hover:border-purple-300",
                         )}
                         aria-label={`Select card ${card.name}`}
+                        style={{ touchAction: "none" }} // タッチ操作の最適化
                       >
                         <Image
                           src={
@@ -333,7 +385,8 @@ export default function DetailedSearchModal({
                           alt={card.name}
                           fill
                           sizes="(max-width: 640px) 30vw, (max-width: 768px) 22vw, (max-width: 1024px) 18vw, 15vw"
-                          className="object-cover bg-slate-100"
+                          className="object-cover bg-slate-100 pointer-events-none" // pointer-events-noneを追加
+                          draggable={false} // ドラッグを無効化
                         />
                         {currentSelectedCards.find((sc) => sc.id === card.id) && (
                           <div className="absolute inset-0 bg-purple-700 bg-opacity-60 flex items-center justify-center">
