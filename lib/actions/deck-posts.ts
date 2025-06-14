@@ -1,7 +1,18 @@
 "use server"
 
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@supabase/supabase-js"
 import { revalidatePath } from "next/cache"
+
+// Supabaseクライアントを作成
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+})
 
 // デッキの型定義
 export type Deck = {
@@ -127,22 +138,17 @@ export async function getDecksList(options?: {
     const limit = options?.limit || 20
     const offset = options?.offset || 0
 
-    // 基本クエリ
-    let query = supabase
-      .from("decks")
-      .select(
-        `
+    // 基本クエリを構築
+    let query = supabase.from("decks").select(
+      `
         *,
         deck_cards (
           card_id,
           quantity
         )
       `,
-        { count: "exact" },
-      )
-      .order("created_at", { ascending: false })
-      .limit(limit)
-      .offset(offset)
+      { count: "exact" },
+    )
 
     // フィルタリング
     if (options?.userId) {
@@ -152,6 +158,9 @@ export async function getDecksList(options?: {
     if (options?.isPublic !== undefined) {
       query = query.eq("is_public", options.isPublic)
     }
+
+    // ソート、リミット、オフセットを適用
+    query = query.order("created_at", { ascending: false }).range(offset, offset + limit - 1)
 
     const { data, error, count } = await query
 
@@ -325,13 +334,13 @@ export async function getMyDecks(
         { count: "exact" },
       )
       .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(limit)
-      .offset(offset)
 
     if (options?.isPublic !== undefined) {
       query = query.eq("is_public", options.isPublic)
     }
+
+    // ソート、リミット、オフセットを適用
+    query = query.order("created_at", { ascending: false }).range(offset, offset + limit - 1)
 
     const { data, error, count } = await query
 

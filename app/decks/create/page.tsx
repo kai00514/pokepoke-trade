@@ -45,6 +45,7 @@ export default function CreateDeckPage() {
   const [deckCards, setDeckCards] = useState<DeckCard[]>([])
   const [isPublic, setIsPublic] = useState(true)
   const [clearAll, setClearAll] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   // Mobile layout state
   const [isDeckInfoExpanded, setIsDeckInfoExpanded] = useState(true)
@@ -229,7 +230,7 @@ export default function CreateDeckPage() {
     }
 
     try {
-      setIsLoadingSearch(true) // 保存中のローディング表示
+      setIsSaving(true) // 保存中のローディング表示
 
       // デッキデータの準備
       const deckInput: CreateDeckInput = {
@@ -276,7 +277,7 @@ export default function CreateDeckPage() {
         variant: "destructive",
       })
     } finally {
-      setIsLoadingSearch(false)
+      setIsSaving(false)
     }
   }
 
@@ -533,10 +534,19 @@ export default function CreateDeckPage() {
             <Button
               onClick={handleSave}
               className="bg-emerald-500 hover:bg-emerald-600 text-white"
-              disabled={isLoadingSearch || isLoadingAuth || !user}
+              disabled={isLoadingAuth || !user || isSaving}
             >
-              <Save className="h-4 w-4 mr-2" />
-              保存
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  投稿中...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  投稿
+                </>
+              )}
             </Button>
           </div>
 
@@ -617,10 +627,19 @@ export default function CreateDeckPage() {
           <Button
             onClick={handleSave}
             className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3 sticky bottom-4 z-10 shadow-lg"
-            disabled={isLoadingSearch || isLoadingAuth || !user}
+            disabled={isLoadingAuth || !user || isSaving}
           >
-            <Save className="h-4 w-4 mr-2" />
-            保存
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                投稿中...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                投稿
+              </>
+            )}
           </Button>
         </main>
       </div>
