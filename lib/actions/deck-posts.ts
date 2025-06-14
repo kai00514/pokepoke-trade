@@ -88,19 +88,26 @@ export async function createDeck(input: CreateDeckInput): Promise<{ success: boo
     }
 
     // 1. decksテーブルにデッキを作成
-    const { data: deckData, error: deckError } = await supabase
-      .from("decks")
-      .insert({
-        user_id: input.user_id || null,
-        guest_name: input.is_authenticated ? null : input.guestName || "ゲスト",
-        title: input.title,
-        description: input.description || null,
-        is_public: input.is_public,
-        tags: input.tags || [],
-        thumbnail_card_id: input.thumbnail_card_id || null,
-      })
-      .select()
-      .single()
+    const insertData: any = {
+      title: input.title,
+      description: input.description || null,
+      is_public: input.is_public,
+      tags: input.tags || [],
+      thumbnail_card_id: input.thumbnail_card_id || null,
+    }
+
+    // Only set user_id if user is authenticated
+    if (input.is_authenticated && input.user_id) {
+      insertData.user_id = input.user_id
+      insertData.guest_name = null
+    } else {
+      insertData.user_id = null
+      insertData.guest_name = input.guestName || "ゲスト"
+    }
+
+    console.log("[createDeck] Insert data:", insertData)
+
+    const { data: deckData, error: deckError } = await supabase.from("decks").insert(insertData).select().single()
 
     if (deckError) throw new Error(`デッキの作成に失敗しました: ${deckError.message}`)
     if (!deckData) throw new Error("デッキの作成に失敗しました: データが返されませんでした")

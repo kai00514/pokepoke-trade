@@ -38,7 +38,7 @@ export async function createTradePost(formData: TradeFormData) {
 
     if (sessionError) {
       console.error("[createTradePost] Session error:", sessionError)
-      return { success: false, error: `認証エラー: ${sessionError.message}` }
+      // Continue as guest user instead of returning error
     }
 
     const userId = session?.user?.id || null
@@ -46,21 +46,33 @@ export async function createTradePost(formData: TradeFormData) {
     const guestName = formData.guestName || "ゲスト"
 
     console.log("[createTradePost] User ID:", userId, "Is authenticated:", isAuthenticated)
+    console.log("[createTradePost] Session user:", session?.user)
 
     const postId = uuidv4()
 
-    // Step 1: Insert main trade post
-    const { error: postError } = await supabase.from("trade_posts").insert({
+    // Step 1: Insert main trade post with proper owner_id handling
+    const insertData: any = {
       id: postId,
       title: formData.title.trim(),
-      owner_id: userId, // null for guest users
-      guest_name: isAuthenticated ? null : guestName,
       custom_id: formData.appId?.trim() || null,
       comment: formData.comment?.trim() || null,
       want_card_id: formData.wantedCards[0]?.id ? Number.parseInt(formData.wantedCards[0].id) : null,
       status: "OPEN",
       is_authenticated: isAuthenticated,
-    })
+    }
+
+    // Only set owner_id if user is authenticated
+    if (isAuthenticated && userId) {
+      insertData.owner_id = userId
+      insertData.guest_name = null
+    } else {
+      insertData.owner_id = null
+      insertData.guest_name = guestName
+    }
+
+    console.log("[createTradePost] Insert data:", insertData)
+
+    const { error: postError } = await supabase.from("trade_posts").insert(insertData)
 
     if (postError) {
       console.error("[createTradePost] Post insert error:", postError)
@@ -548,14 +560,29 @@ export async function addCommentToTradePost(postId: string, content: string, gue
     const userId = session?.user?.id || null
     const userName = isAuthenticated ? getUserDisplayInfo(session.user).username : guestName || "ゲスト"
 
-    const { error } = await supabase.from("trade_comments").insert({
+    console.log("[addCommentToTradePost] User ID:", userId, "Is authenticated:", isAuthenticated)
+    console.log("[addCommentToTradePost] Guest name:", guestName)
+
+    const insertData: any = {
       post_id: postId,
-      user_id: userId,
-      user_name: userName,
-      guest_name: isAuthenticated ? null : guestName || "ゲスト",
       content: content,
       is_guest: !isAuthenticated,
-    })
+    }
+
+    // Only set user_id if user is authenticated
+    if (isAuthenticated && userId) {
+      insertData.user_id = userId
+      insertData.user_name = userName
+      insertData.guest_name = null
+    } else {
+      insertData.user_id = null
+      insertData.user_name = userName
+      insertData.guest_name = guestName || "ゲスト"
+    }
+
+    console.log("[addCommentToTradePost] Insert data:", insertData)
+
+    const { error } = await supabase.from("trade_comments").insert(insertData)
 
     if (error) {
       console.error("Error adding comment:", error)
