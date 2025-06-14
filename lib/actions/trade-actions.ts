@@ -30,56 +30,81 @@ export async function createTradePost(formData: TradeFormData) {
   try {
     const supabase = await createServerClient()
 
-    // Get current session (may be null for guest users)
+    // Get current session with detailed logging
     const {
       data: { session },
       error: sessionError,
     } = await supabase.auth.getSession()
 
+    console.log("[createTradePost] Session check:", {
+      hasSession: !!session,
+      hasUser: !!session?.user,
+      userId: session?.user?.id,
+      sessionError: sessionError?.message,
+    })
+
     if (sessionError) {
-      console.error("[createTradePost] Session error:", sessionError)
-      // Continue as guest user instead of returning error
+      console.warn("[createTradePost] Session error (continuing as guest):", sessionError)
     }
 
     const userId = session?.user?.id || null
-    const isAuthenticated = !!session?.user
-    const guestName = formData.guestName || "ゲスト"
+    const isAuthenticated = !!session?.user && !!userId
+    const guestName = formData.guestName?.trim() || "ゲスト"
 
-    console.log("[createTradePost] User ID:", userId, "Is authenticated:", isAuthenticated)
-    console.log("[createTradePost] Session user:", session?.user)
+    console.log("[createTradePost] Authentication status:", {
+      userId,
+      isAuthenticated,
+      guestName: isAuthenticated ? null : guestName,
+    })
 
     const postId = uuidv4()
 
-    // Step 1: Insert main trade post with proper owner_id handling
-    const insertData: any = {
-      id: postId,
-      title: formData.title.trim(),
-      custom_id: formData.appId?.trim() || null,
-      comment: formData.comment?.trim() || null,
-      want_card_id: formData.wantedCards[0]?.id ? Number.parseInt(formData.wantedCards[0].id) : null,
-      status: "OPEN",
-      is_authenticated: isAuthenticated,
-    }
+    // Prepare insert data based on authentication status
+    let insertData: any
 
-    // Only set owner_id if user is authenticated
     if (isAuthenticated && userId) {
-      insertData.owner_id = userId
-      insertData.guest_name = null
+      // Authenticated user post
+      insertData = {
+        id: postId,
+        title: formData.title.trim(),
+        owner_id: userId, // Explicitly set owner_id for authenticated users
+        guest_name: null, // No guest name for authenticated users
+        custom_id: formData.appId?.trim() || null,
+        comment: formData.comment?.trim() || null,
+        want_card_id: formData.wantedCards[0]?.id ? Number.parseInt(formData.wantedCards[0].id) : null,
+        status: "OPEN",
+        is_authenticated: true, // Explicitly set to true
+      }
     } else {
-      insertData.owner_id = null
-      insertData.guest_name = guestName
+      // Guest user post
+      insertData = {
+        id: postId,
+        title: formData.title.trim(),
+        owner_id: null, // Explicitly set to null for guest users
+        guest_name: guestName, // Set guest name
+        custom_id: formData.appId?.trim() || null,
+        comment: formData.comment?.trim() || null,
+        want_card_id: formData.wantedCards[0]?.id ? Number.parseInt(formData.wantedCards[0].id) : null,
+        status: "OPEN",
+        is_authenticated: false, // Explicitly set to false
+      }
     }
 
-    console.log("[createTradePost] Insert data:", insertData)
+    console.log("[createTradePost] Final insert data:", insertData)
 
-    const { error: postError } = await supabase.from("trade_posts").insert(insertData)
+    // Step 1: Insert main trade post
+    const { data: insertResult, error: postError } = await supabase.from("trade_posts").insert(insertData).select()
 
     if (postError) {
       console.error("[createTradePost] Post insert error:", postError)
-      return { success: false, error: `投稿の作成に失敗しました: ${postError.message}` }
+      return {
+        success: false,
+        error: `投稿の作成に失敗しました: ${postError.message}`,
+        details: postError,
+      }
     }
 
-    console.log("[createTradePost] Trade post created successfully with ID:", postId)
+    console.log("[createTradePost] Trade post created successfully:", insertResult)
 
     // Step 2: Insert wanted cards
     if (formData.wantedCards.length > 0) {
@@ -89,13 +114,19 @@ export async function createTradePost(formData: TradeFormData) {
         is_primary: index === 0, // First card is primary
       }))
 
+      console.log("[createTradePost] Inserting wanted cards:", wantedCardsData)
+
       const { error: wantedCardsError } = await supabase.from("trade_post_wanted_cards").insert(wantedCardsData)
 
       if (wantedCardsError) {
         console.error("[createTradePost] Wanted cards error:", wantedCardsError)
         // Cleanup: delete the main post
         await supabase.from("trade_posts").delete().eq("id", postId)
-        return { success: false, error: `求めるカードの保存に失敗しました: ${wantedCardsError.message}` }
+        return {
+          success: false,
+          error: `求めるカードの保存に失敗しました: ${wantedCardsError.message}`,
+          details: wantedCardsError,
+        }
       }
     }
 
@@ -106,6 +137,8 @@ export async function createTradePost(formData: TradeFormData) {
         card_id: Number.parseInt(card.id),
       }))
 
+      console.log("[createTradePost] Inserting offered cards:", offeredCardsData)
+
       const { error: offeredCardsError } = await supabase.from("trade_post_offered_cards").insert(offeredCardsData)
 
       if (offeredCardsError) {
@@ -113,17 +146,26 @@ export async function createTradePost(formData: TradeFormData) {
         // Cleanup: delete related records
         await supabase.from("trade_post_wanted_cards").delete().eq("post_id", postId)
         await supabase.from("trade_posts").delete().eq("id", postId)
-        return { success: false, error: `譲れるカードの保存に失敗しました: ${offeredCardsError.message}` }
+        return {
+          success: false,
+          error: `譲れるカードの保存に失敗しました: ${offeredCardsError.message}`,
+          details: offeredCardsError,
+        }
       }
     }
 
     // Revalidate the path to refresh the data
     revalidatePath("/")
 
+    console.log("[createTradePost] Successfully created trade post with ID:", postId)
     return { success: true, postId }
   } catch (error) {
     console.error("[createTradePost] Unexpected error:", error)
-    return { success: false, error: error instanceof Error ? error.message : "予期しないエラーが発生しました。" }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "予期しないエラーが発生しました。",
+      details: error,
+    }
   }
 }
 
