@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useMemo } from "react" // useEffect, useMemo を追加
+import { useState, useCallback, useEffect, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import AuthHeader from "@/components/auth-header"
@@ -10,11 +10,11 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { ArrowLeft, ChevronDown, ChevronUp, Trash2, Save, Loader2, Check } from "lucide-react" // Search, Loader2, Check を追加
+import { ArrowLeft, ChevronDown, ChevronUp, Trash2, Save, Loader2, Check, ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { Card as CardType } from "@/components/detailed-search-modal" // CardType のインポートパスを確認
-import { createBrowserClient } from "@/lib/supabase/client" // Supabaseクライアントを追加
-import { useToast } from "@/components/ui/use-toast" // Toastを追加
+import type { Card as CardType } from "@/components/detailed-search-modal"
+import { createBrowserClient } from "@/lib/supabase/client"
+import { useToast } from "@/components/ui/use-toast"
 import { createDeck, type CreateDeckInput } from "@/lib/actions/deck-posts"
 
 type DeckCard = CardType & { quantity: number }
@@ -32,11 +32,7 @@ const energyTypes = [
   { name: "ドラゴン", icon: "/images/types/ドラゴン.png", id: "dragon", color: "bg-yellow-600" },
 ]
 
-const cardCategoriesForFilter = ["全て", "ポケモン", "トレーナーズ", "グッズ", "どうぐ"] // フィルター用カテゴリ
-
-// 1. カード検索部分の表示を修正 (DetailedSearchModal のようなUIをページ内に)
-// 2. 主要エネルギータイプのアイコンサイズを小さく
-// 3. デッキの1〜20スロットに選択したカード画像を表示
+const cardCategoriesForFilter = ["全て", "ポケモン", "トレーナーズ", "グッズ", "どうぐ"]
 
 export default function CreateDeckPage() {
   const [deckName, setDeckName] = useState("")
@@ -44,8 +40,8 @@ export default function CreateDeckPage() {
   const [selectedEnergyTypes, setSelectedEnergyTypes] = useState<string[]>([])
   const [deckCards, setDeckCards] = useState<DeckCard[]>([])
   const [isPublic, setIsPublic] = useState(true)
-  const [clearAll, setClearAll] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [thumbnailCard, setThumbnailCard] = useState<DeckCard | null>(null) // 1枚のサムネイル
 
   // Mobile layout state
   const [isDeckInfoExpanded, setIsDeckInfoExpanded] = useState(true)
@@ -64,14 +60,11 @@ export default function CreateDeckPage() {
   const [user, setUser] = useState<any>(null)
   const [isLoadingAuth, setIsLoadingAuth] = useState(true)
 
-  const totalCards = deckCards.reduce((sum, card) => sum + card.quantity, 0)
-  const maxCards = 20
-
   const totalCardsInDeck = useMemo(() => {
     return deckCards.reduce((sum, card) => sum + card.quantity, 0)
   }, [deckCards])
-  const maxDeckSize = 20 // ポケモンカードの標準デッキ枚数
-  const displaySlotsCount = 20 // UI上に表示するスロット数
+  const maxDeckSize = 20
+  const displaySlotsCount = 20
 
   // Fetch cards for search
   useEffect(() => {
@@ -79,9 +72,9 @@ export default function CreateDeckPage() {
       setIsLoadingSearch(true)
       let query = supabase
         .from("cards")
-        .select("id, name, image_url, type_code, rarity_code, category, thumb_url") // thumb_url を追加（あれば）
+        .select("id, name, image_url, type_code, rarity_code, category, thumb_url")
         .eq("is_visible", true)
-        .limit(100) // デフォルト表示のため制限を増やす
+        .limit(100)
 
       if (searchKeyword.trim()) {
         query = query.ilike("name", `%${searchKeyword.trim()}%`)
@@ -114,8 +107,7 @@ export default function CreateDeckPage() {
         const mappedData: CardType[] = data.map((dbCard) => ({
           id: String(dbCard.id),
           name: dbCard.name,
-          // imageUrl: dbCard.thumb_url || dbCard.image_url, // サムネイルがあれば優先
-          imageUrl: dbCard.image_url, // 詳細検索モーダルに合わせてimage_urlを使用
+          imageUrl: dbCard.image_url,
           type: dbCard.type_code,
           rarity: dbCard.rarity_code,
           category: String(dbCard.category),
@@ -125,7 +117,6 @@ export default function CreateDeckPage() {
       setIsLoadingSearch(false)
     }
 
-    // 常に実行（デフォルトで全てのカードを表示）
     const debounceFetch = setTimeout(() => {
       fetchCards()
     }, 300)
@@ -161,15 +152,15 @@ export default function CreateDeckPage() {
       setDeckCards((prevDeckCards) => {
         const existingCard = prevDeckCards.find((c) => c.id === cardToAdd.id)
         if (existingCard) {
-          // 同名カード4枚制限（基本エネルギー除く）
-          const maxQuantity = cardToAdd.category === "energy" ? maxDeckSize : 4 // 基本エネルギーは上限なし、他は4枚
-          if (existingCard.quantity < maxQuantity) {
-            return prevDeckCards.map((c) => (c.id === cardToAdd.id ? { ...c, quantity: c.quantity + 1 } : c))
+          // 3回目のクリックで削除（0枚に戻る）
+          if (existingCard.quantity >= 2) {
+            return prevDeckCards.filter((c) => c.id !== cardToAdd.id)
           } else {
-            toast({ title: "追加制限", description: `${cardToAdd.name}は${maxQuantity}枚までしか追加できません。` })
-            return prevDeckCards
+            // 1枚 → 2枚
+            return prevDeckCards.map((c) => (c.id === cardToAdd.id ? { ...c, quantity: c.quantity + 1 } : c))
           }
         } else {
+          // 新しいカードを1枚追加
           return [...prevDeckCards, { ...cardToAdd, quantity: 1 }]
         }
       })
@@ -180,26 +171,39 @@ export default function CreateDeckPage() {
   const handleQuantityChange = useCallback((cardId: string, newQuantity: number) => {
     if (newQuantity <= 0) {
       setDeckCards((prev) => prev.filter((card) => card.id !== cardId))
+      // サムネイルカードが削除された場合はサムネイルもクリア
+      setThumbnailCard((prev) => (prev?.id === cardId ? null : prev))
     } else {
-      // デッキ全体の枚数上限チェックはaddCardToDeckで行うため、ここでは個数変更のみ
       setDeckCards((prev) => prev.map((card) => (card.id === cardId ? { ...card, quantity: newQuantity } : card)))
     }
   }, [])
 
   const handleRemoveCard = useCallback((cardId: string) => {
     setDeckCards((prev) => prev.filter((card) => card.id !== cardId))
-  }, [])
-
-  const handleRemoveCardFromDeckList = useCallback((cardId: string) => {
-    setDeckCards((prev) => prev.filter((card) => card.id !== cardId))
+    // サムネイルカードが削除された場合はサムネイルもクリア
+    setThumbnailCard((prev) => (prev?.id === cardId ? null : prev))
   }, [])
 
   const handleClearAllCards = () => {
     setDeckCards([])
+    setThumbnailCard(null) // サムネイルもクリア
   }
 
+  // デッキスロットのカードクリックでサムネイル選択
+  const handleDeckSlotClick = (card: DeckCard) => {
+    setThumbnailCard(card)
+    toast({
+      title: "サムネイル設定",
+      description: `${card.name}をサムネイル画像に設定しました。`,
+    })
+  }
+
+  // 投稿ボタンの活性化条件を修正
+  const canSave = useMemo(() => {
+    return !isLoadingAuth && user && !isSaving && deckName.trim() && deckCards.length > 0 && totalCardsInDeck === 20
+  }, [isLoadingAuth, user, isSaving, deckName, deckCards.length, totalCardsInDeck])
+
   const handleSave = async () => {
-    // 認証チェック
     if (!user) {
       toast({
         title: "認証エラー",
@@ -209,7 +213,6 @@ export default function CreateDeckPage() {
       return
     }
 
-    // バリデーション
     if (totalCardsInDeck !== 20) {
       toast({
         title: "デッキ枚数エラー",
@@ -230,9 +233,8 @@ export default function CreateDeckPage() {
     }
 
     try {
-      setIsSaving(true) // 保存中のローディング表示
+      setIsSaving(true)
 
-      // デッキデータの準備
       const deckInput: CreateDeckInput = {
         title: deckName.trim(),
         user_id: user.id,
@@ -245,10 +247,12 @@ export default function CreateDeckPage() {
           name: card.name,
           image_url: card.imageUrl,
         })),
+        thumbnail_card_id: thumbnailCard ? Number.parseInt(thumbnailCard.id) : undefined,
         is_authenticated: true,
       }
 
-      // デッキを保存
+      console.log("[handleSave] Saving deck with thumbnail_card_id:", deckInput.thumbnail_card_id)
+
       const result = await createDeck(deckInput)
 
       if (result.success) {
@@ -257,14 +261,13 @@ export default function CreateDeckPage() {
           description: `${deckName}を保存しました。`,
         })
 
-        // フォームをリセット
         setDeckName("")
         setDeckDescription("")
         setSelectedEnergyTypes([])
         setDeckCards([])
+        setThumbnailCard(null)
         setIsPublic(true)
 
-        // デッキ一覧ページにリダイレクト
         window.location.href = "/decks"
       } else {
         throw new Error(result.error || "デッキの保存に失敗しました")
@@ -290,7 +293,6 @@ export default function CreateDeckPage() {
         }
       }
     })
-    // 残りのスロットをnullで埋める
     while (slots.length < displaySlotsCount) {
       slots.push(null)
     }
@@ -301,9 +303,13 @@ export default function CreateDeckPage() {
           <div
             key={index}
             className={cn(
-              "aspect-[5/7] flex items-center justify-center rounded border overflow-hidden",
-              cardOrNull ? "border-purple-300 bg-slate-100" : "bg-gray-100 border-gray-300 text-gray-500 text-xs",
+              "aspect-[5/7] flex items-center justify-center rounded border overflow-hidden cursor-pointer transition-all",
+              cardOrNull
+                ? "border-purple-300 bg-slate-100 hover:border-purple-500"
+                : "bg-gray-100 border-gray-300 text-gray-500 text-xs",
+              cardOrNull && thumbnailCard?.id === cardOrNull.id && "ring-2 ring-yellow-400 border-yellow-400",
             )}
+            onClick={() => cardOrNull && handleDeckSlotClick(cardOrNull)}
           >
             {cardOrNull ? (
               <Image
@@ -312,10 +318,10 @@ export default function CreateDeckPage() {
                   `/placeholder.svg?width=50&height=70&query=${encodeURIComponent(cardOrNull.name) || "/placeholder.svg"}`
                 }
                 alt={cardOrNull.name}
-                width={50} // Adjust size as needed for slot display
+                width={50}
                 height={70}
                 className="object-contain w-full h-full"
-                unoptimized // Ensure small images load correctly
+                unoptimized
               />
             ) : (
               <span>{index + 1}</span>
@@ -325,6 +331,49 @@ export default function CreateDeckPage() {
       </div>
     )
   }
+
+  const renderThumbnailSelection = () => (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-2">サムネイル画像</label>
+        <p className="text-xs text-slate-500 mb-3">
+          デッキ一覧で表示されるサムネイル画像です。下のデッキ構成からカードをクリックして選択してください。
+        </p>
+
+        {/* 選択されたサムネイル表示 */}
+        <div className="flex justify-center">
+          <div className="w-24 h-32 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center bg-gray-50">
+            {thumbnailCard ? (
+              <div className="relative w-full h-full">
+                <Image
+                  src={
+                    thumbnailCard.imageUrl ||
+                    `/placeholder.svg?width=96&height=128&query=${encodeURIComponent(thumbnailCard.name) || "/placeholder.svg"}`
+                  }
+                  alt={thumbnailCard.name}
+                  fill
+                  className="object-contain rounded-md"
+                />
+                <button
+                  onClick={() => setThumbnailCard(null)}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                >
+                  ×
+                </button>
+              </div>
+            ) : (
+              <div className="text-center">
+                <ImageIcon className="h-8 w-8 text-gray-400 mx-auto mb-1" />
+                <p className="text-xs text-gray-500">未選択</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {thumbnailCard && <p className="text-center text-sm font-medium text-slate-700 mt-2">{thumbnailCard.name}</p>}
+      </div>
+    </div>
+  )
 
   const renderDeckInfo = () => (
     <div className="space-y-4">
@@ -359,18 +408,19 @@ export default function CreateDeckPage() {
               key={type.id}
               onClick={() => toggleEnergyType(type.id)}
               className={cn(
-                "p-1 rounded-full border-2 transition-all", // p-1 に変更して少し小さく
+                "p-1 rounded-full border-2 transition-all",
                 selectedEnergyTypes.includes(type.id)
                   ? "border-purple-500 ring-2 ring-purple-200"
                   : "border-gray-300 hover:border-gray-400",
               )}
             >
-              <Image src={type.icon || "/placeholder.svg"} alt={type.name} width={20} height={20} className="w-5 h-5" />{" "}
-              {/* w-5 h-5 (20px) に変更 */}
+              <Image src={type.icon || "/placeholder.svg"} alt={type.name} width={20} height={20} className="w-5 h-5" />
             </button>
           ))}
         </div>
       </div>
+
+      {renderThumbnailSelection()}
     </div>
   )
 
@@ -411,13 +461,14 @@ export default function CreateDeckPage() {
         </div>
       </div>
 
+      <p className="text-xs text-slate-500 mb-2">カードをクリックしてサムネイル画像を選択できます</p>
+
       {renderDeckSlots()}
     </div>
   )
 
   const renderCardSearchSection = () => (
     <div className="space-y-4">
-      {/* 検索フィールドを最初に配置 */}
       <Input
         type="text"
         placeholder="カード名で検索..."
@@ -426,7 +477,6 @@ export default function CreateDeckPage() {
         className="w-full"
       />
 
-      {/* フィルターボタンを検索フィールドの下に配置 */}
       <div className="flex flex-wrap gap-2">
         {cardCategoriesForFilter.map((category) => (
           <Button
@@ -444,7 +494,6 @@ export default function CreateDeckPage() {
         ))}
       </div>
 
-      {/* 残りのコンテンツは同じ */}
       {isLoadingSearch && (
         <div className="flex justify-center items-center py-10">
           <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
@@ -460,16 +509,15 @@ export default function CreateDeckPage() {
           <div className="grid grid-cols-5 xs:grid-cols-5 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-5 xl:grid-cols-6 gap-2">
             {searchedCards.map((card) => {
               const cardInDeck = deckCards.find((c) => c.id === card.id)
-              const isMaxed = cardInDeck && cardInDeck.quantity >= (card.category === "energy" ? maxDeckSize : 4)
+              const quantity = cardInDeck?.quantity || 0
+
               return (
                 <button
                   key={card.id}
-                  onClick={() => !isMaxed && addCardToDeck(card)}
-                  disabled={isMaxed}
+                  onClick={() => addCardToDeck(card)}
                   className={cn(
                     "aspect-[5/7] relative rounded-md overflow-hidden border-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1 transition-all cursor-pointer group",
-                    cardInDeck ? "border-purple-400" : "border-transparent hover:border-purple-300",
-                    isMaxed && "opacity-50 cursor-not-allowed",
+                    quantity > 0 ? "border-purple-400" : "border-transparent hover:border-purple-300",
                   )}
                   aria-label={`Add card ${card.name}`}
                 >
@@ -482,19 +530,14 @@ export default function CreateDeckPage() {
                     sizes="(max-width: 400px) 30vw, (max-width: 640px) 22vw, (max-width: 768px) 18vw, (max-width: 1024px) 15vw, 12vw"
                     className="object-cover bg-slate-100"
                   />
-                  {cardInDeck && (
-                    <div
-                      className={cn(
-                        "absolute inset-0 flex items-center justify-center",
-                        isMaxed ? "bg-red-700/70" : "bg-purple-700/60 group-hover:bg-purple-700/80",
-                      )}
-                    >
+                  {quantity > 0 && (
+                    <div className="absolute inset-0 bg-purple-700/60 group-hover:bg-purple-700/80 flex items-center justify-center">
                       <Check className="h-6 w-6 sm:h-8 sm:h-8 text-white stroke-[3px]" />
                     </div>
                   )}
-                  {cardInDeck && cardInDeck.quantity > 0 && (
+                  {quantity > 0 && (
                     <div className="absolute top-1 right-1 bg-black/70 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                      {cardInDeck.quantity}
+                      {quantity}
                     </div>
                   )}
                 </button>
@@ -503,18 +546,6 @@ export default function CreateDeckPage() {
           </div>
         </ScrollArea>
       )}
-    </div>
-  )
-
-  const renderCardSearch = () => (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">{/* cardCategories is not defined here. Removing this section. */}</div>
-
-      <Button onClick={() => setIsModalOpen(true)} className="w-full bg-purple-600 hover:bg-purple-700 text-white">
-        カード名で検索...
-      </Button>
-
-      <div className="text-center text-slate-500 py-8">下のブラウザからカードを追加してください。</div>
     </div>
   )
 
@@ -531,11 +562,7 @@ export default function CreateDeckPage() {
               デッキ一覧へ
             </Link>
             <h1 className="text-2xl font-bold text-slate-800">デッキ構築</h1>
-            <Button
-              onClick={handleSave}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white"
-              disabled={isLoadingAuth || !user || isSaving}
-            >
+            <Button onClick={handleSave} className="bg-emerald-500 hover:bg-emerald-600 text-white" disabled={!canSave}>
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -551,18 +578,12 @@ export default function CreateDeckPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            {" "}
-            {/* items-start を追加 */}
-            {/* Left Column - Card Search */}
             <Card className="sticky top-[calc(var(--header-height,64px)+1.5rem)]">
-              {" "}
-              {/* ヘッダーの高さを考慮して sticky top を調整 */}
               <CardHeader>
                 <CardTitle>カード検索</CardTitle>
               </CardHeader>
               <CardContent>{renderCardSearchSection()}</CardContent>
             </Card>
-            {/* Right Column - Deck Building */}
             <div className="space-y-6">
               <Card>
                 <CardHeader>
@@ -587,7 +608,6 @@ export default function CreateDeckPage() {
             デッキ一覧へ
           </Link>
 
-          {/* Collapsible Deck Info */}
           <Card>
             <CardHeader className="cursor-pointer" onClick={() => setIsDeckInfoExpanded(!isDeckInfoExpanded)}>
               <div className="flex items-center justify-between">
@@ -602,12 +622,10 @@ export default function CreateDeckPage() {
             {isDeckInfoExpanded && <CardContent>{renderDeckInfo()}</CardContent>}
           </Card>
 
-          {/* Deck Composition */}
           <Card>
             <CardContent className="pt-6">{renderDeckComposition()}</CardContent>
           </Card>
 
-          {/* Card Search */}
           <Card>
             <CardHeader>
               <CardTitle>カード検索</CardTitle>
@@ -615,7 +633,6 @@ export default function CreateDeckPage() {
             <CardContent>{renderCardSearchSection()}</CardContent>
           </Card>
 
-          {/* 認証チェックのメッセージを表示する場合 */}
           {isLoadingAuth && <p className="text-center text-slate-500">認証状態を確認中...</p>}
           {!isLoadingAuth && !user && (
             <div className="text-center text-red-600 p-4 bg-red-50 rounded-lg">
@@ -623,11 +640,10 @@ export default function CreateDeckPage() {
             </div>
           )}
 
-          {/* Save Button */}
           <Button
             onClick={handleSave}
             className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3 sticky bottom-4 z-10 shadow-lg"
-            disabled={isLoadingAuth || !user || isSaving}
+            disabled={!canSave}
           >
             {isSaving ? (
               <>
@@ -645,7 +661,6 @@ export default function CreateDeckPage() {
       </div>
 
       <Footer />
-      {/* DetailedSearchModal はページ内検索に置き換えたため、呼び出しを削除 */}
     </div>
   )
 }

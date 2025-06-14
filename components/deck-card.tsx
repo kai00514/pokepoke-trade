@@ -23,6 +23,13 @@ export interface Deck {
     card_id: number
     quantity: number
   }>
+  thumbnail_card_id?: number
+  thumbnail_image?: {
+    id: number
+    name: string
+    image_url: string
+    thumb_url?: string
+  }
 }
 
 interface DeckCardProps {
@@ -30,22 +37,32 @@ interface DeckCardProps {
 }
 
 export default function DeckCard({ deck }: DeckCardProps) {
-  // データベースのデータとサンプルデータの両方に対応
   const deckName = deck.title || deck.name || "無題のデッキ"
   const updatedDate = deck.updated_at || deck.updatedAt || deck.created_at || new Date().toISOString()
   const cardCount = deck.deck_cards?.reduce((sum, card) => sum + card.quantity, 0) || 20
 
-  // デッキの代表カード画像を取得（最初のカードまたはプレースホルダー）
-  const getMainCardImage = () => {
-    if (deck.imageUrl) return deck.imageUrl
-
-    // デッキカードがある場合は最初のカードの画像を使用
-    if (deck.deck_cards && deck.deck_cards.length > 0) {
-      return `/placeholder.svg?width=150&height=210&query=pokemon-card-${deck.deck_cards[0].card_id}`
+  // サムネイル画像を取得（WebP優先）
+  const getThumbnailImage = () => {
+    // 新しいサムネイル画像システム（cardsテーブルからJOIN）
+    if (deck.thumbnail_image) {
+      return {
+        // WebP画像（thumb_url）を優先、フォールバックでimage_url
+        url:
+          deck.thumbnail_image.thumb_url || deck.thumbnail_image.image_url || "/placeholder.svg?width=150&height=210",
+        name: deck.thumbnail_image.name,
+      }
     }
 
-    return "/placeholder.svg?width=150&height=210"
+    // フォールバック: 従来の単一画像
+    if (deck.imageUrl) {
+      return { url: deck.imageUrl, name: deckName }
+    }
+
+    // デフォルト画像
+    return { url: "/placeholder.svg?width=150&height=210", name: deckName }
   }
+
+  const thumbnailImage = getThumbnailImage()
 
   return (
     <Link href={`/decks/${deck.id}`} className="block group">
@@ -56,21 +73,23 @@ export default function DeckCard({ deck }: DeckCardProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-4 pt-0 flex flex-col items-center">
+          {/* サムネイル画像表示 */}
           <div className="relative w-full aspect-[5/7] mb-3">
             <Image
-              src={getMainCardImage() || "/placeholder.svg"}
-              alt={deck.cardName || deckName}
+              src={thumbnailImage.url || "/placeholder.svg"}
+              alt={thumbnailImage.name}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               className="object-contain rounded-md border border-slate-200 bg-slate-50"
             />
           </div>
-          <p className="text-sm text-slate-700 font-medium truncate w-full text-center">{deck.cardName || deckName}</p>
+          <p className="text-sm text-slate-700 font-medium truncate w-full text-center">
+            {deck.thumbnail_image?.name || deck.cardName || deckName}
+          </p>
           <div className="flex items-center text-xs text-slate-500 mt-1">
             <CalendarDays className="h-3.5 w-3.5 mr-1 flex-shrink-0" />
             <span>更新日: {new Date(updatedDate).toLocaleDateString("ja-JP")}</span>
           </div>
-          {/* カード枚数表示 */}
           <div className="text-xs text-slate-600 mt-1">{cardCount}枚のデッキ</div>
         </CardContent>
         <CardFooter className="p-3 bg-slate-50/70 border-t border-slate-200/80 flex justify-around items-center text-xs text-slate-600">

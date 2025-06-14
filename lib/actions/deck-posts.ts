@@ -22,6 +22,7 @@ export type Deck = {
   description?: string
   is_public: boolean
   tags?: string[]
+  thumbnail_card_id?: number
   created_at: string
   updated_at: string
 }
@@ -42,6 +43,7 @@ export type CreateDeckInput = {
   is_public: boolean
   tags?: string[]
   deck_cards: DeckCard[]
+  thumbnail_card_id?: number // 単一のサムネイルカードID
   is_authenticated: boolean
 }
 
@@ -53,6 +55,7 @@ export type UpdateDeckInput = {
   is_public?: boolean
   tags?: string[]
   deck_cards?: DeckCard[]
+  thumbnail_card_id?: number
 }
 
 /**
@@ -66,6 +69,7 @@ export async function createDeck(input: CreateDeckInput): Promise<{ success: boo
       is_authenticated: input.is_authenticated,
       card_count: input.deck_cards.length,
       total_cards: input.deck_cards.reduce((sum, card) => sum + card.quantity, 0),
+      thumbnail_card_id: input.thumbnail_card_id,
     })
 
     // カード枚数の検証
@@ -89,6 +93,7 @@ export async function createDeck(input: CreateDeckInput): Promise<{ success: boo
         description: input.description || null,
         is_public: input.is_public,
         tags: input.tags || [],
+        thumbnail_card_id: input.thumbnail_card_id || null,
       })
       .select()
       .single()
@@ -138,13 +143,19 @@ export async function getDecksList(options?: {
     const limit = options?.limit || 20
     const offset = options?.offset || 0
 
-    // 基本クエリを構築
+    // 基本クエリを構築 - cardsテーブルとJOINしてサムネイル画像を取得
     let query = supabase.from("decks").select(
       `
         *,
         deck_cards (
           card_id,
           quantity
+        ),
+        thumbnail_card:cards!thumbnail_card_id (
+          id,
+          name,
+          image_url,
+          thumb_url
         )
       `,
       { count: "exact" },
@@ -166,7 +177,20 @@ export async function getDecksList(options?: {
 
     if (error) throw new Error(`デッキの取得に失敗しました: ${error.message}`)
 
-    return { success: true, data, count }
+    // データを整形してサムネイル情報を含める
+    const formattedData = data?.map((deck) => ({
+      ...deck,
+      thumbnail_image: deck.thumbnail_card
+        ? {
+            id: deck.thumbnail_card.id,
+            name: deck.thumbnail_card.name,
+            image_url: deck.thumbnail_card.image_url,
+            thumb_url: deck.thumbnail_card.thumb_url,
+          }
+        : null,
+    }))
+
+    return { success: true, data: formattedData, count }
   } catch (error) {
     console.error("デッキ一覧取得エラー:", error)
     return { success: false, error: error instanceof Error ? error.message : "デッキの取得に失敗しました" }
@@ -179,14 +203,27 @@ export async function getDecksList(options?: {
 export async function getDeckDetail(deckId: string): Promise<{
   success: boolean
   data?: {
-    deck: Deck
+    deck: any
     deck_cards: any[]
+    thumbnail_image: any
   }
   error?: string
 }> {
   try {
-    // 1. デッキの基本情報を取得
-    const { data: deck, error: deckError } = await supabase.from("decks").select("*").eq("id", deckId).single()
+    // 1. デッキの基本情報を取得（cardsテーブルとJOIN）
+    const { data: deck, error: deckError } = await supabase
+      .from("decks")
+      .select(`
+        *,
+        thumbnail_card:cards!thumbnail_card_id (
+          id,
+          name,
+          image_url,
+          thumb_url
+        )
+      `)
+      .eq("id", deckId)
+      .single()
 
     if (deckError) throw new Error(`デッキの取得に失敗しました: ${deckError.message}`)
     if (!deck) throw new Error("デッキが見つかりませんでした")
@@ -196,11 +233,22 @@ export async function getDeckDetail(deckId: string): Promise<{
 
     if (cardsError) throw new Error(`デッキカード情報の取得に失敗しました: ${cardsError.message}`)
 
+    // 3. サムネイル画像情報を整形
+    const thumbnailImage = deck.thumbnail_card
+      ? {
+          id: deck.thumbnail_card.id,
+          name: deck.thumbnail_card.name,
+          image_url: deck.thumbnail_card.image_url,
+          thumb_url: deck.thumbnail_card.thumb_url,
+        }
+      : null
+
     return {
       success: true,
       data: {
         deck,
         deck_cards: deckCards || [],
+        thumbnail_image: thumbnailImage,
       },
     }
   } catch (error) {
@@ -230,6 +278,7 @@ export async function updateDeck(input: UpdateDeckInput): Promise<{ success: boo
     if (input.description !== undefined) updateData.description = input.description
     if (input.is_public !== undefined) updateData.is_public = input.is_public
     if (input.tags !== undefined) updateData.tags = input.tags
+    if (input.thumbnail_card_id !== undefined) updateData.thumbnail_card_id = input.thumbnail_card_id
 
     // 更新するデータがある場合のみ実行
     if (Object.keys(updateData).length > 0) {
@@ -329,6 +378,12 @@ export async function getMyDecks(
         deck_cards (
           card_id,
           quantity
+        ),
+        thumbnail_card:cards!thumbnail_card_id (
+          id,
+          name,
+          image_url,
+          thumb_url
         )
       `,
         { count: "exact" },
@@ -346,7 +401,20 @@ export async function getMyDecks(
 
     if (error) throw new Error(`自分のデッキの取得に失敗しました: ${error.message}`)
 
-    return { success: true, data, count }
+    // データを整形してサムネイル情報を含める
+    const formattedData = data?.map((deck) => ({
+      ...deck,
+      thumbnail_image: deck.thumbnail_card
+        ? {
+            id: deck.thumbnail_card.id,
+            name: deck.thumbnail_card.name,
+            image_url: deck.thumbnail_card.image_url,
+            thumb_url: deck.thumbnail_card.thumb_url,
+          }
+        : null,
+    }))
+
+    return { success: true, data: formattedData, count }
   } catch (error) {
     console.error("自分のデッキ一覧取得エラー:", error)
     return { success: false, error: error instanceof Error ? error.message : "自分のデッキの取得に失敗しました" }
