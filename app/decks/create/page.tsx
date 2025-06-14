@@ -69,7 +69,7 @@ export default function CreateDeckPage() {
   const totalCardsInDeck = useMemo(() => {
     return deckCards.reduce((sum, card) => sum + card.quantity, 0)
   }, [deckCards])
-  const maxDeckSize = 60 // ポケモンカードの標準デッキ枚数
+  const maxDeckSize = 20 // ポケモンカードの標準デッキ枚数
   const displaySlotsCount = 20 // UI上に表示するスロット数
 
   // Fetch cards for search
