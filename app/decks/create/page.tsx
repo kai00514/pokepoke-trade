@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils"
 import type { Card as CardType } from "@/components/detailed-search-modal" // CardType のインポートパスを確認
 import { createBrowserClient } from "@/lib/supabase/client" // Supabaseクライアントを追加
 import { useToast } from "@/components/ui/use-toast" // Toastを追加
+import { createDeck, type CreateDeckInput } from "@/lib/actions/deck-posts"
 
 type DeckCard = CardType & { quantity: number }
 
@@ -58,6 +59,9 @@ export default function CreateDeckPage() {
 
   const supabase = createBrowserClient()
   const { toast } = useToast()
+
+  const [user, setUser] = useState<any>(null)
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true)
 
   const totalCards = deckCards.reduce((sum, card) => sum + card.quantity, 0)
   const maxCards = 20
@@ -127,6 +131,17 @@ export default function CreateDeckPage() {
     return () => clearTimeout(debounceFetch)
   }, [searchKeyword, searchCategory, supabase, toast])
 
+  useEffect(() => {
+    async function getUser() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      setUser(user)
+      setIsLoadingAuth(false)
+    }
+    getUser()
+  }, [supabase])
+
   const toggleEnergyType = (typeId: string) => {
     setSelectedEnergyTypes((prev) => (prev.includes(typeId) ? prev.filter((id) => id !== typeId) : [...prev, typeId]))
   }
@@ -182,31 +197,87 @@ export default function CreateDeckPage() {
     setDeckCards([])
   }
 
-  const handleSave = () => {
-    if (totalCardsInDeck !== maxDeckSize && totalCardsInDeck !== 30) {
-      // 60枚またはハーフデッキ30枚
-      // 大会ルール等によっては60枚固定。ここでは60枚固定にする。
+  const handleSave = async () => {
+    // 認証チェック
+    if (!user) {
       toast({
-        title: "デッキ枚数エラー",
-        description: `デッキは${maxDeckSize}枚で構築してください。現在の枚数: ${totalCardsInDeck}枚`,
+        title: "認証エラー",
+        description: "デッキを保存するにはログインが必要です。",
         variant: "destructive",
       })
       return
     }
+
+    // バリデーション
+    if (totalCardsInDeck !== 20) {
+      toast({
+        title: "デッキ枚数エラー",
+        description: `デッキは20枚で構築してください。現在の枚数: ${totalCardsInDeck}枚`,
+        variant: "destructive",
+      })
+      return
+    }
+
     if (!deckName.trim()) {
       toast({ title: "入力エラー", description: "デッキ名を入力してください。", variant: "destructive" })
       return
     }
-    // Implement save functionality
-    console.log("Saving deck:", {
-      deckName,
-      deckDescription,
-      selectedEnergyTypes,
-      deckCards,
-      isPublic,
-      totalCardsInDeck,
-    })
-    toast({ title: "デッキ保存成功", description: `${deckName}を保存しました。` })
+
+    if (deckCards.length === 0) {
+      toast({ title: "入力エラー", description: "デッキにカードを追加してください。", variant: "destructive" })
+      return
+    }
+
+    try {
+      setIsLoadingSearch(true) // 保存中のローディング表示
+
+      // デッキデータの準備
+      const deckInput: CreateDeckInput = {
+        title: deckName.trim(),
+        user_id: user.id,
+        description: deckDescription.trim() || undefined,
+        is_public: isPublic,
+        tags: selectedEnergyTypes.length > 0 ? selectedEnergyTypes : undefined,
+        deck_cards: deckCards.map((card) => ({
+          card_id: Number.parseInt(card.id),
+          quantity: card.quantity,
+          name: card.name,
+          image_url: card.imageUrl,
+        })),
+        is_authenticated: true,
+      }
+
+      // デッキを保存
+      const result = await createDeck(deckInput)
+
+      if (result.success) {
+        toast({
+          title: "デッキ保存成功",
+          description: `${deckName}を保存しました。`,
+        })
+
+        // フォームをリセット
+        setDeckName("")
+        setDeckDescription("")
+        setSelectedEnergyTypes([])
+        setDeckCards([])
+        setIsPublic(true)
+
+        // デッキ一覧ページにリダイレクト
+        window.location.href = "/decks"
+      } else {
+        throw new Error(result.error || "デッキの保存に失敗しました")
+      }
+    } catch (error) {
+      console.error("デッキ保存中にエラーが発生しました:", error)
+      toast({
+        title: "保存エラー",
+        description: error instanceof Error ? error.message : "デッキの保存に失敗しました。",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingSearch(false)
+    }
   }
 
   const renderDeckSlots = () => {
@@ -459,7 +530,11 @@ export default function CreateDeckPage() {
               デッキ一覧へ
             </Link>
             <h1 className="text-2xl font-bold text-slate-800">デッキ構築</h1>
-            <Button onClick={handleSave} className="bg-emerald-500 hover:bg-emerald-600 text-white">
+            <Button
+              onClick={handleSave}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white"
+              disabled={isLoadingSearch || isLoadingAuth || !user}
+            >
               <Save className="h-4 w-4 mr-2" />
               保存
             </Button>
@@ -530,10 +605,19 @@ export default function CreateDeckPage() {
             <CardContent>{renderCardSearchSection()}</CardContent>
           </Card>
 
+          {/* 認証チェックのメッセージを表示する場合 */}
+          {isLoadingAuth && <p className="text-center text-slate-500">認証状態を確認中...</p>}
+          {!isLoadingAuth && !user && (
+            <div className="text-center text-red-600 p-4 bg-red-50 rounded-lg">
+              <p>デッキを保存するにはログインが必要です。</p>
+            </div>
+          )}
+
           {/* Save Button */}
           <Button
             onClick={handleSave}
             className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3 sticky bottom-4 z-10 shadow-lg"
+            disabled={isLoadingSearch || isLoadingAuth || !user}
           >
             <Save className="h-4 w-4 mr-2" />
             保存

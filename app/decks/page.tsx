@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils"
 import DeckCard, { type Deck } from "@/components/deck-card"
 import { useSwipeable } from "react-swipeable"
 import { motion, AnimatePresence } from "framer-motion"
+import { getDecksList } from "@/lib/actions/deck-posts"
+import { useToast } from "@/components/ui/use-toast"
 
 type TabId = "posted" | "tier" | "featured" | "newpack"
 
@@ -89,7 +91,7 @@ const sampleDecks: Deck[] = [
   },
 ]
 
-const swipeConfidenceThreshold = 10000 // Adjust as needed
+const swipeConfidenceThreshold = 10000
 const swipePower = (offset: number, velocity: number) => Math.abs(offset) * velocity
 
 const variants = {
@@ -114,10 +116,50 @@ const variants = {
 
 export default function DecksPage() {
   const [activeTabIndex, setActiveTabIndex] = useState(0)
-  const [direction, setDirection] = useState(0) // 0: none, 1: next, -1: prev
+  const [direction, setDirection] = useState(0)
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const [postedDecks, setPostedDecks] = useState<Deck[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
   const activeTabId = tabs[activeTabIndex].id
+
+  // 投稿されたデッキを取得
+  const fetchPostedDecks = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const result = await getDecksList({ isPublic: true, limit: 50 })
+      if (result.success && result.data) {
+        setPostedDecks(result.data)
+      } else {
+        setError(result.error || "デッキの取得に失敗しました")
+        toast({
+          title: "エラー",
+          description: result.error || "デッキの取得に失敗しました",
+          variant: "destructive",
+        })
+      }
+    } catch (err) {
+      const errorMessage = "デッキの取得中にエラーが発生しました"
+      setError(errorMessage)
+      toast({
+        title: "エラー",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }, [toast])
+
+  // コンポーネントマウント時とタブ変更時にデータを取得
+  useEffect(() => {
+    if (activeTabId === "posted") {
+      fetchPostedDecks()
+    }
+  }, [activeTabId, fetchPostedDecks])
 
   const changeTab = useCallback(
     (newIndex: number) => {
@@ -152,11 +194,63 @@ export default function DecksPage() {
       }
     },
     preventScrollOnSwipe: true,
-    trackMouse: true, // Optional: for mouse swiping on desktop for testing
+    trackMouse: true,
   })
 
   const renderDeckList = () => {
-    const decksToDisplay = sampleDecks // Replace with actual data fetching/filtering
+    // 投稿タブの場合は実際のデータベースデータを使用
+    if (activeTabId === "posted") {
+      if (isLoading) {
+        return (
+          <div className="flex justify-center items-center py-20">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+              <p className="text-slate-500">デッキを読み込み中...</p>
+            </div>
+          </div>
+        )
+      }
+
+      if (error) {
+        return (
+          <div className="text-center py-20">
+            <p className="text-red-500 mb-4">{error}</p>
+            <Button onClick={fetchPostedDecks} variant="outline">
+              再試行
+            </Button>
+          </div>
+        )
+      }
+
+      if (postedDecks.length === 0) {
+        return (
+          <div className="text-center py-20">
+            <div className="mb-6">
+              <PlusCircle className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-slate-600 mb-2">まだデッキが投稿されていません</h3>
+              <p className="text-slate-500 mb-6">最初のデッキを投稿してみませんか？</p>
+            </div>
+            <Button asChild className="bg-emerald-500 hover:bg-emerald-600 text-white">
+              <Link href="/decks/create">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                デッキを投稿する
+              </Link>
+            </Button>
+          </div>
+        )
+      }
+
+      return (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {postedDecks.map((deck) => (
+            <DeckCard key={deck.id} deck={deck} />
+          ))}
+        </div>
+      )
+    }
+
+    // その他のタブはサンプルデータを使用
+    const decksToDisplay = sampleDecks
     if (decksToDisplay.length === 0) {
       return <div className="p-4 text-center text-slate-500">表示できるデッキがありません。</div>
     }
@@ -211,8 +305,6 @@ export default function DecksPage() {
         </div>
 
         <div {...swipeHandlers} className="mt-6 px-4 sm:px-0 overflow-hidden">
-          {" "}
-          {/* Added overflow-hidden for animation containment */}
           <AnimatePresence initial={false} custom={direction} mode="wait">
             <motion.div
               key={activeTabId}
@@ -221,7 +313,7 @@ export default function DecksPage() {
               initial="enter"
               animate="center"
               exit="exit"
-              className="will-change-transform" // Optimization for animations
+              className="will-change-transform"
             >
               {renderDeckList()}
             </motion.div>

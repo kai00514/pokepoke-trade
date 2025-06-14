@@ -52,6 +52,37 @@ export async function createTradePost(formData: TradeFormData) {
     // 挿入後の確認
     const { data: inserted, error: fetchError } = await supabase.from("trade_posts").select("id, owner_id").eq("id", postId).single()
     console.log("[DEBUG] inserted row:", inserted, fetchError)
+
+    // Step 2: Insert wanted cards
+    if (formData.wantedCards.length > 0) {
+      const wantedCardsData = formData.wantedCards.map((card, index) => ({
+        post_id: postId,
+        card_id: Number.parseInt(card.id),
+        is_primary: index === 0, // First card is primary
+      }))
+      const { error: wantedCardsError } = await supabase.from("trade_post_wanted_cards").insert(wantedCardsData)
+      console.log("[DEBUG] wantedCardsError:", wantedCardsError)
+      if (wantedCardsError) {
+        await supabase.from("trade_posts").delete().eq("id", postId)
+        return { success: false, error: `求めるカードの保存に失敗しました: ${wantedCardsError.message}` }
+      }
+    }
+
+    // Step 3: Insert offered cards
+    if (formData.offeredCards.length > 0) {
+      const offeredCardsData = formData.offeredCards.map((card) => ({
+        post_id: postId,
+        card_id: Number.parseInt(card.id),
+      }))
+      const { error: offeredCardsError } = await supabase.from("trade_post_offered_cards").insert(offeredCardsData)
+      console.log("[DEBUG] offeredCardsError:", offeredCardsError)
+      if (offeredCardsError) {
+        await supabase.from("trade_post_wanted_cards").delete().eq("post_id", postId)
+        await supabase.from("trade_posts").delete().eq("id", postId)
+        return { success: false, error: `譲れるカードの保存に失敗しました: ${offeredCardsError.message}` }
+      }
+    }
+
     return { success: true, postId }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "予期しないエラーが発生しました。" }
