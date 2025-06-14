@@ -17,6 +17,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { createTradePost } from "@/lib/actions/trade-actions"
 import { createBrowserClient } from "@/lib/supabase/client"
 import LoginPromptModal from "@/components/ui/login-prompt-modal"
+import AuthDebug from "@/components/auth-debug"
 
 type SelectionContextType = "wanted" | "offered" | null
 
@@ -268,6 +269,13 @@ export default function CreateTradePage() {
 
         <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md max-w-2xl mx-auto">
           <h1 className="text-2xl font-bold text-slate-800 mb-6 text-center">トレードカードを登録</h1>
+
+          {/* デバッグ情報（開発時のみ表示） */}
+          {process.env.NODE_ENV === "development" && (
+            <div className="mb-6">
+              <AuthDebug />
+            </div>
+          )}
 
           <Alert className="mb-6 bg-blue-50 border-blue-200">
             <InfoIcon className="h-5 w-5 text-blue-600" />
