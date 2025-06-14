@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
@@ -12,12 +10,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { InfoIcon, ArrowLeft, Trash2, Loader2, AlertCircle } from "lucide-react"
+import { InfoIcon, ArrowLeft, Trash2, Loader2 } from "lucide-react"
 import DetailedSearchModal from "@/components/detailed-search-modal"
 import type { Card as SelectedCardType } from "@/components/detailed-search-modal"
 import { useToast } from "@/components/ui/use-toast"
 import { createTradePost } from "@/lib/actions/trade-actions"
 import { createBrowserClient } from "@/lib/supabase/client"
+import LoginPromptModal from "@/components/ui/login-prompt-modal"
 
 type SelectionContextType = "wanted" | "offered" | null
 
@@ -30,6 +29,8 @@ export default function CreateTradePage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({})
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
+  const [guestName, setGuestName] = useState("")
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalSelectionContext, setModalSelectionContext] = useState<SelectionContextType>(null)
@@ -72,6 +73,11 @@ export default function CreateTradePage() {
 
     if (offeredCards.length === 0) {
       errors.offeredCards = "譲れるカードを選択してください。"
+    }
+
+    // Guest name validation when not authenticated
+    if (!isAuthenticated && !guestName.trim()) {
+      errors.guestName = "ゲスト名を入力してください。"
     }
 
     setFormErrors(errors)
@@ -131,21 +137,7 @@ export default function CreateTradePage() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    // Check authentication first
-    if (isAuthenticated === false) {
-      toast({
-        title: "認証エラー",
-        description: "投稿するにはログインが必要です。",
-        variant: "destructive",
-      })
-      router.push("/auth/login")
-      return
-    }
-
-    // Validate form
+  const handleSubmitClick = () => {
     if (!validateForm()) {
       toast({
         title: "入力エラー",
@@ -155,6 +147,19 @@ export default function CreateTradePage() {
       return
     }
 
+    if (!isAuthenticated) {
+      setShowLoginPrompt(true)
+    } else {
+      handleSubmit()
+    }
+  }
+
+  const handleContinueAsGuest = () => {
+    setShowLoginPrompt(false)
+    handleSubmit()
+  }
+
+  const handleSubmit = async () => {
     try {
       setIsSubmitting(true)
 
@@ -164,6 +169,7 @@ export default function CreateTradePage() {
         offeredCards,
         appId: appId.trim() || undefined,
         comment: comment.trim() || undefined,
+        guestName: !isAuthenticated ? guestName.trim() : undefined,
       })
 
       if (result.success) {
@@ -263,19 +269,6 @@ export default function CreateTradePage() {
         <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md max-w-2xl mx-auto">
           <h1 className="text-2xl font-bold text-slate-800 mb-6 text-center">トレードカードを登録</h1>
 
-          {!isAuthenticated && (
-            <Alert className="mb-6 bg-amber-50 border-amber-200">
-              <AlertCircle className="h-5 w-5 text-amber-600" />
-              <AlertTitle className="text-amber-700 font-semibold">ログインが必要です</AlertTitle>
-              <AlertDescription className="text-amber-600 text-sm">
-                トレード投稿を作成するには、ログインが必要です。
-                <Link href="/auth/login" className="text-purple-600 font-medium ml-1 hover:underline">
-                  ログインする
-                </Link>
-              </AlertDescription>
-            </Alert>
-          )}
-
           <Alert className="mb-6 bg-blue-50 border-blue-200">
             <InfoIcon className="h-5 w-5 text-blue-600" />
             <AlertTitle className="text-blue-700 font-semibold">お知らせ</AlertTitle>
@@ -285,7 +278,7 @@ export default function CreateTradePage() {
             </AlertDescription>
           </Alert>
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
+          <form className="space-y-6">
             <div>
               <label htmlFor="tradeTitle" className="block text-sm font-medium text-slate-700 mb-1">
                 トレード目的 <span className="text-red-500">*</span>
@@ -351,9 +344,31 @@ export default function CreateTradePage() {
               <p className="text-xs text-slate-500 mt-1">
                 {isAuthenticated
                   ? "ログイン中です。ポケポケIDは任意です。"
-                  : "ログインするとユーザー情報が自動的に紐づけられます。"}
+                  : "ゲストユーザーとして投稿します。ポケポケIDは任意です。"}
               </p>
             </div>
+
+            {!isAuthenticated && (
+              <div>
+                <label htmlFor="guestName" className="block text-sm font-medium text-slate-700 mb-1">
+                  ゲスト名 <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  id="guestName"
+                  value={guestName}
+                  onChange={(e) => {
+                    setGuestName(e.target.value)
+                    if (formErrors.guestName) {
+                      setFormErrors((prev) => ({ ...prev, guestName: "" }))
+                    }
+                  }}
+                  placeholder="表示名を入力してください"
+                  disabled={isSubmitting}
+                  className={formErrors.guestName ? "border-red-500" : ""}
+                />
+                {formErrors.guestName && <p className="text-sm text-red-500 mt-1">{formErrors.guestName}</p>}
+              </div>
+            )}
 
             <div>
               <label htmlFor="comment" className="block text-sm font-medium text-slate-700 mb-1">
@@ -373,9 +388,10 @@ export default function CreateTradePage() {
 
             <div className="pt-4">
               <Button
-                type="submit"
+                type="button"
+                onClick={handleSubmitClick}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white text-base py-3"
-                disabled={isSubmitting || isAuthenticated === false}
+                disabled={isSubmitting}
               >
                 {isSubmitting ? (
                   <>
@@ -401,6 +417,11 @@ export default function CreateTradePage() {
         initialSelectedCards={modalInitialCards}
         modalTitle={currentModalTitle}
       />
+
+      {/* Login Prompt Modal */}
+      {showLoginPrompt && (
+        <LoginPromptModal onClose={() => setShowLoginPrompt(false)} onContinueAsGuest={handleContinueAsGuest} />
+      )}
     </div>
   )
 }

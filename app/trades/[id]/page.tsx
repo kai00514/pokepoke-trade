@@ -1,7 +1,4 @@
-// app/trades/[id]/page.tsx
 "use client"
-
-import type React from "react"
 import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -15,6 +12,8 @@ import { ArrowLeft, Copy, Send, UserCircle, Loader2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import type { Card as CardInfo } from "@/components/detailed-search-modal"
 import { getTradePostDetailsById, addCommentToTradePost } from "@/lib/actions/trade-actions"
+import { createBrowserClient } from "@/lib/supabase/client"
+import LoginPromptModal from "@/components/ui/login-prompt-modal"
 
 // Define types for post details and comments
 interface Comment {
@@ -52,8 +51,40 @@ export default function TradeDetailPage() {
   const [newComment, setNewComment] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmittingComment, setIsSubmittingComment] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
+  const [guestName, setGuestName] = useState("")
 
+  const supabase = createBrowserClient()
   const postId = params.id as string
+
+  const handleCopyToClipboard = useCallback(() => {
+    if (post?.originalPostId) {
+      navigator.clipboard.writeText(post.originalPostId)
+      toast({
+        title: "コピーしました",
+        description: `ID: ${post.originalPostId} をクリップボードにコピーしました。`,
+      })
+    }
+  }, [post?.originalPostId, toast])
+
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession()
+      setIsAuthenticated(!!data.session)
+    }
+
+    checkAuth()
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session)
+    })
+
+    return () => {
+      authListener.subscription.unsubscribe()
+    }
+  }, [supabase.auth])
 
   // Redirect if trying to access create page through dynamic route
   useEffect(() => {
@@ -99,25 +130,41 @@ export default function TradeDetailPage() {
     fetchPostDetails()
   }, [fetchPostDetails])
 
-  const handleCopyToClipboard = useCallback(() => {
-    if (post?.originalPostId) {
-      navigator.clipboard.writeText(post.originalPostId)
+  const handleCommentSubmitClick = () => {
+    if (!newComment.trim()) {
       toast({
-        title: "コピーしました",
-        description: `ID: ${post.originalPostId} をクリップボードにコピーしました。`,
+        title: "入力エラー",
+        description: "コメントを入力してください。",
+        variant: "destructive",
       })
+      return
     }
-  }, [post?.originalPostId, toast])
 
-  const handleCommentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    if (!isAuthenticated) {
+      setShowLoginPrompt(true)
+    } else {
+      handleCommentSubmit()
+    }
+  }
+
+  const handleContinueAsGuest = () => {
+    setShowLoginPrompt(false)
+    handleCommentSubmit()
+  }
+
+  const handleCommentSubmit = async () => {
     if (!newComment.trim() || !postId) return
 
     setIsSubmittingComment(true)
     try {
-      const result = await addCommentToTradePost(postId, newComment.trim())
+      const result = await addCommentToTradePost(
+        postId,
+        newComment.trim(),
+        !isAuthenticated ? guestName.trim() : undefined,
+      )
       if (result.success) {
         setNewComment("")
+        setGuestName("")
         toast({
           title: "コメントを投稿しました",
         })
@@ -295,10 +342,23 @@ export default function TradeDetailPage() {
             )}
           </div>
 
-          <form
-            onSubmit={handleCommentSubmit}
-            className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50 rounded-b-lg"
-          >
+          <div className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50 rounded-b-lg space-y-4">
+            {!isAuthenticated && (
+              <div>
+                <label htmlFor="guestName" className="block text-sm font-medium text-slate-700 mb-1">
+                  ゲスト名
+                </label>
+                <Input
+                  id="guestName"
+                  type="text"
+                  placeholder="表示名を入力してください"
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  className="bg-white"
+                  disabled={isSubmittingComment}
+                />
+              </div>
+            )}
             <div className="flex items-center space-x-2">
               <Input
                 type="text"
@@ -307,11 +367,18 @@ export default function TradeDetailPage() {
                 onChange={(e) => setNewComment(e.target.value)}
                 className="flex-grow bg-white"
                 disabled={isSubmittingComment}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault()
+                    handleCommentSubmitClick()
+                  }
+                }}
               />
               <Button
-                type="submit"
+                type="button"
+                onClick={handleCommentSubmitClick}
                 className="bg-purple-600 hover:bg-purple-700 text-white"
-                disabled={!newComment.trim() || isSubmittingComment}
+                disabled={!newComment.trim() || isSubmittingComment || (!isAuthenticated && !guestName.trim())}
               >
                 {isSubmittingComment ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -323,10 +390,15 @@ export default function TradeDetailPage() {
                 )}
               </Button>
             </div>
-          </form>
+          </div>
         </div>
       </main>
       <Footer />
+
+      {/* Login Prompt Modal */}
+      {showLoginPrompt && (
+        <LoginPromptModal onClose={() => setShowLoginPrompt(false)} onContinueAsGuest={handleContinueAsGuest} />
+      )}
     </div>
   )
 }

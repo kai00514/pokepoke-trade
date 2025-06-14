@@ -17,7 +17,8 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 // デッキの型定義
 export type Deck = {
   id: string
-  user_id: string
+  user_id: string | null
+  guest_name: string | null
   title: string
   description?: string
   is_public: boolean
@@ -38,12 +39,13 @@ export type DeckCard = {
 // デッキ作成の入力データ型
 export type CreateDeckInput = {
   title: string
-  user_id: string
+  user_id?: string | null
+  guestName?: string
   description?: string
   is_public: boolean
   tags?: string[]
   deck_cards: DeckCard[]
-  thumbnail_card_id?: number // 単一のサムネイルカードID
+  thumbnail_card_id?: number
   is_authenticated: boolean
 }
 
@@ -66,6 +68,7 @@ export async function createDeck(input: CreateDeckInput): Promise<{ success: boo
     console.log("[createDeck] Starting deck creation with input:", {
       title: input.title,
       user_id: input.user_id,
+      guestName: input.guestName,
       is_authenticated: input.is_authenticated,
       card_count: input.deck_cards.length,
       total_cards: input.deck_cards.reduce((sum, card) => sum + card.quantity, 0),
@@ -88,7 +91,8 @@ export async function createDeck(input: CreateDeckInput): Promise<{ success: boo
     const { data: deckData, error: deckError } = await supabase
       .from("decks")
       .insert({
-        user_id: input.user_id,
+        user_id: input.user_id || null,
+        guest_name: input.is_authenticated ? null : input.guestName || "ゲスト",
         title: input.title,
         description: input.description || null,
         is_public: input.is_public,

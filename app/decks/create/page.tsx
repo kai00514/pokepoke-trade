@@ -16,6 +16,7 @@ import type { Card as CardType } from "@/components/detailed-search-modal"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/use-toast"
 import { createDeck, type CreateDeckInput } from "@/lib/actions/deck-posts"
+import LoginPromptModal from "@/components/ui/login-prompt-modal"
 
 type DeckCard = CardType & { quantity: number }
 
@@ -41,7 +42,9 @@ export default function CreateDeckPage() {
   const [deckCards, setDeckCards] = useState<DeckCard[]>([])
   const [isPublic, setIsPublic] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [thumbnailCard, setThumbnailCard] = useState<DeckCard | null>(null) // 1枚のサムネイル
+  const [thumbnailCard, setThumbnailCard] = useState<DeckCard | null>(null)
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
+  const [guestName, setGuestName] = useState("")
 
   // Mobile layout state
   const [isDeckInfoExpanded, setIsDeckInfoExpanded] = useState(true)
@@ -200,19 +203,17 @@ export default function CreateDeckPage() {
 
   // 投稿ボタンの活性化条件を修正
   const canSave = useMemo(() => {
-    return !isLoadingAuth && user && !isSaving && deckName.trim() && deckCards.length > 0 && totalCardsInDeck === 20
-  }, [isLoadingAuth, user, isSaving, deckName, deckCards.length, totalCardsInDeck])
+    return (
+      !isLoadingAuth &&
+      !isSaving &&
+      deckName.trim() &&
+      deckCards.length > 0 &&
+      totalCardsInDeck === 20 &&
+      (user || guestName.trim())
+    )
+  }, [isLoadingAuth, isSaving, deckName, deckCards.length, totalCardsInDeck, user, guestName])
 
-  const handleSave = async () => {
-    if (!user) {
-      toast({
-        title: "認証エラー",
-        description: "デッキを保存するにはログインが必要です。",
-        variant: "destructive",
-      })
-      return
-    }
-
+  const handleSaveClick = () => {
     if (totalCardsInDeck !== 20) {
       toast({
         title: "デッキ枚数エラー",
@@ -232,12 +233,26 @@ export default function CreateDeckPage() {
       return
     }
 
+    if (!user) {
+      setShowLoginPrompt(true)
+    } else {
+      handleSave()
+    }
+  }
+
+  const handleContinueAsGuest = () => {
+    setShowLoginPrompt(false)
+    handleSave()
+  }
+
+  const handleSave = async () => {
     try {
       setIsSaving(true)
 
       const deckInput: CreateDeckInput = {
         title: deckName.trim(),
-        user_id: user.id,
+        user_id: user?.id || null,
+        guestName: !user ? guestName.trim() : undefined,
         description: deckDescription.trim() || undefined,
         is_public: isPublic,
         tags: selectedEnergyTypes.length > 0 ? selectedEnergyTypes : undefined,
@@ -248,7 +263,7 @@ export default function CreateDeckPage() {
           image_url: card.imageUrl,
         })),
         thumbnail_card_id: thumbnailCard ? Number.parseInt(thumbnailCard.id) : undefined,
-        is_authenticated: true,
+        is_authenticated: !!user,
       }
 
       console.log("[handleSave] Saving deck with thumbnail_card_id:", deckInput.thumbnail_card_id)
@@ -266,6 +281,7 @@ export default function CreateDeckPage() {
         setSelectedEnergyTypes([])
         setDeckCards([])
         setThumbnailCard(null)
+        setGuestName("")
         setIsPublic(true)
 
         window.location.href = "/decks"
@@ -399,6 +415,20 @@ export default function CreateDeckPage() {
           className="w-full resize-none"
         />
       </div>
+
+      {!user && (
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            ゲスト名 <span className="text-red-500">*</span>
+          </label>
+          <Input
+            value={guestName}
+            onChange={(e) => setGuestName(e.target.value)}
+            placeholder="表示名を入力してください"
+            className="w-full"
+          />
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-2">主要エネルギータイプ</label>
@@ -562,7 +592,11 @@ export default function CreateDeckPage() {
               デッキ一覧へ
             </Link>
             <h1 className="text-2xl font-bold text-slate-800">デッキ構築</h1>
-            <Button onClick={handleSave} className="bg-emerald-500 hover:bg-emerald-600 text-white" disabled={!canSave}>
+            <Button
+              onClick={handleSaveClick}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white"
+              disabled={!canSave}
+            >
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -634,14 +668,9 @@ export default function CreateDeckPage() {
           </Card>
 
           {isLoadingAuth && <p className="text-center text-slate-500">認証状態を確認中...</p>}
-          {!isLoadingAuth && !user && (
-            <div className="text-center text-red-600 p-4 bg-red-50 rounded-lg">
-              <p>デッキを保存するにはログインが必要です。</p>
-            </div>
-          )}
 
           <Button
-            onClick={handleSave}
+            onClick={handleSaveClick}
             className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3 sticky bottom-4 z-10 shadow-lg"
             disabled={!canSave}
           >
@@ -661,6 +690,11 @@ export default function CreateDeckPage() {
       </div>
 
       <Footer />
+
+      {/* Login Prompt Modal */}
+      {showLoginPrompt && (
+        <LoginPromptModal onClose={() => setShowLoginPrompt(false)} onContinueAsGuest={handleContinueAsGuest} />
+      )}
     </div>
   )
 }
