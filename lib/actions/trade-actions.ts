@@ -798,7 +798,7 @@ export async function getCommentedTradePosts(userId: string) {
         is_authenticated
       `)
       .in("id", commentedPostIds)
-      .neq("owner_id", userId) // 自分の投稿は除外
+      .or(`owner_id.is.null,owner_id.neq.${userId}`) // 自分の投稿は除外、ゲスト投稿は含める
       .order("created_at", { ascending: false })
 
     if (postsError) {
