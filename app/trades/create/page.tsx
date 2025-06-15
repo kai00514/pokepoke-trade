@@ -115,6 +115,7 @@ export default function CreateTradePage() {
 
       setIsAuthenticated(isAuth)
       setCurrentUserId(userId) // この行を追加
+      console.log("ユーザーID: ", userId)
 
       console.log("[CreateTradePage] Auth state changed:", {
         event,
@@ -278,7 +279,7 @@ export default function CreateTradePage() {
             }
           : null,
       })
-
+      console.log("ユーザーID2: ", userId)
       const result = await createTradePost({
         title: tradeTitle,
         wantedCards,
