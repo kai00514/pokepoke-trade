@@ -32,7 +32,6 @@ export default function CreateTradePage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({})
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
-  const [guestName, setGuestName] = useState("")
   const [timeSync, setTimeSync] = useState<TimeSync | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
@@ -72,7 +71,7 @@ export default function CreateTradePage() {
       const userId = data.session?.user?.id || null
 
       setIsAuthenticated(isAuth)
-      setCurrentUserId(userId) // この行を追加
+      setCurrentUserId(userId)
 
       console.log("[CreateTradePage] Auth status:", {
         hasSession: !!data.session,
@@ -114,7 +113,7 @@ export default function CreateTradePage() {
       const userId = session?.user?.id || null
 
       setIsAuthenticated(isAuth)
-      setCurrentUserId(userId) // この行を追加
+      setCurrentUserId(userId)
       console.log("ユーザーID: ", userId)
 
       console.log("[CreateTradePage] Auth state changed:", {
@@ -145,11 +144,6 @@ export default function CreateTradePage() {
 
     if (offeredCards.length === 0) {
       errors.offeredCards = "譲れるカードを選択してください。"
-    }
-
-    // Guest name validation when not authenticated
-    if (!isAuthenticated && !guestName.trim()) {
-      errors.guestName = "ゲスト名を入力してください。"
     }
 
     setFormErrors(errors)
@@ -268,8 +262,7 @@ export default function CreateTradePage() {
 
       console.log("[CreateTradePage] Submitting trade post:", {
         isAuthenticated,
-        currentUserId: currentUserId, // この行を追加
-        guestName: !isAuthenticated ? guestName.trim() : undefined,
+        currentUserId: currentUserId,
         title: tradeTitle,
         wantedCardsCount: wantedCards.length,
         offeredCardsCount: offeredCards.length,
@@ -287,8 +280,7 @@ export default function CreateTradePage() {
         offeredCards,
         appId: appId.trim() || undefined,
         comment: comment.trim() || undefined,
-        guestName: !isAuthenticated ? guestName.trim() : undefined,
-        userId: isAuthenticated ? currentUserId : undefined, // この行は既に正しい
+        userId: isAuthenticated ? currentUserId : undefined,
       })
 
       console.log("[CreateTradePage] Trade post result:", result)
@@ -505,28 +497,6 @@ export default function CreateTradePage() {
                   : "ゲストユーザーとして投稿します。ポケポケIDは任意です。"}
               </p>
             </div>
-
-            {!isAuthenticated && (
-              <div>
-                <label htmlFor="guestName" className="block text-sm font-medium text-slate-700 mb-1">
-                  ゲスト名 <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  id="guestName"
-                  value={guestName}
-                  onChange={(e) => {
-                    setGuestName(e.target.value)
-                    if (formErrors.guestName) {
-                      setFormErrors((prev) => ({ ...prev, guestName: "" }))
-                    }
-                  }}
-                  placeholder="表示名を入力してください"
-                  disabled={isSubmitting}
-                  className={formErrors.guestName ? "border-red-500" : ""}
-                />
-                {formErrors.guestName && <p className="text-sm text-red-500 mt-1">{formErrors.guestName}</p>}
-              </div>
-            )}
 
             <div>
               <label htmlFor="comment" className="block text-sm font-medium text-slate-700 mb-1">
