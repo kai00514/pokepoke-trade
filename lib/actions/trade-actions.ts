@@ -28,59 +28,160 @@ export interface TradeFormData {
 
 export async function createTradePost(formData: TradeFormData) {
   try {
-    console.log("[createTradePost] Starting trade post creation...")
+    console.log("=".repeat(80))
+    console.log("[createTradePost] 🚀 Starting trade post creation...")
+    console.log("[createTradePost] 📝 Form data received:", {
+      title: formData.title,
+      wantedCardsCount: formData.wantedCards.length,
+      offeredCardsCount: formData.offeredCards.length,
+      hasAppId: !!formData.appId,
+      hasComment: !!formData.comment,
+      hasGuestName: !!formData.guestName,
+      guestName: formData.guestName,
+    })
 
     const supabase = await createServerClient()
+    console.log("[createTradePost] ✅ Supabase client created")
 
-    // Get current session with detailed logging
+    // === SESSION DEBUGGING ===
+    console.log("\n" + "=".repeat(50))
+    console.log("[createTradePost] 🔍 GETTING SESSION...")
+    console.log("=".repeat(50))
+
     const {
       data: { session },
       error: sessionError,
     } = await supabase.auth.getSession()
 
-    console.log("[createTradePost] Session check:", {
+    console.log("[createTradePost] 📊 Session result:", {
       hasSession: !!session,
-      hasUser: !!session?.user,
-      userId: session?.user?.id,
-      userEmail: session?.user?.email,
-      sessionError: sessionError?.message,
+      sessionError: sessionError?.message || null,
+      sessionKeys: session ? Object.keys(session) : null,
     })
 
-    // Also try getUser() as a fallback
+    if (session) {
+      console.log("[createTradePost] 👤 Session user details:", {
+        hasUser: !!session.user,
+        userId: session.user?.id,
+        userEmail: session.user?.email,
+        userPhone: session.user?.phone,
+        userRole: session.user?.role,
+        userKeys: session.user ? Object.keys(session.user) : null,
+        userMetadata: session.user?.user_metadata,
+        appMetadata: session.user?.app_metadata,
+        identities: session.user?.identities?.length || 0,
+        createdAt: session.user?.created_at,
+        updatedAt: session.user?.updated_at,
+        lastSignInAt: session.user?.last_sign_in_at,
+      })
+
+      if (session.user?.identities) {
+        console.log(
+          "[createTradePost] 🔗 User identities:",
+          session.user.identities.map((identity) => ({
+            provider: identity.provider,
+            id: identity.id,
+            userId: identity.user_id,
+            identityData: identity.identity_data,
+          })),
+        )
+      }
+    } else {
+      console.log("[createTradePost] ❌ No session found")
+    }
+
+    // === USER DEBUGGING ===
+    console.log("\n" + "=".repeat(50))
+    console.log("[createTradePost] 🔍 GETTING USER...")
+    console.log("=".repeat(50))
+
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser()
 
-    console.log("[createTradePost] User check:", {
+    console.log("[createTradePost] 📊 User result:", {
       hasUser: !!user,
-      userId: user?.id,
-      userEmail: user?.email,
-      userError: userError?.message,
+      userError: userError?.message || null,
+      userKeys: user ? Object.keys(user) : null,
     })
 
+    if (user) {
+      console.log("[createTradePost] 👤 Direct user details:", {
+        userId: user.id,
+        userEmail: user.email,
+        userPhone: user.phone,
+        userRole: user.role,
+        userMetadata: user.user_metadata,
+        appMetadata: user.app_metadata,
+        identities: user.identities?.length || 0,
+        createdAt: user.created_at,
+        updatedAt: user.updated_at,
+        lastSignInAt: user.last_sign_in_at,
+      })
+
+      if (user.identities) {
+        console.log(
+          "[createTradePost] 🔗 Direct user identities:",
+          user.identities.map((identity) => ({
+            provider: identity.provider,
+            id: identity.id,
+            userId: identity.user_id,
+            identityData: identity.identity_data,
+          })),
+        )
+      }
+    } else {
+      console.log("[createTradePost] ❌ No user found via getUser()")
+    }
+
+    // === ERROR HANDLING ===
     if (sessionError) {
-      console.warn("[createTradePost] Session error (continuing as guest):", sessionError)
+      console.warn("[createTradePost] ⚠️ Session error (continuing as guest):", {
+        message: sessionError.message,
+        status: sessionError.status,
+        statusText: sessionError.statusText,
+      })
     }
 
     if (userError) {
-      console.warn("[createTradePost] User error (continuing as guest):", userError)
+      console.warn("[createTradePost] ⚠️ User error (continuing as guest):", {
+        message: userError.message,
+        status: userError.status,
+        statusText: userError.statusText,
+      })
     }
 
-    // Use session user first, then fallback to getUser result
-    const finalUserId = session?.user?.id || user?.id || null
+    // === AUTHENTICATION DECISION ===
+    console.log("\n" + "=".repeat(50))
+    console.log("[createTradePost] 🎯 AUTHENTICATION DECISION...")
+    console.log("=".repeat(50))
+
+    const sessionUserId = session?.user?.id
+    const directUserId = user?.id
+    const finalUserId = sessionUserId || directUserId || null
     const isAuthenticated = !!(session?.user || user) && !!finalUserId
     const guestName = formData.guestName?.trim() || "ゲスト"
 
-    console.log("[createTradePost] Final authentication status:", {
+    console.log("[createTradePost] 🔐 Authentication analysis:", {
+      sessionUserId,
+      directUserId,
       finalUserId,
       isAuthenticated,
       guestName: isAuthenticated ? null : guestName,
+      sessionUserExists: !!session?.user,
+      directUserExists: !!user,
+      bothMatch: sessionUserId === directUserId,
     })
 
-    const postId = uuidv4()
+    // === POST DATA PREPARATION ===
+    console.log("\n" + "=".repeat(50))
+    console.log("[createTradePost] 📦 PREPARING POST DATA...")
+    console.log("=".repeat(50))
 
-    // Prepare insert data based on authentication status
+    const postId = uuidv4()
+    console.log("[createTradePost] 🆔 Generated post ID:", postId)
+
     let insertData: any
 
     if (isAuthenticated && finalUserId) {
@@ -88,20 +189,21 @@ export async function createTradePost(formData: TradeFormData) {
       insertData = {
         id: postId,
         title: formData.title.trim(),
-        owner_id: finalUserId, // This should now be properly set
-        guest_name: null, // No guest name for authenticated users
+        owner_id: finalUserId,
+        guest_name: null,
         custom_id: formData.appId?.trim() || null,
         comment: formData.comment?.trim() || null,
         want_card_id: formData.wantedCards[0]?.id ? Number.parseInt(formData.wantedCards[0].id) : null,
         status: "OPEN",
         is_authenticated: true,
       }
+      console.log("[createTradePost] ✅ Prepared AUTHENTICATED user post data")
     } else {
       // Guest user post
       insertData = {
         id: postId,
         title: formData.title.trim(),
-        owner_id: null, // Explicitly null for guest users
+        owner_id: null,
         guest_name: guestName,
         custom_id: formData.appId?.trim() || null,
         comment: formData.comment?.trim() || null,
@@ -109,22 +211,44 @@ export async function createTradePost(formData: TradeFormData) {
         status: "OPEN",
         is_authenticated: false,
       }
+      console.log("[createTradePost] 👤 Prepared GUEST user post data")
     }
 
-    console.log("[createTradePost] Final insert data:", JSON.stringify(insertData, null, 2))
+    console.log("[createTradePost] 📋 Final insert data:", {
+      id: insertData.id,
+      title: insertData.title,
+      owner_id: insertData.owner_id,
+      guest_name: insertData.guest_name,
+      custom_id: insertData.custom_id,
+      comment: insertData.comment,
+      want_card_id: insertData.want_card_id,
+      status: insertData.status,
+      is_authenticated: insertData.is_authenticated,
+    })
 
-    // Step 1: Insert main trade post with detailed error logging
+    // === DATABASE INSERTION ===
+    console.log("\n" + "=".repeat(50))
+    console.log("[createTradePost] 💾 INSERTING INTO DATABASE...")
+    console.log("=".repeat(50))
+
+    console.log("[createTradePost] 🔄 Executing INSERT query...")
     const { data: insertResult, error: postError } = await supabase.from("trade_posts").insert(insertData).select()
 
     if (postError) {
-      console.error("[createTradePost] Post insert error:", {
-        error: postError,
-        code: postError.code,
+      console.error("\n" + "❌".repeat(20))
+      console.error("[createTradePost] 💥 POST INSERT ERROR!")
+      console.error("❌".repeat(20))
+      console.error("[createTradePost] Error details:", {
         message: postError.message,
+        code: postError.code,
         details: postError.details,
         hint: postError.hint,
-        insertData: insertData,
+        status: postError.status,
+        statusText: postError.statusText,
       })
+      console.error("[createTradePost] Insert data that failed:", JSON.stringify(insertData, null, 2))
+      console.error("❌".repeat(20))
+
       return {
         success: false,
         error: `投稿の作成に失敗しました: ${postError.message}`,
@@ -132,22 +256,62 @@ export async function createTradePost(formData: TradeFormData) {
       }
     }
 
-    console.log("[createTradePost] Trade post created successfully:", insertResult)
+    console.log("[createTradePost] ✅ Trade post inserted successfully!")
+    console.log("[createTradePost] 📊 Insert result:", {
+      insertedCount: insertResult?.length || 0,
+      insertedData: insertResult?.[0]
+        ? {
+            id: insertResult[0].id,
+            owner_id: insertResult[0].owner_id,
+            guest_name: insertResult[0].guest_name,
+            is_authenticated: insertResult[0].is_authenticated,
+            created_at: insertResult[0].created_at,
+          }
+        : null,
+    })
+
+    // === VERIFICATION QUERY ===
+    console.log("\n" + "=".repeat(50))
+    console.log("[createTradePost] 🔍 VERIFYING INSERTION...")
+    console.log("=".repeat(50))
+
+    const { data: verifyData, error: verifyError } = await supabase
+      .from("trade_posts")
+      .select("id, owner_id, guest_name, is_authenticated, created_at")
+      .eq("id", postId)
+      .single()
+
+    if (verifyError) {
+      console.warn("[createTradePost] ⚠️ Verification query failed:", verifyError.message)
+    } else {
+      console.log("[createTradePost] ✅ Verification successful:", {
+        id: verifyData.id,
+        owner_id: verifyData.owner_id,
+        guest_name: verifyData.guest_name,
+        is_authenticated: verifyData.is_authenticated,
+        created_at: verifyData.created_at,
+        ownerIdMatches: verifyData.owner_id === finalUserId,
+        authStatusMatches: verifyData.is_authenticated === isAuthenticated,
+      })
+    }
 
     // Step 2: Insert wanted cards
     if (formData.wantedCards.length > 0) {
+      console.log("\n" + "-".repeat(30))
+      console.log("[createTradePost] 🎯 Inserting wanted cards...")
+
       const wantedCardsData = formData.wantedCards.map((card, index) => ({
         post_id: postId,
         card_id: Number.parseInt(card.id),
         is_primary: index === 0,
       }))
 
-      console.log("[createTradePost] Inserting wanted cards:", wantedCardsData)
+      console.log("[createTradePost] 📋 Wanted cards data:", wantedCardsData)
 
       const { error: wantedCardsError } = await supabase.from("trade_post_wanted_cards").insert(wantedCardsData)
 
       if (wantedCardsError) {
-        console.error("[createTradePost] Wanted cards error:", wantedCardsError)
+        console.error("[createTradePost] ❌ Wanted cards error:", wantedCardsError)
         // Cleanup: delete the main post
         await supabase.from("trade_posts").delete().eq("id", postId)
         return {
@@ -156,21 +320,25 @@ export async function createTradePost(formData: TradeFormData) {
           details: wantedCardsError,
         }
       }
+      console.log("[createTradePost] ✅ Wanted cards inserted successfully")
     }
 
     // Step 3: Insert offered cards
     if (formData.offeredCards.length > 0) {
+      console.log("\n" + "-".repeat(30))
+      console.log("[createTradePost] 🎁 Inserting offered cards...")
+
       const offeredCardsData = formData.offeredCards.map((card) => ({
         post_id: postId,
         card_id: Number.parseInt(card.id),
       }))
 
-      console.log("[createTradePost] Inserting offered cards:", offeredCardsData)
+      console.log("[createTradePost] 📋 Offered cards data:", offeredCardsData)
 
       const { error: offeredCardsError } = await supabase.from("trade_post_offered_cards").insert(offeredCardsData)
 
       if (offeredCardsError) {
-        console.error("[createTradePost] Offered cards error:", offeredCardsError)
+        console.error("[createTradePost] ❌ Offered cards error:", offeredCardsError)
         // Cleanup: delete related records
         await supabase.from("trade_post_wanted_cards").delete().eq("post_id", postId)
         await supabase.from("trade_posts").delete().eq("id", postId)
@@ -180,15 +348,30 @@ export async function createTradePost(formData: TradeFormData) {
           details: offeredCardsError,
         }
       }
+      console.log("[createTradePost] ✅ Offered cards inserted successfully")
     }
 
     // Revalidate the path to refresh the data
     revalidatePath("/")
 
-    console.log("[createTradePost] Successfully created trade post with ID:", postId)
+    console.log("\n" + "🎉".repeat(20))
+    console.log("[createTradePost] 🎉 TRADE POST CREATION COMPLETED!")
+    console.log("[createTradePost] 🆔 Post ID:", postId)
+    console.log("[createTradePost] 👤 Owner ID:", finalUserId || "GUEST")
+    console.log("[createTradePost] 🔐 Authenticated:", isAuthenticated)
+    console.log("🎉".repeat(20))
+    console.log("=".repeat(80))
+
     return { success: true, postId }
   } catch (error) {
-    console.error("[createTradePost] Unexpected error:", error)
+    console.error("\n" + "💥".repeat(20))
+    console.error("[createTradePost] 💥 UNEXPECTED ERROR!")
+    console.error("💥".repeat(20))
+    console.error("[createTradePost] Error object:", error)
+    console.error("[createTradePost] Error message:", error instanceof Error ? error.message : "Unknown error")
+    console.error("[createTradePost] Error stack:", error instanceof Error ? error.stack : "No stack trace")
+    console.error("💥".repeat(20))
+
     return {
       success: false,
       error: error instanceof Error ? error.message : "予期しないエラーが発生しました。",
