@@ -268,6 +268,7 @@ export default function CreateTradePage() {
 
       console.log("[CreateTradePage] Submitting trade post:", {
         isAuthenticated,
+        currentUserId: currentUserId, // この行を追加
         guestName: !isAuthenticated ? guestName.trim() : undefined,
         title: tradeTitle,
         wantedCardsCount: wantedCards.length,
@@ -279,7 +280,7 @@ export default function CreateTradePage() {
             }
           : null,
       })
-      console.log("ユーザーID2: ", userId)
+      console.log("ユーザーID2: ", currentUserId)
       const result = await createTradePost({
         title: tradeTitle,
         wantedCards,
@@ -287,7 +288,7 @@ export default function CreateTradePage() {
         appId: appId.trim() || undefined,
         comment: comment.trim() || undefined,
         guestName: !isAuthenticated ? guestName.trim() : undefined,
-        userId: isAuthenticated ? currentUserId : undefined, // この行を追加
+        userId: isAuthenticated ? currentUserId : undefined, // この行は既に正しい
       })
 
       console.log("[CreateTradePage] Trade post result:", result)
