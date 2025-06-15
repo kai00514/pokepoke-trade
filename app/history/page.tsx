@@ -188,13 +188,13 @@ function HistoryPageContent() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="flex flex-col min-h-screen">
       <AuthHeader />
       <main className="flex-grow container mx-auto px-0 sm:px-4 pb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 text-center my-6 sm:my-8 px-4 sm:px-0">履歴</h1>
 
         {/* Tab Bar */}
-        <div className="sticky top-0 z-10 bg-slate-50/90 backdrop-blur-sm shadow-sm">
+        <div className="sticky top-0 z-10 bg-purple-50/90 backdrop-blur-sm shadow-sm">
           <div className="flex justify-center">
             <div className="flex overflow-x-auto whitespace-nowrap border-b border-slate-200">
               {tabs.map((tab, index) => (
@@ -245,7 +245,7 @@ function HistoryPageContent() {
 const HistoryPage = dynamic(() => Promise.resolve(HistoryPageContent), {
   ssr: false,
   loading: () => (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="flex flex-col min-h-screen">
       <AuthHeader />
       <main className="flex-grow container mx-auto px-4 pb-8">
         <div className="text-center py-10 text-slate-500">

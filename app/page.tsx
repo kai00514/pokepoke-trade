@@ -73,7 +73,7 @@ export default function TradeBoardPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="flex flex-col min-h-screen">
       <AuthHeader />
       <main className="flex-grow container mx-auto px-2 sm:px-4 py-6">
         <div className="flex flex-col lg:flex-row gap-6">

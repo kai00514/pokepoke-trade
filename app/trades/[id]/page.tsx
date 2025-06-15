@@ -362,7 +362,7 @@ export default function TradeDetailPage() {
   )
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="flex flex-col min-h-screen">
       <AuthHeader />
       <main className="flex-grow container mx-auto px-4 py-8">
         <Link href="/" className="inline-flex items-center text-sm text-purple-600 hover:text-purple-700 mb-6 group">

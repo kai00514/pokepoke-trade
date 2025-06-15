@@ -6,7 +6,7 @@ import Link from "next/link"
 
 export default function MatchingPage() {
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="flex flex-col min-h-screen">
       <AuthHeader />
       <main className="flex-grow container mx-auto px-4 py-12 flex flex-col items-center justify-center text-center">
         <h1 className="text-3xl font-bold text-slate-800 mb-8">マッチング</h1>

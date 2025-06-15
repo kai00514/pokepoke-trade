@@ -1,31 +1,51 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import type React from "react"
+
+import { useState, useCallback } from "react"
 import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
-import { PlusCircle, Users, ListChecks, BarChartBig, Zap, type Icon } from "lucide-react"
+import { PlusCircle, Users, ListChecks, BarChartBig, Zap } from "lucide-react"
 import Link from "next/link"
-import { cn } from "@/lib/utils"
 import DeckCard, { type Deck } from "@/components/deck-card"
-import { useSwipeable } from "react-swipeable"
-import { motion, AnimatePresence } from "framer-motion"
 import { getDecksList } from "@/lib/actions/deck-posts"
 import { useToast } from "@/components/ui/use-toast"
 
 type TabId = "posted" | "tier" | "featured" | "newpack"
 
-interface TabInfo {
+interface CategoryInfo {
   id: TabId
-  label: string
-  icon: Icon
+  title: string
+  icon: React.ComponentType<{ className?: string }>
+  description?: string
 }
 
-const tabs: TabInfo[] = [
-  { id: "posted", label: "投稿", icon: Users },
-  { id: "tier", label: "Tierラン", icon: ListChecks },
-  { id: "featured", label: "注目", icon: BarChartBig },
-  { id: "newpack", label: "新パック", icon: Zap },
+const categories: CategoryInfo[] = [
+  {
+    id: "posted",
+    title: "みんなのデッキを見る",
+    icon: Users,
+    description: "投稿されたデッキを閲覧",
+  },
+  {
+    id: "tier",
+    title: "Tierランキング",
+    icon: ListChecks,
+    description: "デッキの強さランキング",
+  },
+  {
+    id: "featured",
+    title: "注目ランキング",
+    icon: BarChartBig,
+    description: "話題のデッキランキング",
+  },
+  {
+    id: "newpack",
+    title: "新パックデッキランキング",
+    icon: Zap,
+    description: "最新パックを使ったデッキ",
+  },
 ]
 
 const sampleDecks: Deck[] = [
@@ -59,71 +79,14 @@ const sampleDecks: Deck[] = [
     favorites: 60,
     views: 2200,
   },
-  {
-    id: "4",
-    name: "ルギアVSTARアッセンブル",
-    imageUrl: "/placeholder.svg?width=150&height=210",
-    cardName: "ルギアVSTAR",
-    updatedAt: "2025/6/1",
-    likes: 300,
-    favorites: 95,
-    views: 4500,
-  },
-  {
-    id: "5",
-    name: "未来バレット",
-    imageUrl: "/placeholder.svg?width=150&height=210",
-    cardName: "テツノブジンex",
-    updatedAt: "2025/5/28",
-    likes: 90,
-    favorites: 20,
-    views: 1100,
-  },
-  {
-    id: "6",
-    name: "ロストゾーン軸カイオーガ",
-    imageUrl: "/placeholder.svg?width=150&height=210",
-    cardName: "カイオーガ",
-    updatedAt: "2025/5/25",
-    likes: 150,
-    favorites: 45,
-    views: 1800,
-  },
 ]
 
-const swipeConfidenceThreshold = 10000
-const swipePower = (offset: number, velocity: number) => Math.abs(offset) * velocity
-
-const variants = {
-  enter: (direction: number) => ({
-    x: direction > 0 ? "100%" : "-100%",
-    opacity: 0,
-    transition: { type: "tween", ease: "easeInOut", duration: 0.3 },
-  }),
-  center: {
-    zIndex: 1,
-    x: 0,
-    opacity: 1,
-    transition: { type: "tween", ease: "easeInOut", duration: 0.3 },
-  },
-  exit: (direction: number) => ({
-    zIndex: 0,
-    x: direction < 0 ? "100%" : "-100%",
-    opacity: 0,
-    transition: { type: "tween", ease: "easeInOut", duration: 0.3 },
-  }),
-}
-
 export default function DecksPage() {
-  const [activeTabIndex, setActiveTabIndex] = useState(0)
-  const [direction, setDirection] = useState(0)
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<TabId | null>(null)
   const [postedDecks, setPostedDecks] = useState<Deck[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
-
-  const activeTabId = tabs[activeTabIndex].id
 
   // 投稿されたデッキを取得
   const fetchPostedDecks = useCallback(async () => {
@@ -154,52 +117,18 @@ export default function DecksPage() {
     }
   }, [toast])
 
-  // コンポーネントマウント時とタブ変更時にデータを取得
-  useEffect(() => {
-    if (activeTabId === "posted") {
+  const handleCategoryClick = (categoryId: TabId) => {
+    setSelectedCategory(categoryId)
+    if (categoryId === "posted") {
       fetchPostedDecks()
     }
-  }, [activeTabId, fetchPostedDecks])
-
-  const changeTab = useCallback(
-    (newIndex: number) => {
-      if (newIndex === activeTabIndex) return
-
-      setDirection(newIndex > activeTabIndex ? 1 : -1)
-      setActiveTabIndex(newIndex)
-    },
-    [activeTabIndex],
-  )
-
-  useEffect(() => {
-    const activeTabElement = tabRefs.current[activeTabIndex]
-    if (activeTabElement) {
-      activeTabElement.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-        inline: "center",
-      })
-    }
-  }, [activeTabIndex])
-
-  const swipeHandlers = useSwipeable({
-    onSwipedLeft: () => {
-      if (activeTabIndex < tabs.length - 1) {
-        changeTab(activeTabIndex + 1)
-      }
-    },
-    onSwipedRight: () => {
-      if (activeTabIndex > 0) {
-        changeTab(activeTabIndex - 1)
-      }
-    },
-    preventScrollOnSwipe: true,
-    trackMouse: true,
-  })
+  }
 
   const renderDeckList = () => {
+    if (!selectedCategory) return null
+
     // 投稿タブの場合は実際のデータベースデータを使用
-    if (activeTabId === "posted") {
+    if (selectedCategory === "posted") {
       if (isLoading) {
         return (
           <div className="flex justify-center items-center py-20">
@@ -251,9 +180,6 @@ export default function DecksPage() {
 
     // その他のタブはサンプルデータを使用
     const decksToDisplay = sampleDecks
-    if (decksToDisplay.length === 0) {
-      return <div className="p-4 text-center text-slate-500">表示できるデッキがありません。</div>
-    }
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {decksToDisplay.map((deck) => (
@@ -264,10 +190,11 @@ export default function DecksPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-100">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-purple-50 to-purple-100">
       <AuthHeader />
-      <main className="flex-grow container mx-auto px-0 sm:px-4 pb-8">
-        <div className="my-6 flex justify-center px-4 sm:px-0">
+      <main className="flex-grow container mx-auto px-4 pb-8">
+        {/* デッキを投稿するボタン */}
+        <div className="my-6 flex justify-center">
           <Button
             asChild
             className="bg-emerald-500 hover:bg-emerald-600 text-white text-base font-semibold py-3 px-8 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 ease-in-out transform hover:-translate-y-0.5"
@@ -279,46 +206,64 @@ export default function DecksPage() {
           </Button>
         </div>
 
-        <div className="sticky top-0 z-10 bg-slate-100 shadow-sm">
-          <div className="flex justify-center">
-            <div className="flex overflow-x-auto whitespace-nowrap border-b border-slate-200">
-              {tabs.map((tab, index) => (
+        {selectedCategory ? (
+          // カテゴリが選択された場合はデッキリストを表示
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <Button onClick={() => setSelectedCategory(null)} variant="outline" className="flex items-center gap-2">
+                ← 戻る
+              </Button>
+              <h2 className="text-2xl font-bold text-slate-800">
+                {categories.find((cat) => cat.id === selectedCategory)?.title}
+              </h2>
+            </div>
+            {renderDeckList()}
+          </div>
+        ) : (
+          // カテゴリ選択画面
+          <div className="space-y-8">
+            {/* カテゴリグリッド */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+              {categories.map((category) => {
+                const IconComponent = category.icon
+                return (
+                  <button
+                    key={category.id}
+                    onClick={() => handleCategoryClick(category.id)}
+                    className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-purple-100 hover:border-purple-200"
+                  >
+                    <div className="flex flex-col items-center text-center space-y-4">
+                      <div className="p-4 bg-purple-100 rounded-full group-hover:bg-purple-200 transition-colors duration-300">
+                        <IconComponent className="h-8 w-8 text-purple-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-800 mb-2">{category.title}</h3>
+                        {category.description && <p className="text-sm text-slate-500">{category.description}</p>}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* デッキを探すセクション */}
+            <div className="max-w-4xl mx-auto">
+              <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <Users className="h-5 w-5 text-purple-600" />
+                デッキを探す
+              </h2>
+              <div className="bg-white rounded-xl p-6 shadow-md border border-purple-100">
                 <button
-                  key={tab.id}
-                  ref={(el) => (tabRefs.current[index] = el)}
-                  onClick={() => changeTab(index)}
-                  className={cn(
-                    "flex flex-col items-center justify-center p-3 min-h-[60px] min-w-[80px] sm:min-w-[90px] md:min-w-[100px] transition-colors duration-150 ease-in-out",
-                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-1",
-                    activeTabIndex === index
-                      ? "text-purple-600 border-b-2 border-purple-600 font-semibold"
-                      : "text-slate-500 hover:text-purple-500 hover:bg-slate-200/50",
-                  )}
-                  style={{ flexShrink: 0 }}
+                  onClick={() => handleCategoryClick("posted")}
+                  className="flex items-center gap-3 text-purple-600 hover:text-purple-700 font-medium transition-colors duration-200"
                 >
-                  <tab.icon className="h-4 w-4 mb-1" />
-                  <span className="text-xs sm:text-sm">{tab.label}</span>
+                  <Users className="h-4 w-4" />
+                  みんなのデッキ
                 </button>
-              ))}
+              </div>
             </div>
           </div>
-        </div>
-
-        <div {...swipeHandlers} className="mt-6 px-4 sm:px-0 overflow-hidden">
-          <AnimatePresence initial={false} custom={direction} mode="wait">
-            <motion.div
-              key={activeTabId}
-              custom={direction}
-              variants={variants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="will-change-transform"
-            >
-              {renderDeckList()}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+        )}
       </main>
       <Footer />
     </div>
