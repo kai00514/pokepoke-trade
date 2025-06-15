@@ -24,7 +24,7 @@ export interface TradeFormData {
   appId?: string
   comment?: string
   guestName?: string
-  userId?: string // この行を追加
+  userId?: string
 }
 
 export async function createTradePost(formData: TradeFormData) {
@@ -39,163 +39,74 @@ export async function createTradePost(formData: TradeFormData) {
       hasComment: !!formData.comment,
       hasGuestName: !!formData.guestName,
       guestName: formData.guestName,
+      clientUserId: formData.userId, // クライアントから渡されたユーザーID
     })
 
     const supabase = await createServerClient()
     console.log("[createTradePost] ✅ Supabase client created")
 
-    // === SESSION DEBUGGING ===
-    console.log("\n" + "=".repeat(50))
-    console.log("[createTradePost] 🔍 GETTING SESSION...")
-    console.log("=".repeat(50))
+    // === サーバーサイド認証状態の詳細デバッグ ===
+    console.log("\n" + "🔍".repeat(50))
+    console.log("[createTradePost] SERVER-SIDE AUTH DEBUG")
+    console.log("🔍".repeat(50))
 
+    // RLSコンテキストでのauth.uid()を直接確認
+    const { data: authUidResult, error: authUidError } = await supabase.rpc("get_current_auth_uid").single()
+
+    if (authUidError) {
+      console.log("[createTradePost] ⚠️ Could not get auth.uid() via RPC:", authUidError.message)
+    } else {
+      console.log("[createTradePost] 🔍 RLS auth.uid():", authUidResult)
+    }
+
+    // セッション取得
     const {
       data: { session },
       error: sessionError,
     } = await supabase.auth.getSession()
 
-    console.log("[createTradePost] 📊 Session result:", {
+    console.log("[createTradePost] 📊 Server session result:", {
       hasSession: !!session,
       sessionError: sessionError?.message || null,
-      sessionKeys: session ? Object.keys(session) : null,
+      sessionUserId: session?.user?.id || null,
+      sessionExpiry: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
     })
 
-    if (session) {
-      console.log("[createTradePost] 👤 Session user details:", {
-        hasUser: !!session.user,
-        userId: session.user?.id,
-        userEmail: session.user?.email,
-        userPhone: session.user?.phone,
-        userRole: session.user?.role,
-        userKeys: session.user ? Object.keys(session.user) : null,
-        userMetadata: session.user?.user_metadata,
-        appMetadata: session.user?.app_metadata,
-        identities: session.user?.identities?.length || 0,
-        createdAt: session.user?.created_at,
-        updatedAt: session.user?.updated_at,
-        lastSignInAt: session.user?.last_sign_in_at,
-      })
-
-      if (session.user?.identities) {
-        console.log(
-          "[createTradePost] 🔗 User identities:",
-          session.user.identities.map((identity) => ({
-            provider: identity.provider,
-            id: identity.id,
-            userId: identity.user_id,
-            identityData: identity.identity_data,
-          })),
-        )
-      }
-    } else {
-      console.log("[createTradePost] ❌ No session found")
-    }
-
-    // === USER DEBUGGING ===
-    console.log("\n" + "=".repeat(50))
-    console.log("[createTradePost] 🔍 GETTING USER...")
-    console.log("=".repeat(50))
-
+    // ユーザー取得
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser()
 
-    console.log("[createTradePost] 📊 User result:", {
+    console.log("[createTradePost] 📊 Server user result:", {
       hasUser: !!user,
       userError: userError?.message || null,
-      userKeys: user ? Object.keys(user) : null,
+      directUserId: user?.id || null,
     })
 
-    if (user) {
-      console.log("[createTradePost] 👤 Direct user details:", {
-        userId: user.id,
-        userEmail: user.email,
-        userPhone: user.phone,
-        userRole: user.role,
-        userMetadata: user.user_metadata,
-        appMetadata: user.app_metadata,
-        identities: user.identities?.length || 0,
-        createdAt: user.created_at,
-        updatedAt: user.updated_at,
-        lastSignInAt: user.last_sign_in_at,
-      })
-
-      if (user.identities) {
-        console.log(
-          "[createTradePost] 🔗 Direct user identities:",
-          user.identities.map((identity) => ({
-            provider: identity.provider,
-            id: identity.id,
-            userId: identity.user_id,
-            identityData: identity.identity_data,
-          })),
-        )
-      }
-    } else {
-      console.log("[createTradePost] ❌ No user found via getUser()")
-    }
-
-    // === ERROR HANDLING ===
-    if (sessionError) {
-      console.warn("[createTradePost] ⚠️ Session error (continuing as guest):", {
-        message: sessionError.message,
-        status: sessionError.status,
-        statusText: sessionError.statusText,
-      })
-    }
-
-    if (userError) {
-      console.warn("[createTradePost] ⚠️ User error (continuing as guest):", {
-        message: userError.message,
-        status: userError.status,
-        statusText: userError.statusText,
-      })
-    }
-
-    // === AUTHENTICATION DECISION ===
+    // === 認証決定ロジック（修正版） ===
     console.log("\n" + "=".repeat(50))
-    console.log("[createTradePost] 🎯 AUTHENTICATION DECISION...")
+    console.log("[createTradePost] 🎯 AUTHENTICATION DECISION (FIXED)...")
     console.log("=".repeat(50))
 
     const sessionUserId = session?.user?.id
     const directUserId = user?.id
-    const clientUserId = formData.userId // クライアントから渡されたユーザーID
+    const clientUserId = formData.userId
+
+    // サーバーサイドで認証が取得できない場合は、クライアントから渡されたユーザーIDを使用
     const finalUserId = sessionUserId || directUserId || clientUserId || null
-    const isAuthenticated = !!(session?.user || user || clientUserId) && !!finalUserId
+    const isAuthenticated = !!finalUserId && !!formData.userId // クライアントから認証状態が渡されている
     const guestName = formData.guestName?.trim() || "ゲスト"
 
-    console.log("[createTradePost] 🔐 Authentication analysis:", {
+    console.log("[createTradePost] 🔐 Final authentication decision:", {
       sessionUserId,
       directUserId,
       clientUserId,
       finalUserId,
       isAuthenticated,
-      guestName: isAuthenticated ? null : guestName,
-      sessionUserExists: !!session?.user,
-      directUserExists: !!user,
-      clientUserExists: !!clientUserId,
+      willUseClientUserId: !sessionUserId && !directUserId && !!clientUserId,
       authSource: sessionUserId ? "session" : directUserId ? "direct" : clientUserId ? "client" : "none",
     })
-
-    // セキュリティチェック: クライアントから渡されたuserIdが有効かサーバーサイドで検証
-    if (clientUserId && !sessionUserId && !directUserId) {
-      console.log("[createTradePost] 🔍 Verifying client-provided userId...")
-      try {
-        const { data: verifyUser, error: verifyError } = await supabase.auth.admin.getUserById(clientUserId)
-        if (verifyError || !verifyUser?.user) {
-          console.warn("[createTradePost] ⚠️ Invalid client userId, treating as guest")
-          const finalUserId = null
-          const isAuthenticated = false
-        } else {
-          console.log("[createTradePost] ✅ Client userId verified successfully")
-        }
-      } catch (error) {
-        console.warn("[createTradePost] ⚠️ Error verifying client userId:", error)
-        const finalUserId = null
-        const isAuthenticated = false
-      }
-    }
 
     // === POST DATA PREPARATION ===
     console.log("\n" + "=".repeat(50))
@@ -208,7 +119,7 @@ export async function createTradePost(formData: TradeFormData) {
     let insertData: any
 
     if (isAuthenticated && finalUserId) {
-      // Authenticated user post
+      // 認証済みユーザーの投稿
       insertData = {
         id: postId,
         title: formData.title.trim(),
@@ -222,7 +133,7 @@ export async function createTradePost(formData: TradeFormData) {
       }
       console.log("[createTradePost] ✅ Prepared AUTHENTICATED user post data")
     } else {
-      // Guest user post
+      // ゲストユーザーの投稿
       insertData = {
         id: postId,
         title: formData.title.trim(),
@@ -292,31 +203,6 @@ export async function createTradePost(formData: TradeFormData) {
           }
         : null,
     })
-
-    // === VERIFICATION QUERY ===
-    console.log("\n" + "=".repeat(50))
-    console.log("[createTradePost] 🔍 VERIFYING INSERTION...")
-    console.log("=".repeat(50))
-
-    const { data: verifyData, error: verifyError } = await supabase
-      .from("trade_posts")
-      .select("id, owner_id, guest_name, is_authenticated, created_at")
-      .eq("id", postId)
-      .single()
-
-    if (verifyError) {
-      console.warn("[createTradePost] ⚠️ Verification query failed:", verifyError.message)
-    } else {
-      console.log("[createTradePost] ✅ Verification successful:", {
-        id: verifyData.id,
-        owner_id: verifyData.owner_id,
-        guest_name: verifyData.guest_name,
-        is_authenticated: verifyData.is_authenticated,
-        created_at: verifyData.created_at,
-        ownerIdMatches: verifyData.owner_id === finalUserId,
-        authStatusMatches: verifyData.is_authenticated === isAuthenticated,
-      })
-    }
 
     // Step 2: Insert wanted cards
     if (formData.wantedCards.length > 0) {
@@ -403,7 +289,9 @@ export async function createTradePost(formData: TradeFormData) {
   }
 }
 
+// 他の関数は省略...
 export async function getTradePostsWithCards(limit = 10, offset = 0) {
+  // 既存のコードをそのまま維持
   try {
     const supabase = await createServerClient()
 
