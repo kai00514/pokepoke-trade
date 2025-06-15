@@ -218,7 +218,7 @@ export default function TradeDetailPage() {
         timestamp: "たった今",
       }
     },
-    [isAuthenticated],
+    [isAuthenticated, user],
   )
 
   const handleCommentSubmit = useCallback(async () => {
@@ -252,7 +252,12 @@ export default function TradeDetailPage() {
     try {
       // バックグラウンドでサーバーに送信
       // 既存のaddCommentToTradePost関数を使用（user_idが正しく渡される）
-      const result = await addCommentToTradePost(postId, commentText, !isAuthenticated ? "ゲスト" : undefined)
+      const result = await addCommentToTradePost(
+        postId,
+        commentText,
+        isAuthenticated ? user?.id : null,
+        !isAuthenticated ? "ゲスト" : undefined,
+      )
 
       if (result.success) {
         // 成功時は何もしない（楽観的UI更新のまま）
