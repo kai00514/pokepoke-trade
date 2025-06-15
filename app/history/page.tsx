@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
+import dynamic from "next/dynamic"
 import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
 import { Archive, MessageCircle, Users, type LucideIcon } from "lucide-react"
@@ -10,6 +11,9 @@ import { useSwipeable } from "react-swipeable"
 import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "@/contexts/auth-context"
 import { getMyTradePosts, getCommentedTradePosts } from "@/lib/actions/trade-actions"
+
+// 動的インポートでSSRを無効化
+export const forceDynamic = "force-dynamic"
 
 type TabId = "myPosts" | "commentedPosts" | "matchingHistory"
 
@@ -45,7 +49,7 @@ const variants = {
   }),
 }
 
-export default function HistoryPage() {
+function HistoryPageContent() {
   const [activeTabIndex, setActiveTabIndex] = useState(0)
   const [direction, setDirection] = useState(0)
   const [myPosts, setMyPosts] = useState<HistoryItem[]>([])
@@ -53,13 +57,16 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const tabButtonRefs = useRef<(HTMLButtonElement | null)[]>([])
-  const { user, isAuthenticated } = useAuth()
+  const { user, loading: authLoading } = useAuth()
 
   const activeTabId = tabs[activeTabIndex].id
+  const isAuthenticated = !!user
 
   // データ取得
   useEffect(() => {
     const fetchData = async () => {
+      if (authLoading) return // 認証状態の読み込み中は待機
+
       if (!isAuthenticated || !user?.id) {
         setLoading(false)
         return
@@ -93,7 +100,7 @@ export default function HistoryPage() {
     }
 
     fetchData()
-  }, [isAuthenticated, user?.id])
+  }, [isAuthenticated, user?.id, authLoading])
 
   const changeTab = useCallback(
     (newIndex: number) => {
@@ -120,6 +127,14 @@ export default function HistoryPage() {
   })
 
   const renderContent = () => {
+    if (authLoading) {
+      return (
+        <div className="text-center py-10 text-slate-500">
+          <p>認証状態を確認中...</p>
+        </div>
+      )
+    }
+
     if (!isAuthenticated) {
       return (
         <div className="text-center py-10 text-slate-500">
@@ -228,3 +243,21 @@ export default function HistoryPage() {
     </div>
   )
 }
+
+// 動的インポートでコンポーネントをラップ
+const HistoryPage = dynamic(() => Promise.resolve(HistoryPageContent), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-col min-h-screen bg-slate-50">
+      <AuthHeader />
+      <main className="flex-grow container mx-auto px-4 pb-8">
+        <div className="text-center py-10 text-slate-500">
+          <p>読み込み中...</p>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  ),
+})
+
+export default HistoryPage

@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google" // 日本語フォントを推奨 (例: Noto Sans JP)
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/contexts/auth-context"
 
 const inter = Inter({ subsets: ["latin"] }) // Noto Sans JPなどに変更推奨
 
@@ -21,7 +22,7 @@ export default function RootLayout({
     <html lang="ja" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          {children}
+          <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
       </body>
     </html>
