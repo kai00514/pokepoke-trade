@@ -30,6 +30,14 @@ export interface Deck {
     image_url: string
     thumb_url?: string
   }
+  // deck_pagesテーブル用のプロパティ
+  deck_name?: string
+  thumbnail_image_url?: string
+  tier_rank?: number
+  view_count?: number
+  like_count?: number
+  comment_count?: number
+  is_deck_page?: boolean // deck_pagesテーブルのデータかどうかを判定
 }
 
 interface DeckCardProps {
@@ -37,12 +45,23 @@ interface DeckCardProps {
 }
 
 export default function DeckCard({ deck }: DeckCardProps) {
-  const deckName = deck.title || deck.name || "無題のデッキ"
+  const deckName = deck.title || deck.name || deck.deck_name || "無題のデッキ"
   const updatedDate = deck.updated_at || deck.updatedAt || deck.created_at || new Date().toISOString()
   const cardCount = deck.deck_cards?.reduce((sum, card) => sum + card.quantity, 0) || 20
 
+  // リンク先を決定（deck_pagesテーブルのデータは/content/[id]、通常のデッキは/decks/[id]）
+  const linkHref = deck.is_deck_page ? `/content/${deck.id}` : `/decks/${deck.id}`
+
   // サムネイル画像を取得（WebP優先）
   const getThumbnailImage = () => {
+    // deck_pagesテーブルの場合
+    if (deck.thumbnail_image_url) {
+      return {
+        url: deck.thumbnail_image_url,
+        name: deckName,
+      }
+    }
+
     // 新しいサムネイル画像システム（cardsテーブルからJOIN）
     if (deck.thumbnail_image) {
       return {
@@ -65,7 +84,7 @@ export default function DeckCard({ deck }: DeckCardProps) {
   const thumbnailImage = getThumbnailImage()
 
   return (
-    <Link href={`/decks/${deck.id}`} className="block group">
+    <Link href={linkHref} className="block group">
       <Card className="h-full overflow-hidden transition-all duration-200 ease-in-out group-hover:shadow-xl group-hover:-translate-y-1 bg-white">
         <CardHeader className="p-4">
           <CardTitle className="text-purple-600 text-lg font-bold truncate group-hover:text-purple-700">
@@ -95,7 +114,7 @@ export default function DeckCard({ deck }: DeckCardProps) {
         <CardFooter className="p-3 bg-slate-50/70 border-t border-slate-200/80 flex justify-around items-center text-xs text-slate-600">
           <div className="flex items-center" title="いいね">
             <Heart className="h-3.5 w-3.5 mr-1 text-pink-500" />
-            <span>{deck.likes || 0}</span>
+            <span>{deck.likes || deck.like_count || 0}</span>
           </div>
           <div className="flex items-center" title="お気に入り">
             <Star className="h-3.5 w-3.5 mr-1 text-amber-500" />
@@ -103,7 +122,7 @@ export default function DeckCard({ deck }: DeckCardProps) {
           </div>
           <div className="flex items-center" title="閲覧数">
             <Eye className="h-3.5 w-3.5 mr-1 text-sky-500" />
-            <span>{deck.views || 0}</span>
+            <span>{deck.views || deck.view_count || 0}</span>
           </div>
         </CardFooter>
       </Card>

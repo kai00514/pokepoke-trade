@@ -18,3 +18,6 @@ export function createBrowserClient() {
 
 // Named export for createClient (required for deployment)
 export const createClient = createBrowserClient
+
+// 既存のクライアントインスタンスをエクスポート
+export const supabase = createBrowserClient()

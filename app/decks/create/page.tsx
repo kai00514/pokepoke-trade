@@ -580,7 +580,7 @@ export default function CreateDeckPage() {
   )
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-purple-50 to-purple-100">
       <AuthHeader />
 
       {/* Desktop Layout */}

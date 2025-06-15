@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { PlusCircle, Users, ListChecks, BarChartBig, Zap } from "lucide-react"
 import Link from "next/link"
 import DeckCard, { type Deck } from "@/components/deck-card"
-import { getDecksList } from "@/lib/actions/deck-posts"
+import { getDecksList, getDeckPagesList } from "@/lib/actions/deck-posts"
 import { useToast } from "@/components/ui/use-toast"
 
 type TabId = "posted" | "tier" | "featured" | "newpack"
@@ -48,54 +48,31 @@ const categories: CategoryInfo[] = [
   },
 ]
 
-const sampleDecks: Deck[] = [
-  {
-    id: "1",
-    name: "アルセウスVSTARデッキ",
-    imageUrl: "/placeholder.svg?width=150&height=210",
-    cardName: "アルセウスVSTAR",
-    updatedAt: "2025/6/7",
-    likes: 120,
-    favorites: 35,
-    views: 1500,
-  },
-  {
-    id: "2",
-    name: "ミュウVMAX速攻",
-    imageUrl: "/placeholder.svg?width=150&height=210",
-    cardName: "ミュウVMAX",
-    updatedAt: "2025/6/5",
-    likes: 250,
-    favorites: 80,
-    views: 3200,
-  },
-  {
-    id: "3",
-    name: "ギラティナVSTARコントロール",
-    imageUrl: "/placeholder.svg?width=150&height=210",
-    cardName: "ギラティナVSTAR",
-    updatedAt: "2025/6/3",
-    likes: 180,
-    favorites: 60,
-    views: 2200,
-  },
-]
+// deck_pagesデータ用の拡張型
+interface DeckPageData extends Deck {
+  is_deck_page?: boolean
+}
 
 export default function DecksPage() {
   const [selectedCategory, setSelectedCategory] = useState<TabId | null>(null)
-  const [postedDecks, setPostedDecks] = useState<Deck[]>([])
+  const [decks, setDecks] = useState<DeckPageData[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
 
-  // 投稿されたデッキを取得
+  // みんなのデッキを取得
   const fetchPostedDecks = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
       const result = await getDecksList({ isPublic: true, limit: 50 })
       if (result.success && result.data) {
-        setPostedDecks(result.data)
+        // 通常のデッキデータにis_deck_pageフラグを追加
+        const decksWithFlag = result.data.map((deck) => ({
+          ...deck,
+          is_deck_page: false,
+        }))
+        setDecks(decksWithFlag)
       } else {
         setError(result.error || "デッキの取得に失敗しました")
         toast({
@@ -117,72 +94,109 @@ export default function DecksPage() {
     }
   }, [toast])
 
+  // deck_pagesテーブルからデッキを取得
+  const fetchDeckPages = useCallback(
+    async (sortBy: "tier" | "popular" | "latest") => {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const result = await getDeckPagesList({ sortBy, limit: 50 })
+        if (result.success && result.data) {
+          // deck_pagesのデータをDeck型に変換
+          const formattedDecks: DeckPageData[] = result.data.map((deckPage: any) => ({
+            id: deckPage.id.toString(),
+            name: deckPage.title || deckPage.deck_name || "無題のデッキ",
+            imageUrl: deckPage.thumbnail_image_url || "/placeholder.svg?width=150&height=210",
+            cardName: deckPage.deck_name || "カード名不明",
+            updatedAt: new Date(deckPage.updated_at).toLocaleDateString("ja-JP"),
+            likes: deckPage.like_count || 0,
+            favorites: 0,
+            views: deckPage.view_count || 0,
+            is_deck_page: true, // deck_pagesテーブルのデータであることを示すフラグ
+          }))
+          setDecks(formattedDecks)
+        } else {
+          setError(result.error || "デッキの取得に失敗しました")
+          toast({
+            title: "エラー",
+            description: result.error || "デッキの取得に失敗しました",
+            variant: "destructive",
+          })
+        }
+      } catch (err) {
+        const errorMessage = "デッキの取得中にエラーが発生しました"
+        setError(errorMessage)
+        toast({
+          title: "エラー",
+          description: errorMessage,
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [toast],
+  )
+
   const handleCategoryClick = (categoryId: TabId) => {
     setSelectedCategory(categoryId)
     if (categoryId === "posted") {
       fetchPostedDecks()
+    } else if (categoryId === "tier") {
+      fetchDeckPages("tier")
+    } else if (categoryId === "featured") {
+      fetchDeckPages("popular")
+    } else if (categoryId === "newpack") {
+      fetchDeckPages("latest")
     }
   }
 
   const renderDeckList = () => {
     if (!selectedCategory) return null
 
-    // 投稿タブの場合は実際のデータベースデータを使用
-    if (selectedCategory === "posted") {
-      if (isLoading) {
-        return (
-          <div className="flex justify-center items-center py-20">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-              <p className="text-slate-500">デッキを読み込み中...</p>
-            </div>
-          </div>
-        )
-      }
-
-      if (error) {
-        return (
-          <div className="text-center py-20">
-            <p className="text-red-500 mb-4">{error}</p>
-            <Button onClick={fetchPostedDecks} variant="outline">
-              再試行
-            </Button>
-          </div>
-        )
-      }
-
-      if (postedDecks.length === 0) {
-        return (
-          <div className="text-center py-20">
-            <div className="mb-6">
-              <PlusCircle className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-600 mb-2">まだデッキが投稿されていません</h3>
-              <p className="text-slate-500 mb-6">最初のデッキを投稿してみませんか？</p>
-            </div>
-            <Button asChild className="bg-emerald-500 hover:bg-emerald-600 text-white">
-              <Link href="/decks/create">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                デッキを投稿する
-              </Link>
-            </Button>
-          </div>
-        )
-      }
-
+    if (isLoading) {
       return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {postedDecks.map((deck) => (
-            <DeckCard key={deck.id} deck={deck} />
-          ))}
+        <div className="flex justify-center items-center py-20">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <p className="text-slate-500">デッキを読み込み中...</p>
+          </div>
         </div>
       )
     }
 
-    // その他のタブはサンプルデータを使用
-    const decksToDisplay = sampleDecks
+    if (error) {
+      return (
+        <div className="text-center py-20">
+          <p className="text-red-500 mb-4">{error}</p>
+          <Button onClick={() => handleCategoryClick(selectedCategory)} variant="outline">
+            再試行
+          </Button>
+        </div>
+      )
+    }
+
+    if (decks.length === 0) {
+      return (
+        <div className="text-center py-20">
+          <div className="mb-6">
+            <PlusCircle className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-slate-600 mb-2">まだデッキが投稿されていません</h3>
+            <p className="text-slate-500 mb-6">最初のデッキを投稿してみませんか？</p>
+          </div>
+          <Button asChild className="bg-emerald-500 hover:bg-emerald-600 text-white">
+            <Link href="/decks/create">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              デッキを投稿する
+            </Link>
+          </Button>
+        </div>
+      )
+    }
+
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {decksToDisplay.map((deck) => (
+        {decks.map((deck) => (
           <DeckCard key={deck.id} deck={deck} />
         ))}
       </div>
