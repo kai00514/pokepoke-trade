@@ -3,11 +3,13 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
-import { Archive, MessageCircle, Users, type LucideIcon } from "lucide-react" // Changed Users to Archive for "My Posts"
+import { Archive, MessageCircle, Users, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import HistoryItemCard, { type HistoryItem } from "@/components/history-item-card"
 import { useSwipeable } from "react-swipeable"
 import { motion, AnimatePresence } from "framer-motion"
+import { useAuth } from "@/contexts/auth-context"
+import { getMyTradePosts, getCommentedTradePosts } from "@/lib/actions/trade-actions"
 
 type TabId = "myPosts" | "commentedPosts" | "matchingHistory"
 
@@ -21,50 +23,6 @@ const tabs: TabInfo[] = [
   { id: "myPosts", label: "自分の募集", icon: Archive },
   { id: "commentedPosts", label: "コメントした募集", icon: MessageCircle },
   { id: "matchingHistory", label: "マッチング履歴", icon: Users },
-]
-
-// Sample Data (replace with actual data fetching)
-const sampleMyPosts: HistoryItem[] = [
-  {
-    id: "post1",
-    title: "フシギバナを求む",
-    primaryCardName: "フシギバナ",
-    primaryCardImageUrl: "/placeholder.svg?width=80&height=112",
-    postedDateRelative: "9日前",
-    status: "canceled",
-    commentCount: 1,
-    postUrl: "/posts/post1",
-  },
-  {
-    id: "post2",
-    title: "ナゾノクサ交換希望",
-    primaryCardName: "ナゾノクサ",
-    primaryCardImageUrl: "/placeholder.svg?width=80&height=112",
-    postedDateRelative: "21日前",
-    status: "completed",
-    commentCount: 0,
-    postUrl: "/posts/post2",
-  },
-  {
-    id: "post3",
-    title: "シェルダー探してます",
-    primaryCardName: "シェルダー",
-    primaryCardImageUrl: "/placeholder.svg?width=80&height=112",
-    postedDateRelative: "21日前",
-    status: "open",
-    commentCount: 0,
-    postUrl: "/posts/post3",
-  },
-  {
-    id: "post4",
-    title: "通知テスト2",
-    primaryCardName: "ラフレシア",
-    primaryCardImageUrl: "/placeholder.svg?width=80&height=112",
-    postedDateRelative: "22日前",
-    status: "in_progress",
-    commentCount: 2,
-    postUrl: "/posts/post4",
-  },
 ]
 
 const variants = {
@@ -90,9 +48,52 @@ const variants = {
 export default function HistoryPage() {
   const [activeTabIndex, setActiveTabIndex] = useState(0)
   const [direction, setDirection] = useState(0)
+  const [myPosts, setMyPosts] = useState<HistoryItem[]>([])
+  const [commentedPosts, setCommentedPosts] = useState<HistoryItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const tabButtonRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const { user, isAuthenticated } = useAuth()
 
   const activeTabId = tabs[activeTabIndex].id
+
+  // データ取得
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!isAuthenticated || !user?.id) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        setError(null)
+
+        // 自分の投稿を取得
+        const myPostsResult = await getMyTradePosts(user.id)
+        if (myPostsResult.success) {
+          setMyPosts(myPostsResult.posts)
+        } else {
+          console.error("Error fetching my posts:", myPostsResult.error)
+        }
+
+        // コメントした投稿を取得
+        const commentedPostsResult = await getCommentedTradePosts(user.id)
+        if (commentedPostsResult.success) {
+          setCommentedPosts(commentedPostsResult.posts)
+        } else {
+          console.error("Error fetching commented posts:", commentedPostsResult.error)
+        }
+      } catch (err) {
+        console.error("Error fetching history data:", err)
+        setError("データの取得に失敗しました。")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [isAuthenticated, user?.id])
 
   const changeTab = useCallback(
     (newIndex: number) => {
@@ -119,20 +120,44 @@ export default function HistoryPage() {
   })
 
   const renderContent = () => {
+    if (!isAuthenticated) {
+      return (
+        <div className="text-center py-10 text-slate-500">
+          <p>履歴を表示するにはログインが必要です。</p>
+        </div>
+      )
+    }
+
+    if (loading) {
+      return (
+        <div className="text-center py-10 text-slate-500">
+          <p>読み込み中...</p>
+        </div>
+      )
+    }
+
+    if (error) {
+      return (
+        <div className="text-center py-10 text-red-500">
+          <p>{error}</p>
+        </div>
+      )
+    }
+
     let items: HistoryItem[] = []
     let emptyMessage = "履歴がありません。"
 
     switch (activeTabId) {
       case "myPosts":
-        items = sampleMyPosts
+        items = myPosts
         emptyMessage = "あなたの募集履歴はありません。"
         break
       case "commentedPosts":
-        // items = sampleCommentedPosts; // Replace with actual data
+        items = commentedPosts
         emptyMessage = "コメントした募集の履歴はありません。"
         break
       case "matchingHistory":
-        // items = sampleMatchingHistory; // Replace with actual data
+        // マッチング履歴は後で実装
         emptyMessage = "マッチング履歴はありません。"
         break
     }

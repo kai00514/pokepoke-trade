@@ -611,3 +611,305 @@ export async function addCommentToTradePost(postId: string, content: string, gue
     return { success: false, error: errorMessage }
   }
 }
+
+export async function updateTradePostStatus(postId: string, status: "CANCELED" | "COMPLETED") {
+  try {
+    const supabase = await createServerClient()
+
+    // 現在のユーザーを取得
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
+
+    if (sessionError || !session?.user) {
+      return { success: false, error: "認証が必要です。" }
+    }
+
+    // 投稿の所有者確認
+    const { data: post, error: postError } = await supabase
+      .from("trade_posts")
+      .select("owner_id, is_authenticated")
+      .eq("id", postId)
+      .single()
+
+    if (postError || !post) {
+      return { success: false, error: "投稿が見つかりません。" }
+    }
+
+    if (!post.is_authenticated || post.owner_id !== session.user.id) {
+      return { success: false, error: "この操作を行う権限がありません。" }
+    }
+
+    // ステータス更新
+    const { error: updateError } = await supabase.from("trade_posts").update({ status }).eq("id", postId)
+
+    if (updateError) {
+      console.error("Error updating trade post status:", updateError)
+      return { success: false, error: `ステータスの更新に失敗しました: ${updateError.message}` }
+    }
+
+    revalidatePath("/history")
+    revalidatePath(`/trades/${postId}`)
+
+    return { success: true }
+  } catch (error) {
+    console.error("Unexpected error updating trade post status:", error)
+    return { success: false, error: "予期しないエラーが発生しました。" }
+  }
+}
+
+export async function getMyTradePosts(userId: string) {
+  try {
+    const supabase = await createServerClient()
+
+    // 自分の投稿を取得
+    const { data: posts, error: postsError } = await supabase
+      .from("trade_posts")
+      .select(`
+        id, 
+        title, 
+        owner_id, 
+        custom_id, 
+        status, 
+        created_at,
+        is_authenticated
+      `)
+      .eq("owner_id", userId)
+      .eq("is_authenticated", true)
+      .order("created_at", { ascending: false })
+
+    if (postsError) {
+      console.error("Error fetching my trade posts:", postsError)
+      return { success: false, error: `投稿の取得に失敗しました: ${postsError.message}`, posts: [] }
+    }
+
+    if (!posts || posts.length === 0) {
+      return { success: true, posts: [] }
+    }
+
+    const postIds = posts.map((post) => post.id)
+
+    // コメント数を取得
+    const { data: comments, error: commentsError } = await supabase
+      .from("trade_comments")
+      .select("post_id")
+      .in("post_id", postIds)
+      .eq("is_deleted", false)
+
+    const commentCountsMap = new Map<string, number>()
+    if (!commentsError && comments) {
+      comments.forEach((comment) => {
+        commentCountsMap.set(comment.post_id, (commentCountsMap.get(comment.post_id) || 0) + 1)
+      })
+    }
+
+    // 求めるカードを取得
+    const { data: wantedRelations, error: wantedError } = await supabase
+      .from("trade_post_wanted_cards")
+      .select("post_id, card_id, is_primary")
+      .in("post_id", postIds)
+
+    // カード詳細を取得
+    const allCardIds = new Set<number>()
+    wantedRelations?.forEach((r) => allCardIds.add(r.card_id))
+
+    const cardsMap = new Map<number, { id: string; name: string; image_url: string }>()
+    if (allCardIds.size > 0) {
+      const { data: cardDetails, error: cardsError } = await supabase
+        .from("cards")
+        .select("id, name, image_url")
+        .in("id", Array.from(allCardIds))
+
+      if (!cardsError && cardDetails) {
+        cardDetails.forEach((c) => cardsMap.set(c.id, { ...c, id: c.id.toString() }))
+      }
+    }
+
+    // 投稿データを整形
+    const formattedPosts = posts.map((post: any) => {
+      const commentCount = commentCountsMap.get(post.id) || 0
+
+      // ステータス判定
+      let displayStatus: string
+      if (post.status === "CANCELED") {
+        displayStatus = "canceled"
+      } else if (post.status === "COMPLETED") {
+        displayStatus = "completed"
+      } else if (commentCount >= 1) {
+        displayStatus = "in_progress"
+      } else {
+        displayStatus = "open"
+      }
+
+      // プライマリカードを取得
+      const primaryWantedCard = wantedRelations
+        ?.filter((r) => r.post_id === post.id && r.is_primary)
+        .map((r) => {
+          const card = cardsMap.get(r.card_id)
+          return {
+            name: card?.name || "不明",
+            imageUrl: card?.image_url || "/placeholder.svg?width=80&height=112",
+          }
+        })[0]
+
+      const createdAt = new Date(post.created_at)
+      const now = new Date()
+      const diffDays = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+      const postedDateRelative = diffDays === 0 ? "今日" : `${diffDays}日前`
+
+      return {
+        id: post.id,
+        title: post.title,
+        primaryCardName: primaryWantedCard?.name || "不明",
+        primaryCardImageUrl: primaryWantedCard?.imageUrl || "/placeholder.svg?width=80&height=112",
+        postedDateRelative,
+        status: displayStatus,
+        commentCount,
+        postUrl: `/trades/${post.id}`,
+      }
+    })
+
+    return { success: true, posts: formattedPosts }
+  } catch (error) {
+    console.error("Unexpected error fetching my trade posts:", error)
+    return { success: false, error: "予期しないエラーが発生しました。", posts: [] }
+  }
+}
+
+export async function getCommentedTradePosts(userId: string) {
+  try {
+    const supabase = await createServerClient()
+
+    // 自分がコメントした投稿のIDを取得
+    const { data: myComments, error: commentsError } = await supabase
+      .from("trade_comments")
+      .select("post_id")
+      .eq("user_id", userId)
+      .eq("is_deleted", false)
+
+    if (commentsError) {
+      console.error("Error fetching commented posts:", commentsError)
+      return { success: false, error: `コメント履歴の取得に失敗しました: ${commentsError.message}`, posts: [] }
+    }
+
+    if (!myComments || myComments.length === 0) {
+      return { success: true, posts: [] }
+    }
+
+    const commentedPostIds = [...new Set(myComments.map((c) => c.post_id))]
+
+    // コメントした投稿の詳細を取得（自分の投稿は除外）
+    const { data: posts, error: postsError } = await supabase
+      .from("trade_posts")
+      .select(`
+        id, 
+        title, 
+        owner_id, 
+        guest_name,
+        custom_id, 
+        status, 
+        created_at,
+        is_authenticated
+      `)
+      .in("id", commentedPostIds)
+      .neq("owner_id", userId) // 自分の投稿は除外
+      .order("created_at", { ascending: false })
+
+    if (postsError) {
+      console.error("Error fetching commented trade posts:", postsError)
+      return { success: false, error: `投稿の取得に失敗しました: ${postsError.message}`, posts: [] }
+    }
+
+    if (!posts || posts.length === 0) {
+      return { success: true, posts: [] }
+    }
+
+    const postIds = posts.map((post) => post.id)
+
+    // コメント数を取得
+    const { data: allComments, error: allCommentsError } = await supabase
+      .from("trade_comments")
+      .select("post_id")
+      .in("post_id", postIds)
+      .eq("is_deleted", false)
+
+    const commentCountsMap = new Map<string, number>()
+    if (!allCommentsError && allComments) {
+      allComments.forEach((comment) => {
+        commentCountsMap.set(comment.post_id, (commentCountsMap.get(comment.post_id) || 0) + 1)
+      })
+    }
+
+    // 求めるカードを取得
+    const { data: wantedRelations, error: wantedError } = await supabase
+      .from("trade_post_wanted_cards")
+      .select("post_id, card_id, is_primary")
+      .in("post_id", postIds)
+
+    // カード詳細を取得
+    const allCardIds = new Set<number>()
+    wantedRelations?.forEach((r) => allCardIds.add(r.card_id))
+
+    const cardsMap = new Map<number, { id: string; name: string; image_url: string }>()
+    if (allCardIds.size > 0) {
+      const { data: cardDetails, error: cardsError } = await supabase
+        .from("cards")
+        .select("id, name, image_url")
+        .in("id", Array.from(allCardIds))
+
+      if (!cardsError && cardDetails) {
+        cardDetails.forEach((c) => cardsMap.set(c.id, { ...c, id: c.id.toString() }))
+      }
+    }
+
+    // 投稿データを整形
+    const formattedPosts = posts.map((post: any) => {
+      const commentCount = commentCountsMap.get(post.id) || 0
+
+      // ステータス表示（投稿に設定されているステータスをそのまま表示）
+      let displayStatus: string
+      if (post.status === "CANCELED") {
+        displayStatus = "canceled"
+      } else if (post.status === "COMPLETED") {
+        displayStatus = "completed"
+      } else if (commentCount >= 1) {
+        displayStatus = "in_progress"
+      } else {
+        displayStatus = "open"
+      }
+
+      // プライマリカードを取得
+      const primaryWantedCard = wantedRelations
+        ?.filter((r) => r.post_id === post.id && r.is_primary)
+        .map((r) => {
+          const card = cardsMap.get(r.card_id)
+          return {
+            name: card?.name || "不明",
+            imageUrl: card?.image_url || "/placeholder.svg?width=80&height=112",
+          }
+        })[0]
+
+      const createdAt = new Date(post.created_at)
+      const now = new Date()
+      const diffDays = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+      const postedDateRelative = diffDays === 0 ? "今日" : `${diffDays}日前`
+
+      return {
+        id: post.id,
+        title: post.title,
+        primaryCardName: primaryWantedCard?.name || "不明",
+        primaryCardImageUrl: primaryWantedCard?.imageUrl || "/placeholder.svg?width=80&height=112",
+        postedDateRelative,
+        status: displayStatus,
+        commentCount,
+        postUrl: `/trades/${post.id}`,
+      }
+    })
+
+    return { success: true, posts: formattedPosts }
+  } catch (error) {
+    console.error("Unexpected error fetching commented trade posts:", error)
+    return { success: false, error: "予期しないエラーが発生しました。", posts: [] }
+  }
+}
