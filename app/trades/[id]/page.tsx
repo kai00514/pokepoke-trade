@@ -205,21 +205,18 @@ export default function TradeDetailPage() {
     fetchPostDetails()
   }, [fetchPostDetails])
 
-  const generateOptimisticComment = useCallback(
-    (user: any, commentText: string) => {
-      const displayName = user?.user_metadata?.display_name || user?.email || "ユーザー"
-      const avatarUrl = user?.user_metadata?.avatar_url
+  const generateOptimisticComment = useCallback((user: any, isAuthenticated: boolean, commentText: string) => {
+    const displayName = user?.user_metadata?.display_name || user?.email || "ユーザー"
+    const avatarUrl = user?.user_metadata?.avatar_url
 
-      return {
-        id: `temp-${Date.now()}`,
-        author: isAuthenticated ? displayName : "ゲスト",
-        avatar: isAuthenticated ? avatarUrl : null,
-        text: commentText,
-        timestamp: "たった今",
-      }
-    },
-    [isAuthenticated, user],
-  )
+    return {
+      id: `temp-${Date.now()}`,
+      author: isAuthenticated ? displayName : "ゲスト",
+      avatar: isAuthenticated ? avatarUrl : null,
+      text: commentText,
+      timestamp: "たった今",
+    }
+  }, [])
 
   const handleCommentSubmit = useCallback(async () => {
     if (!newComment.trim()) {
@@ -234,7 +231,7 @@ export default function TradeDetailPage() {
     const commentText = newComment.trim()
 
     // 楽観的UI更新 - 即座にコメントを表示
-    const optimisticComment: Comment = generateOptimisticComment(user, commentText)
+    const optimisticComment: Comment = generateOptimisticComment(user, isAuthenticated, commentText)
 
     // 即座にコメントを画面に追加
     setPost((prev) =>
@@ -251,12 +248,13 @@ export default function TradeDetailPage() {
 
     try {
       // バックグラウンドでサーバーに送信
-      // 既存のaddCommentToTradePost関数を使用（user_idが正しく渡される）
+      // 5つの引数を持つaddCommentToTradePost関数を使用
       const result = await addCommentToTradePost(
         postId,
         commentText,
         isAuthenticated ? user?.id : null,
         !isAuthenticated ? "ゲスト" : undefined,
+        isAuthenticated,
       )
 
       if (result.success) {

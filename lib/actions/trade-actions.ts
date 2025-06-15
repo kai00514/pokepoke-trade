@@ -553,26 +553,19 @@ export async function getTradePostDetailsById(postId: string) {
   }
 }
 
-export async function addCommentToTradePost(postId: string, content: string, guestName?: string) {
+export async function addCommentToTradePost(
+  postId: string,
+  content: string,
+  userId: string | null,
+  guestName?: string,
+  isAuthenticated?: boolean,
+) {
   try {
     const supabase = await createServerClient()
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      console.warn("[addCommentToTradePost] Session error:", sessionError)
-      // Continue as guest user
-    }
 
     if (!content.trim()) {
       return { success: false, error: "コメント内容を入力してください。" }
     }
-
-    const isAuthenticated = !!session?.user
-    const userId = session?.user?.id || null
-    const userName = isAuthenticated ? getUserDisplayInfo(session.user).username : "ゲスト"
 
     console.log("[addCommentToTradePost] User ID:", userId, "Is authenticated:", isAuthenticated)
     console.log("[addCommentToTradePost] Guest name:", guestName)
@@ -581,8 +574,8 @@ export async function addCommentToTradePost(postId: string, content: string, gue
       post_id: postId,
       content: content,
       is_guest: !isAuthenticated,
-      user_id: userId, // NULL許可になったのでそのまま設定
-      user_name: isAuthenticated ? userName : "ゲスト",
+      user_id: userId, // フロントエンドから渡されたuser_id
+      user_name: isAuthenticated ? "ユーザー" : "ゲスト", // 仮の値、後で適切に設定
       guest_name: !isAuthenticated ? "ゲスト" : null,
     }
 
