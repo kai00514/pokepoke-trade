@@ -206,7 +206,7 @@ export default function TradeDetailPage() {
   }, [fetchPostDetails])
 
   const generateOptimisticComment = useCallback(
-    (commentText: string) => {
+    (user: any, commentText: string) => {
       const displayName = user?.user_metadata?.display_name || user?.email || "ユーザー"
       const avatarUrl = user?.user_metadata?.avatar_url
 
@@ -218,7 +218,7 @@ export default function TradeDetailPage() {
         timestamp: "たった今",
       }
     },
-    [user, isAuthenticated],
+    [isAuthenticated],
   )
 
   const handleCommentSubmit = useCallback(async () => {
@@ -234,7 +234,7 @@ export default function TradeDetailPage() {
     const commentText = newComment.trim()
 
     // 楽観的UI更新 - 即座にコメントを表示
-    const optimisticComment: Comment = generateOptimisticComment(commentText)
+    const optimisticComment: Comment = generateOptimisticComment(user, commentText)
 
     // 即座にコメントを画面に追加
     setPost((prev) =>
@@ -250,7 +250,8 @@ export default function TradeDetailPage() {
     setNewComment("")
 
     try {
-      // バックグラウンドでサーバーに送信（UIは更新しない）
+      // バックグラウンドでサーバーに送信
+      // 既存のaddCommentToTradePost関数を使用（user_idが正しく渡される）
       const result = await addCommentToTradePost(postId, commentText, !isAuthenticated ? "ゲスト" : undefined)
 
       if (result.success) {
