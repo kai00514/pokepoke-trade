@@ -572,7 +572,13 @@ export async function addCommentToTradePost(postId: string, content: string, gue
 
     const isAuthenticated = !!session?.user
     const userId = session?.user?.id || null
-    const userName = isAuthenticated ? getUserDisplayInfo(session.user).username : "ゲスト"
+    const userName = isAuthenticated
+      ? session.user.user_metadata?.display_name ||
+        session.user.user_metadata?.name ||
+        session.user.user_metadata?.full_name ||
+        session.user.email?.split("@")[0] ||
+        "ユーザー"
+      : "ゲスト"
 
     console.log("[addCommentToTradePost] User ID:", userId, "Is authenticated:", isAuthenticated)
     console.log("[addCommentToTradePost] Guest name:", guestName)
@@ -582,7 +588,7 @@ export async function addCommentToTradePost(postId: string, content: string, gue
       content: content,
       is_guest: !isAuthenticated,
       user_id: userId, // NULL許可になったのでそのまま設定
-      user_name: isAuthenticated ? userName : "ゲスト",
+      user_name: userName,
       guest_name: !isAuthenticated ? "ゲスト" : null,
     }
 
