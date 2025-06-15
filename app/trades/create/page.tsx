@@ -270,12 +270,12 @@ export default function CreateTradePage() {
             }
           : null,
       })
-
+      console.log("appId: ", data.session?.user?.id)
       const result = await createTradePost({
         title: tradeTitle,
         wantedCards,
         offeredCards,
-        appId: appId.trim() || undefined,
+        appId: appId.trim() || data.session?.user?.id || undefined,
         comment: comment.trim() || undefined,
         guestName: !isAuthenticated ? guestName.trim() : undefined,
       })
