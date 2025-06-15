@@ -8,7 +8,7 @@ import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Copy, Send, UserCircle, Loader2 } from "lucide-react"
+import { ArrowLeft, Copy, Send, UserCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import type { Card as CardInfo } from "@/components/detailed-search-modal"
 import { getTradePostDetailsById, addCommentToTradePost, updateTradePostStatus } from "@/lib/actions/trade-actions"
@@ -123,15 +123,12 @@ export default function TradeDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
-  const { user } = useAuth() // useAuthをコンポーネント内で呼び出し
+  const { user } = useAuth()
   const [post, setPost] = useState<TradePostDetails | null>(null)
   const [newComment, setNewComment] = useState("")
   const [isLoading, setIsLoading] = useState(true)
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
-  const [guestName, setGuestName] = useState("")
-  const [commentSubmitError, setCommentSubmitError] = useState<string | null>(null)
 
   const supabase = createBrowserClient()
   const postId = params.id as string
@@ -208,32 +205,20 @@ export default function TradeDetailPage() {
     fetchPostDetails()
   }, [fetchPostDetails])
 
-  const addComment = useCallback(
-    async (commentText: string, guestAuthor?: string) => {
-      if (!postId) {
-        setCommentSubmitError("Post ID is missing.")
-        return false
-      }
+  const generateOptimisticComment = useCallback(
+    (commentText: string) => {
+      const displayName = user?.user_metadata?.display_name || user?.email || "ユーザー"
+      const avatarUrl = user?.user_metadata?.avatar_url
 
-      try {
-        const result = await addCommentToTradePost(postId, commentText, guestAuthor)
-        if (result.success) {
-          setNewComment("")
-          setGuestName("")
-          toast({ title: "コメントを投稿しました" })
-          await fetchPostDetails() // Refresh comments
-          return true
-        } else {
-          setCommentSubmitError(result.error || "Failed to post comment.")
-          return false
-        }
-      } catch (error) {
-        console.error("Error submitting comment:", error)
-        setCommentSubmitError("An unexpected error occurred.")
-        return false
+      return {
+        id: `temp-${Date.now()}`,
+        author: isAuthenticated ? displayName : "ゲスト",
+        avatar: isAuthenticated ? avatarUrl : null,
+        text: commentText,
+        timestamp: "たった今",
       }
     },
-    [postId, fetchPostDetails, toast],
+    [user, isAuthenticated],
   )
 
   const handleCommentSubmit = useCallback(async () => {
@@ -246,21 +231,60 @@ export default function TradeDetailPage() {
       return
     }
 
-    setIsSubmittingComment(true)
-    setCommentSubmitError(null)
+    const commentText = newComment.trim()
 
-    const isSuccess = await addComment(newComment.trim(), !isAuthenticated ? guestName.trim() : undefined)
+    // 楽観的UI更新 - 即座にコメントを表示
+    const optimisticComment: Comment = generateOptimisticComment(commentText)
 
-    setIsSubmittingComment(false)
+    // 即座にコメントを画面に追加
+    setPost((prev) =>
+      prev
+        ? {
+            ...prev,
+            comments: [...prev.comments, optimisticComment],
+          }
+        : null,
+    )
 
-    if (!isSuccess) {
+    // 入力フィールドをクリア
+    setNewComment("")
+
+    try {
+      // バックグラウンドでサーバーに送信（UIは更新しない）
+      const result = await addCommentToTradePost(postId, commentText, !isAuthenticated ? "ゲスト" : undefined)
+
+      if (result.success) {
+        // 成功時は何もしない（楽観的UI更新のまま）
+        toast({
+          title: "投稿完了",
+          description: "コメントを投稿しました",
+          duration: 2000,
+        })
+      } else {
+        throw new Error(result.error || "コメントの投稿に失敗しました")
+      }
+    } catch (error) {
+      // エラー時は楽観的に追加したコメントを削除
+      setPost((prev) =>
+        prev
+          ? {
+              ...prev,
+              comments: prev.comments.filter((comment) => comment.id !== optimisticComment.id),
+            }
+          : null,
+      )
+
+      // 入力内容を復元
+      setNewComment(commentText)
+
+      console.error("Error adding comment:", error)
       toast({
         title: "コメント投稿エラー",
-        description: commentSubmitError || "コメントの投稿に失敗しました。",
+        description: "コメントの投稿に失敗しました。もう一度お試しください。",
         variant: "destructive",
       })
     }
-  }, [newComment, isAuthenticated, guestName, addComment, toast, commentSubmitError])
+  }, [newComment, isAuthenticated, user, postId, toast, generateOptimisticComment])
 
   const handleCommentSubmitClick = useCallback(() => {
     if (!newComment.trim()) {
@@ -277,19 +301,19 @@ export default function TradeDetailPage() {
     } else {
       handleCommentSubmit()
     }
-  }, [newComment, isAuthenticated, setShowLoginPrompt, handleCommentSubmit, toast])
+  }, [newComment, isAuthenticated, handleCommentSubmit, toast])
 
   const handleContinueAsGuest = useCallback(() => {
     setShowLoginPrompt(false)
     handleCommentSubmit()
-  }, [setShowLoginPrompt, handleCommentSubmit])
+  }, [handleCommentSubmit])
 
   if (isLoading) {
     return (
       <div className="flex flex-col min-h-screen">
         <AuthHeader />
         <main className="flex-grow container mx-auto px-4 py-8 flex justify-center items-center">
-          <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-600"></div>
         </main>
         <Footer />
       </div>
@@ -440,23 +464,7 @@ export default function TradeDetailPage() {
             )}
           </div>
 
-          <div className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50 rounded-b-lg space-y-4">
-            {!isAuthenticated && (
-              <div>
-                <label htmlFor="guestName" className="block text-sm font-medium text-slate-700 mb-1">
-                  ゲスト名
-                </label>
-                <Input
-                  id="guestName"
-                  type="text"
-                  placeholder="表示名を入力してください"
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  className="bg-white"
-                  disabled={isSubmittingComment}
-                />
-              </div>
-            )}
+          <div className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50 rounded-b-lg">
             <div className="flex items-center space-x-2">
               <Input
                 type="text"
@@ -464,7 +472,6 @@ export default function TradeDetailPage() {
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 className="flex-grow bg-white"
-                disabled={isSubmittingComment}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault()
@@ -476,16 +483,10 @@ export default function TradeDetailPage() {
                 type="button"
                 onClick={handleCommentSubmitClick}
                 className="bg-purple-600 hover:bg-purple-700 text-white"
-                disabled={!newComment.trim() || isSubmittingComment || (!isAuthenticated && !guestName.trim())}
+                disabled={!newComment.trim()}
               >
-                {isSubmittingComment ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-0 sm:mr-2" />
-                    <span className="hidden sm:inline">投稿</span>
-                  </>
-                )}
+                <Send className="h-4 w-4 mr-0 sm:mr-2" />
+                <span className="hidden sm:inline">投稿</span>
               </Button>
             </div>
           </div>

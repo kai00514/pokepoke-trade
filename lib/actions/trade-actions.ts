@@ -581,17 +581,9 @@ export async function addCommentToTradePost(postId: string, content: string, gue
       post_id: postId,
       content: content,
       is_guest: !isAuthenticated,
-    }
-
-    // Only set user_id if user is authenticated
-    if (isAuthenticated && userId) {
-      insertData.user_id = userId
-      insertData.user_name = userName
-      insertData.guest_name = null
-    } else {
-      insertData.user_id = null
-      insertData.user_name = userName
-      insertData.guest_name = guestName || "ゲスト"
+      user_id: userId, // NULL許可になったのでそのまま設定
+      user_name: userName,
+      guest_name: !isAuthenticated ? guestName || "ゲスト" : null,
     }
 
     console.log("[addCommentToTradePost] Insert data:", insertData)

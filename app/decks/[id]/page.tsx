@@ -26,6 +26,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import type { DeckWithCards } from "@/types/deck-types"
 import type { CardData } from "@/lib/card-utils"
 import { AuthProvider } from "@/contexts/auth-context"
+import DeckComments from "@/components/DeckComments"
 
 export default function DeckDetailPage() {
   const { id } = useParams() as { id: string }
@@ -413,6 +414,11 @@ export default function DeckDetailPage() {
                   </TabsContent>
                 ))}
               </Tabs>
+            </div>
+
+            {/* コメントセクション */}
+            <div className="mt-6">
+              <DeckComments deckId={id} deckTitle={deck.title} />
             </div>
           </main>
           <FooterNavigation />
