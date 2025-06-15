@@ -131,6 +131,7 @@ export default function TradeDetailPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
   const [guestName, setGuestName] = useState("")
+  const [commentSubmitError, setCommentSubmitError] = useState<string | null>(null)
 
   const supabase = createBrowserClient()
   const postId = params.id as string
@@ -207,6 +208,60 @@ export default function TradeDetailPage() {
     fetchPostDetails()
   }, [fetchPostDetails])
 
+  const addComment = useCallback(
+    async (commentText: string, guestAuthor?: string) => {
+      if (!postId) {
+        setCommentSubmitError("Post ID is missing.")
+        return false
+      }
+
+      try {
+        const result = await addCommentToTradePost(postId, commentText, guestAuthor)
+        if (result.success) {
+          setNewComment("")
+          setGuestName("")
+          toast({ title: "コメントを投稿しました" })
+          await fetchPostDetails() // Refresh comments
+          return true
+        } else {
+          setCommentSubmitError(result.error || "Failed to post comment.")
+          return false
+        }
+      } catch (error) {
+        console.error("Error submitting comment:", error)
+        setCommentSubmitError("An unexpected error occurred.")
+        return false
+      }
+    },
+    [postId, fetchPostDetails, toast],
+  )
+
+  const handleCommentSubmit = useCallback(async () => {
+    if (!newComment.trim()) {
+      toast({
+        title: "入力エラー",
+        description: "コメントを入力してください。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSubmittingComment(true)
+    setCommentSubmitError(null)
+
+    const isSuccess = await addComment(newComment.trim(), !isAuthenticated ? guestName.trim() : undefined)
+
+    setIsSubmittingComment(false)
+
+    if (!isSuccess) {
+      toast({
+        title: "コメント投稿エラー",
+        description: commentSubmitError || "コメントの投稿に失敗しました。",
+        variant: "destructive",
+      })
+    }
+  }, [newComment, isAuthenticated, guestName, addComment, toast, commentSubmitError])
+
   const handleCommentSubmitClick = useCallback(() => {
     if (!newComment.trim()) {
       toast({
@@ -228,43 +283,6 @@ export default function TradeDetailPage() {
     setShowLoginPrompt(false)
     handleCommentSubmit()
   }, [setShowLoginPrompt, handleCommentSubmit])
-
-  const handleCommentSubmit = useCallback(async () => {
-    if (!newComment.trim() || !postId) return
-
-    setIsSubmittingComment(true)
-    try {
-      const result = await addCommentToTradePost(
-        postId,
-        newComment.trim(),
-        !isAuthenticated ? guestName.trim() : undefined,
-      )
-      if (result.success) {
-        setNewComment("")
-        setGuestName("")
-        toast({
-          title: "コメントを投稿しました",
-        })
-        // Re-fetch post details to show the new comment
-        await fetchPostDetails()
-      } else {
-        toast({
-          title: "コメント投稿エラー",
-          description: result.error || "コメントの投稿に失敗しました。",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: "エラー",
-        description: "予期しないエラーが発生しました。",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSubmittingComment(false)
-    }
-  }, [newComment, postId, isAuthenticated, guestName, fetchPostDetails, toast])
 
   if (isLoading) {
     return (

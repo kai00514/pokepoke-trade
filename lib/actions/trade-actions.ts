@@ -140,6 +140,7 @@ export async function createTradePost(formData: TradeFormData) {
   }
 }
 
+// 他の関数は変更なし
 export async function getTradePostsWithCards(limit = 10, offset = 0) {
   try {
     const supabase = await createServerClient()
@@ -175,60 +176,40 @@ export async function getTradePostsWithCards(limit = 10, offset = 0) {
 
     const authUsersMap = new Map()
     if (userIds.length > 0) {
-      try {
-        const { data: authUsers, error: usersError } = await supabase.auth.admin.listUsers()
+      const { data: authUsers, error: usersError } = await supabase.auth.admin.listUsers()
 
-        if (!usersError && authUsers?.users) {
-          authUsers.users.forEach((user) => {
-            if (userIds.includes(user.id)) {
-              const { username, avatarUrl } = getUserDisplayInfo(user)
-              authUsersMap.set(user.id, { username, avatarUrl })
-            }
-          })
-        }
-      } catch (error) {
-        console.warn("Error fetching auth users:", error)
+      if (!usersError && authUsers?.users) {
+        authUsers.users.forEach((user) => {
+          if (userIds.includes(user.id)) {
+            const { username, avatarUrl } = getUserDisplayInfo(user)
+            authUsersMap.set(user.id, { username, avatarUrl })
+          }
+        })
       }
     }
 
     const postIds = posts.map((post) => post.id)
 
-    // Get wanted cards relations with error handling
-    let wantedRelations: any[] = []
-    try {
-      const { data: wantedData, error: wantedError } = await supabase
-        .from("trade_post_wanted_cards")
-        .select("post_id, card_id, is_primary")
-        .in("post_id", postIds)
+    // Get wanted cards relations
+    const { data: wantedRelations, error: wantedError } = await supabase
+      .from("trade_post_wanted_cards")
+      .select("post_id, card_id, is_primary")
+      .in("post_id", postIds)
 
-      if (wantedError) {
-        console.error("Error fetching wanted card relations:", wantedError)
-        // Continue without wanted cards data
-      } else {
-        wantedRelations = wantedData || []
-      }
-    } catch (error) {
-      console.error("Failed to fetch wanted card relations:", error)
-      // Continue without wanted cards data
+    if (wantedError) {
+      console.error("Error fetching wanted card relations:", wantedError)
+      return { success: false, error: `求めるカード関連の取得に失敗: ${wantedError.message}`, posts: [] }
     }
 
-    // Get offered cards relations with error handling
-    let offeredRelations: any[] = []
-    try {
-      const { data: offeredData, error: offeredError } = await supabase
-        .from("trade_post_offered_cards")
-        .select("post_id, card_id")
-        .in("post_id", postIds)
+    // Get offered cards relations
+    const { data: offeredRelations, error: offeredError } = await supabase
+      .from("trade_post_offered_cards")
+      .select("post_id, card_id")
+      .in("post_id", postIds)
 
-      if (offeredError) {
-        console.error("Error fetching offered card relations:", offeredError)
-        // Continue without offered cards data
-      } else {
-        offeredRelations = offeredData || []
-      }
-    } catch (error) {
-      console.error("Failed to fetch offered card relations:", error)
-      // Continue without offered cards data
+    if (offeredError) {
+      console.error("Error fetching offered card relations:", offeredError)
+      return { success: false, error: `譲れるカード関連の取得に失敗: ${offeredError.message}`, posts: [] }
     }
 
     // Get all card IDs and fetch card details
@@ -238,23 +219,19 @@ export async function getTradePostsWithCards(limit = 10, offset = 0) {
 
     const cardsMap = new Map<number, { id: string; name: string; image_url: string }>()
     if (allCardIds.size > 0) {
-      try {
-        const { data: cardDetails, error: cardsError } = await supabase
-          .from("cards")
-          .select("id, name, image_url")
-          .in("id", Array.from(allCardIds))
+      const { data: cardDetails, error: cardsError } = await supabase
+        .from("cards")
+        .select("id, name, image_url")
+        .in("id", Array.from(allCardIds))
 
-        if (cardsError) {
-          console.error("Error fetching card details:", cardsError)
-        } else {
-          cardDetails?.forEach((c) => cardsMap.set(c.id, { ...c, id: c.id.toString() }))
-        }
-      } catch (error) {
-        console.error("Failed to fetch card details:", error)
+      if (cardsError) {
+        console.error("Error fetching card details:", cardsError)
+      } else {
+        cardDetails?.forEach((c) => cardsMap.set(c.id, { ...c, id: c.id.toString() }))
       }
     }
 
-    // Get comment counts with error handling
+    // Get comment counts
     const commentCountsMap = new Map<string, number>()
     try {
       const { data: allCommentsForPosts, error: commentFetchError } = await supabase
@@ -397,17 +374,12 @@ export async function getTradePostDetailsById(postId: string) {
 
     if ((postData as any).is_authenticated && (postData as any).owner_id) {
       // Get auth user info
-      try {
-        const { data: authUser, error: userError } = await supabase.auth.admin.getUserById((postData as any).owner_id)
+      const { data: authUser, error: userError } = await supabase.auth.admin.getUserById((postData as any).owner_id)
 
-        if (!userError && authUser?.user) {
-          const { username, avatarUrl } = getUserDisplayInfo(authUser.user)
-          authorInfo = { username, avatarUrl }
-        } else {
-          authorInfo = { username: "ユーザー", avatarUrl: null }
-        }
-      } catch (error) {
-        console.warn("Error fetching auth user:", error)
+      if (!userError && authUser?.user) {
+        const { username, avatarUrl } = getUserDisplayInfo(authUser.user)
+        authorInfo = { username, avatarUrl }
+      } else {
         authorInfo = { username: "ユーザー", avatarUrl: null }
       }
     } else {
@@ -417,38 +389,24 @@ export async function getTradePostDetailsById(postId: string) {
       }
     }
 
-    // Get wanted cards relationships with error handling
-    let wantedRelations: any[] = []
-    try {
-      const { data: wantedData, error: wantedError } = await supabase
-        .from("trade_post_wanted_cards")
-        .select("card_id, is_primary")
-        .eq("post_id", postId)
+    // Get wanted cards relationships
+    const { data: wantedRelations, error: wantedError } = await supabase
+      .from("trade_post_wanted_cards")
+      .select("card_id, is_primary")
+      .eq("post_id", postId)
 
-      if (wantedError) {
-        console.error(`Error fetching wanted cards for post ${postId}:`, wantedError)
-      } else {
-        wantedRelations = wantedData || []
-      }
-    } catch (error) {
-      console.error(`Failed to fetch wanted cards for post ${postId}:`, error)
+    if (wantedError) {
+      console.error(`Error fetching wanted cards for post ${postId}:`, wantedError)
     }
 
-    // Get offered cards relationships with error handling
-    let offeredRelations: any[] = []
-    try {
-      const { data: offeredData, error: offeredError } = await supabase
-        .from("trade_post_offered_cards")
-        .select("card_id")
-        .eq("post_id", postId)
+    // Get offered cards relationships
+    const { data: offeredRelations, error: offeredError } = await supabase
+      .from("trade_post_offered_cards")
+      .select("card_id")
+      .eq("post_id", postId)
 
-      if (offeredError) {
-        console.error(`Error fetching offered cards for post ${postId}:`, offeredError)
-      } else {
-        offeredRelations = offeredData || []
-      }
-    } catch (error) {
-      console.error(`Failed to fetch offered cards for post ${postId}:`, error)
+    if (offeredError) {
+      console.error(`Error fetching offered cards for post ${postId}:`, offeredError)
     }
 
     // Get all card IDs
@@ -456,22 +414,18 @@ export async function getTradePostDetailsById(postId: string) {
     wantedRelations?.forEach((r) => allCardIds.add(r.card_id))
     offeredRelations?.forEach((r) => allCardIds.add(r.card_id))
 
-    // Get card details with error handling
+    // Get card details
     const cardsMap = new Map<number, { id: string; name: string; image_url: string }>()
     if (allCardIds.size > 0) {
-      try {
-        const { data: cardDetails, error: cardsError } = await supabase
-          .from("cards")
-          .select("id, name, image_url")
-          .in("id", Array.from(allCardIds))
+      const { data: cardDetails, error: cardsError } = await supabase
+        .from("cards")
+        .select("id, name, image_url")
+        .in("id", Array.from(allCardIds))
 
-        if (cardsError) {
-          console.error(`Error fetching card details for post ${postId}:`, cardsError)
-        } else {
-          cardDetails?.forEach((c) => cardsMap.set(c.id, { ...c, id: c.id.toString() }))
-        }
-      } catch (error) {
-        console.error(`Failed to fetch card details for post ${postId}:`, error)
+      if (cardsError) {
+        console.error(`Error fetching card details for post ${postId}:`, cardsError)
+      } else {
+        cardDetails?.forEach((c) => cardsMap.set(c.id, { ...c, id: c.id.toString() }))
       }
     }
 
@@ -498,31 +452,24 @@ export async function getTradePostDetailsById(postId: string) {
         }
       }) || []
 
-    // Get comments with error handling
-    let commentsData: any[] = []
-    try {
-      const { data: comments, error: commentsError } = await supabase
-        .from("trade_comments")
-        .select(`
-          id, 
-          user_id, 
-          user_name, 
-          guest_name,
-          content, 
-          created_at,
-          is_guest
-        `)
-        .eq("post_id", postId)
-        .eq("is_deleted", false)
-        .order("created_at", { ascending: true })
+    // Get comments
+    const { data: commentsData, error: commentsError } = await supabase
+      .from("trade_comments")
+      .select(`
+        id, 
+        user_id, 
+        user_name, 
+        guest_name,
+        content, 
+        created_at,
+        is_guest
+      `)
+      .eq("post_id", postId)
+      .eq("is_deleted", false)
+      .order("created_at", { ascending: true })
 
-      if (commentsError) {
-        console.error(`Error fetching comments for post ${postId}:`, commentsError)
-      } else {
-        commentsData = comments || []
-      }
-    } catch (error) {
-      console.error(`Failed to fetch comments for post ${postId}:`, error)
+    if (commentsError) {
+      console.error(`Error fetching comments for post ${postId}:`, commentsError)
     }
 
     // Get auth users for authenticated commenters
@@ -531,19 +478,15 @@ export async function getTradePostDetailsById(postId: string) {
 
     const commentAuthUsersMap = new Map()
     if (commentUserIds.length > 0) {
-      try {
-        const { data: authUsers, error: usersError } = await supabase.auth.admin.listUsers()
+      const { data: authUsers, error: usersError } = await supabase.auth.admin.listUsers()
 
-        if (!usersError && authUsers?.users) {
-          authUsers.users.forEach((user) => {
-            if (commentUserIds.includes(user.id)) {
-              const { username, avatarUrl } = getUserDisplayInfo(user)
-              commentAuthUsersMap.set(user.id, { username, avatarUrl })
-            }
-          })
-        }
-      } catch (error) {
-        console.warn("Error fetching comment auth users:", error)
+      if (!usersError && authUsers?.users) {
+        authUsers.users.forEach((user) => {
+          if (commentUserIds.includes(user.id)) {
+            const { username, avatarUrl } = getUserDisplayInfo(user)
+            commentAuthUsersMap.set(user.id, { username, avatarUrl })
+          }
+        })
       }
     }
 
