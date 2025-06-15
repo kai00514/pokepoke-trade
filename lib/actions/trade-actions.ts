@@ -24,6 +24,7 @@ export interface TradeFormData {
   appId?: string
   comment?: string
   guestName?: string
+  userId?: string // この行を追加
 }
 
 export async function createTradePost(formData: TradeFormData) {
@@ -159,20 +160,42 @@ export async function createTradePost(formData: TradeFormData) {
 
     const sessionUserId = session?.user?.id
     const directUserId = user?.id
-    const finalUserId = sessionUserId || directUserId || null
-    const isAuthenticated = !!(session?.user || user) && !!finalUserId
+    const clientUserId = formData.userId // クライアントから渡されたユーザーID
+    const finalUserId = sessionUserId || directUserId || clientUserId || null
+    const isAuthenticated = !!(session?.user || user || clientUserId) && !!finalUserId
     const guestName = formData.guestName?.trim() || "ゲスト"
 
     console.log("[createTradePost] 🔐 Authentication analysis:", {
       sessionUserId,
       directUserId,
+      clientUserId,
       finalUserId,
       isAuthenticated,
       guestName: isAuthenticated ? null : guestName,
       sessionUserExists: !!session?.user,
       directUserExists: !!user,
-      bothMatch: sessionUserId === directUserId,
+      clientUserExists: !!clientUserId,
+      authSource: sessionUserId ? "session" : directUserId ? "direct" : clientUserId ? "client" : "none",
     })
+
+    // セキュリティチェック: クライアントから渡されたuserIdが有効かサーバーサイドで検証
+    if (clientUserId && !sessionUserId && !directUserId) {
+      console.log("[createTradePost] 🔍 Verifying client-provided userId...")
+      try {
+        const { data: verifyUser, error: verifyError } = await supabase.auth.admin.getUserById(clientUserId)
+        if (verifyError || !verifyUser?.user) {
+          console.warn("[createTradePost] ⚠️ Invalid client userId, treating as guest")
+          const finalUserId = null
+          const isAuthenticated = false
+        } else {
+          console.log("[createTradePost] ✅ Client userId verified successfully")
+        }
+      } catch (error) {
+        console.warn("[createTradePost] ⚠️ Error verifying client userId:", error)
+        const finalUserId = null
+        const isAuthenticated = false
+      }
+    }
 
     // === POST DATA PREPARATION ===
     console.log("\n" + "=".repeat(50))

@@ -34,6 +34,7 @@ export default function CreateTradePage() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
   const [guestName, setGuestName] = useState("")
   const [timeSync, setTimeSync] = useState<TimeSync | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalSelectionContext, setModalSelectionContext] = useState<SelectionContextType>(null)
@@ -68,12 +69,15 @@ export default function CreateTradePage() {
     const checkAuth = async () => {
       const { data } = await supabase.auth.getSession()
       const isAuth = !!data.session
+      const userId = data.session?.user?.id || null
+
       setIsAuthenticated(isAuth)
+      setCurrentUserId(userId) // この行を追加
 
       console.log("[CreateTradePage] Auth status:", {
         hasSession: !!data.session,
         hasUser: !!data.session?.user,
-        userId: data.session?.user?.id,
+        userId: userId,
         isAuthenticated: isAuth,
         sessionExpiry: data.session?.expires_at ? new Date(data.session.expires_at * 1000).toISOString() : null,
         currentTime: new Date().toISOString(),
@@ -107,12 +111,16 @@ export default function CreateTradePage() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       const isAuth = !!session
+      const userId = session?.user?.id || null
+
       setIsAuthenticated(isAuth)
+      setCurrentUserId(userId) // この行を追加
+
       console.log("[CreateTradePage] Auth state changed:", {
         event,
         hasSession: !!session,
         hasUser: !!session?.user,
-        userId: session?.user?.id,
+        userId: userId,
         isAuthenticated: isAuth,
         sessionExpiry: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
       })
@@ -270,14 +278,15 @@ export default function CreateTradePage() {
             }
           : null,
       })
-      console.log("appId: ", data.session?.user?.id)
+
       const result = await createTradePost({
         title: tradeTitle,
         wantedCards,
         offeredCards,
-        appId: appId.trim() || data.session?.user?.id || undefined,
+        appId: appId.trim() || undefined,
         comment: comment.trim() || undefined,
         guestName: !isAuthenticated ? guestName.trim() : undefined,
+        userId: isAuthenticated ? currentUserId : undefined, // この行を追加
       })
 
       console.log("[CreateTradePage] Trade post result:", result)
