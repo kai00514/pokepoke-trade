@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { InfoIcon, ArrowLeft, Trash2, Loader2 } from "lucide-react"
+import { InfoIcon, ArrowLeft, Trash2, Loader2, Clock, AlertTriangle } from "lucide-react"
 import DetailedSearchModal from "@/components/detailed-search-modal"
 import type { Card as SelectedCardType } from "@/components/detailed-search-modal"
 import { useToast } from "@/components/ui/use-toast"
@@ -18,6 +18,7 @@ import { createTradePost } from "@/lib/actions/trade-actions"
 import { createBrowserClient } from "@/lib/supabase/client"
 import LoginPromptModal from "@/components/ui/login-prompt-modal"
 import AuthDebug from "@/components/auth-debug"
+import { checkTimeSync, formatTimeSkew, type TimeSync } from "@/lib/utils/time-sync"
 
 type SelectionContextType = "wanted" | "offered" | null
 
@@ -32,6 +33,7 @@ export default function CreateTradePage() {
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({})
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
   const [guestName, setGuestName] = useState("")
+  const [timeSync, setTimeSync] = useState<TimeSync | null>(null)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalSelectionContext, setModalSelectionContext] = useState<SelectionContextType>(null)
@@ -43,18 +45,62 @@ export default function CreateTradePage() {
   const router = useRouter()
   const supabase = createBrowserClient()
 
+  // Check time sync on component mount
+  useEffect(() => {
+    const checkTime = async () => {
+      const syncResult = await checkTimeSync()
+      setTimeSync(syncResult)
+
+      if (syncResult.isSkewed) {
+        console.warn("⏰ Time sync issue detected:", {
+          deviceTime: new Date(syncResult.deviceTime).toISOString(),
+          serverTime: new Date(syncResult.serverTime).toISOString(),
+          skew: formatTimeSkew(syncResult.skew),
+        })
+      }
+    }
+
+    checkTime()
+  }, [])
+
   // Check authentication status
   useEffect(() => {
     const checkAuth = async () => {
       const { data } = await supabase.auth.getSession()
       const isAuth = !!data.session
       setIsAuthenticated(isAuth)
+
       console.log("[CreateTradePage] Auth status:", {
         hasSession: !!data.session,
         hasUser: !!data.session?.user,
         userId: data.session?.user?.id,
         isAuthenticated: isAuth,
+        sessionExpiry: data.session?.expires_at ? new Date(data.session.expires_at * 1000).toISOString() : null,
+        currentTime: new Date().toISOString(),
       })
+
+      // セッションの有効期限をチェック
+      if (data.session?.expires_at) {
+        const expiryTime = data.session.expires_at * 1000
+        const currentTime = Date.now()
+        const timeToExpiry = expiryTime - currentTime
+
+        console.log("[CreateTradePage] Session expiry check:", {
+          expiryTime: new Date(expiryTime).toISOString(),
+          currentTime: new Date(currentTime).toISOString(),
+          timeToExpiry: Math.floor(timeToExpiry / 1000) + " seconds",
+          isExpired: timeToExpiry <= 0,
+        })
+
+        if (timeToExpiry <= 0) {
+          console.warn("[CreateTradePage] ⚠️ Session appears to be expired")
+          toast({
+            title: "セッション期限切れ",
+            description: "セッションの有効期限が切れています。再ログインしてください。",
+            variant: "destructive",
+          })
+        }
+      }
     }
 
     checkAuth()
@@ -68,13 +114,14 @@ export default function CreateTradePage() {
         hasUser: !!session?.user,
         userId: session?.user?.id,
         isAuthenticated: isAuth,
+        sessionExpiry: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
       })
     })
 
     return () => {
       authListener.subscription.unsubscribe()
     }
-  }, [supabase.auth])
+  }, [supabase.auth, toast])
 
   const validateForm = () => {
     const errors: { [key: string]: string } = {}
@@ -153,6 +200,28 @@ export default function CreateTradePage() {
     }
   }
 
+  const handleRefreshSession = async () => {
+    try {
+      const { data, error } = await supabase.auth.refreshSession()
+      if (error) {
+        console.error("Failed to refresh session:", error)
+        toast({
+          title: "セッション更新エラー",
+          description: "セッションの更新に失敗しました。再ログインしてください。",
+          variant: "destructive",
+        })
+      } else {
+        console.log("Session refreshed successfully:", data)
+        toast({
+          title: "セッション更新完了",
+          description: "セッションが正常に更新されました。",
+        })
+      }
+    } catch (error) {
+      console.error("Error refreshing session:", error)
+    }
+  }
+
   const handleSubmitClick = () => {
     if (!validateForm()) {
       toast({
@@ -161,6 +230,15 @@ export default function CreateTradePage() {
         variant: "destructive",
       })
       return
+    }
+
+    // 時刻同期の問題がある場合は警告
+    if (timeSync?.isSkewed) {
+      toast({
+        title: "時刻同期の問題",
+        description: `デバイスの時計が${formatTimeSkew(timeSync.skew)}ずれています。投稿に失敗する可能性があります。`,
+        variant: "destructive",
+      })
     }
 
     if (!isAuthenticated) {
@@ -185,6 +263,12 @@ export default function CreateTradePage() {
         title: tradeTitle,
         wantedCardsCount: wantedCards.length,
         offeredCardsCount: offeredCards.length,
+        timeSync: timeSync
+          ? {
+              skew: formatTimeSkew(timeSync.skew),
+              isSkewed: timeSync.isSkewed,
+            }
+          : null,
       })
 
       const result = await createTradePost({
@@ -295,10 +379,40 @@ export default function CreateTradePage() {
         <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md max-w-2xl mx-auto">
           <h1 className="text-2xl font-bold text-slate-800 mb-6 text-center">トレードカードを登録</h1>
 
+          {/* 時刻同期の警告 */}
+          {timeSync?.isSkewed && (
+            <Alert className="mb-6 bg-yellow-50 border-yellow-200">
+              <AlertTriangle className="h-5 w-5 text-yellow-600" />
+              <AlertTitle className="text-yellow-700 font-semibold">時刻同期の問題</AlertTitle>
+              <AlertDescription className="text-yellow-600 text-sm">
+                デバイスの時計が{formatTimeSkew(timeSync.skew)}ずれています。
+                これにより認証に問題が発生する可能性があります。
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshSession}
+                  className="ml-2 text-yellow-700 border-yellow-300 hover:bg-yellow-100"
+                >
+                  <Clock className="h-4 w-4 mr-1" />
+                  セッション更新
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* デバッグ情報（開発時のみ表示） */}
           {process.env.NODE_ENV === "development" && (
             <div className="mb-6">
               <AuthDebug />
+              {timeSync && (
+                <div className="mt-4 p-3 bg-gray-50 rounded border text-xs">
+                  <h4 className="font-semibold mb-2">時刻同期情報:</h4>
+                  <div>デバイス時刻: {new Date(timeSync.deviceTime).toISOString()}</div>
+                  <div>サーバー時刻: {new Date(timeSync.serverTime).toISOString()}</div>
+                  <div>時差: {formatTimeSkew(timeSync.skew)}</div>
+                  <div>同期状態: {timeSync.isSkewed ? "❌ ずれあり" : "✅ 正常"}</div>
+                </div>
+              )}
             </div>
           )}
 
