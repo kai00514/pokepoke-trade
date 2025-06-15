@@ -88,6 +88,7 @@ export default function DetailedSearchModal({
   const isLongPressTriggeredRef = useRef(false)
   const isInitializedRef = useRef(false)
   const touchStartTimeRef = useRef<number>(0)
+  const touchStartPositionRef = useRef<{ x: number; y: number } | null>(null)
 
   const { toast } = useToast()
   const supabase = createBrowserClient()
@@ -179,16 +180,22 @@ export default function DetailedSearchModal({
     })
   }
 
-  // スマホ対応の改善されたタッチイベント処理
+  // 改善されたタッチイベント処理
   const handleTouchStart = (card: Card, e: React.TouchEvent) => {
-    e.preventDefault() // デフォルトの動作を防ぐ
+    // デフォルトの動作を防ぐ（スクロールなど）
+    e.preventDefault()
+
+    const touch = e.touches[0]
     touchStartTimeRef.current = Date.now()
+    touchStartPositionRef.current = { x: touch.clientX, y: touch.clientY }
     isLongPressTriggeredRef.current = false
 
+    // 既存のタイマーをクリア
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current)
     }
 
+    // 長押し検出タイマー
     longPressTimerRef.current = setTimeout(() => {
       isLongPressTriggeredRef.current = true
       setPreviewImageUrl(card.imageUrl)
@@ -199,24 +206,44 @@ export default function DetailedSearchModal({
       if (navigator.vibrate) {
         navigator.vibrate(50)
       }
-    }, 500)
+    }, 500) // 500ms で長押し判定
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    // タッチ位置が大きく移動した場合は長押しをキャンセル
+    if (touchStartPositionRef.current) {
+      const touch = e.touches[0]
+      const deltaX = Math.abs(touch.clientX - touchStartPositionRef.current.x)
+      const deltaY = Math.abs(touch.clientY - touchStartPositionRef.current.y)
+
+      // 10px以上移動したら長押しキャンセル
+      if (deltaX > 10 || deltaY > 10) {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current)
+        }
+        isLongPressTriggeredRef.current = false
+      }
+    }
   }
 
   const handleTouchEnd = (card: Card, e: React.TouchEvent) => {
     e.preventDefault()
 
+    // タイマーをクリア
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current)
     }
 
     const touchDuration = Date.now() - touchStartTimeRef.current
 
-    // 短いタップの場合のみ選択処理を実行
+    // 短いタップかつ長押しが発動していない場合のみ選択処理
     if (!isLongPressTriggeredRef.current && touchDuration < 500) {
       toggleCardSelection(card)
     }
 
+    // リセット
     isLongPressTriggeredRef.current = false
+    touchStartPositionRef.current = null
   }
 
   const handleTouchCancel = () => {
@@ -224,9 +251,10 @@ export default function DetailedSearchModal({
       clearTimeout(longPressTimerRef.current)
     }
     isLongPressTriggeredRef.current = false
+    touchStartPositionRef.current = null
   }
 
-  // マウスイベント処理（PC用）
+  // PC用のマウスイベント処理
   const handleMouseDown = (card: Card) => {
     isLongPressTriggeredRef.current = false
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
@@ -366,6 +394,7 @@ export default function DetailedSearchModal({
                         onMouseUp={() => handleMouseUp(card)}
                         onMouseLeave={handleMouseLeave}
                         onTouchStart={(e) => handleTouchStart(card, e)}
+                        onTouchMove={handleTouchMove}
                         onTouchEnd={(e) => handleTouchEnd(card, e)}
                         onTouchCancel={handleTouchCancel}
                         className={cn(
@@ -375,7 +404,12 @@ export default function DetailedSearchModal({
                             : "border-transparent hover:border-purple-300",
                         )}
                         aria-label={`Select card ${card.name}`}
-                        style={{ touchAction: "none" }} // タッチ操作の最適化
+                        style={{
+                          touchAction: "none", // タッチ操作の最適化
+                          WebkitTouchCallout: "none", // iOS Safari での長押しメニューを無効化
+                          WebkitUserSelect: "none", // テキスト選択を無効化
+                          userSelect: "none",
+                        }}
                       >
                         <Image
                           src={

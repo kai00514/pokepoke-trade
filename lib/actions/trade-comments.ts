@@ -66,4 +66,4 @@ export async function editComment(commentId: string, userId: string, newContent:
     .eq("user_id", userId)
   if (error) return { success: false, error: error.message }
   return { success: true }
-} 
+}

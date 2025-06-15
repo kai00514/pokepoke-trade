@@ -87,4 +87,4 @@ export default function TradeComments({ postId, currentUser }: TradeCommentsProp
       )}
     </div>
   )
-} 
+}
