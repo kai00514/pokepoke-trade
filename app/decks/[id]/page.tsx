@@ -14,7 +14,6 @@ import {
 } from "@/lib/services/deck-service"
 import { fetchCardDetailsByIds } from "@/lib/card-api"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -375,19 +374,19 @@ export default function DeckDetailPage() {
                 </TabsList>
 
                 <TabsContent value="all">
-                  <div className="overflow-x-auto">
-                    <div className="grid grid-rows-2 grid-flow-col gap-4 w-max">
+                  <div className="overflow-auto">
+                    <div className="grid grid-cols-[repeat(10,minmax(80px,100px))] gap-3 w-max">
                       {cardsWithDetails.map((card, index) => (
-                        <Card key={card.uniqueKey} className="overflow-hidden w-32">
-                          <CardContent className="p-2">
-                            <div className="mb-2">
-                              <CardDisplay cardId={card.card_id} useThumb={false} />
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs font-medium truncate">{card.name}</p>
-                            </div>
-                          </CardContent>
-                        </Card>
+                        <div key={card.uniqueKey} className="flex flex-col items-center">
+                          {/* カード画像コンテナ - 画像サイズと完全一致 */}
+                          <div className="relative w-full max-w-[100px] aspect-[5/7] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                            <CardDisplay cardId={card.card_id} useThumb={false} width={100} height={140} className="object-contain w-full h-full" />
+                          </div>
+                          {/* カード名 - 画像の下に独立配置 */}
+                          <div className="w-full max-w-[100px] mt-2">
+                            <p className="text-xs font-medium text-center truncate text-gray-700">{card.name}</p>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -395,19 +394,19 @@ export default function DeckDetailPage() {
 
                 {Object.entries(cardsByType).map(([type, cards]) => (
                   <TabsContent key={type} value={type}>
-                    <div className="overflow-x-auto">
-                      <div className="grid grid-rows-2 grid-flow-col gap-4 w-max">
+                    <div className="overflow-auto">
+                      <div className="grid grid-cols-[repeat(10,minmax(80px,100px))] gap-3 w-max">
                         {cards.map((card) => (
-                          <Card key={card.uniqueKey} className="overflow-hidden w-32">
-                            <CardContent className="p-2">
-                              <div className="mb-2">
-                                <CardDisplay cardId={card.card_id} useThumb={false} />
-                              </div>
-                              <div className="text-center">
-                                <p className="text-xs font-medium truncate">{card.name}</p>
-                              </div>
-                            </CardContent>
-                          </Card>
+                          <div key={card.uniqueKey} className="flex flex-col items-center">
+                            {/* カード画像コンテナ - 画像サイズと完全一致 */}
+                            <div className="relative w-full max-w-[100px] aspect-[5/7] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                              <CardDisplay cardId={card.card_id} useThumb={false} width={100} height={140} className="object-contain w-full h-full" />
+                            </div>
+                            {/* カード名 - 画像の下に独立配置 */}
+                            <div className="w-full max-w-[100px] mt-2">
+                              <p className="text-xs font-medium text-center truncate text-gray-700">{card.name}</p>
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </div>

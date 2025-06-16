@@ -631,7 +631,7 @@ export async function updateTradePostStatus(postId: string, status: "CANCELED" |
 
     if (updateError) {
       console.error("Error updating trade post status:", updateError)
-      return { success: false, error: `ステータスの更新に失敗しました: ${updateError.message}` }
+      return { success: false, error: `���テータスの更新に失敗しました: ${updateError.message}` }
     }
 
     revalidatePath("/history")

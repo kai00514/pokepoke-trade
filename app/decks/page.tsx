@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -23,12 +23,6 @@ interface CategoryInfo {
 
 const categories: CategoryInfo[] = [
   {
-    id: "posted",
-    title: "みんなのデッキを見る",
-    icon: Users,
-    description: "投稿されたデッキを閲覧",
-  },
-  {
     id: "tier",
     title: "Tierランキング",
     icon: ListChecks,
@@ -45,6 +39,12 @@ const categories: CategoryInfo[] = [
     title: "新パックデッキランキング",
     icon: Zap,
     description: "最新パックを使ったデッキ",
+  },
+  {
+    id: "posted",
+    title: "みんなのデッキを見る",
+    icon: Users,
+    description: "投稿されたデッキを閲覧",
   },
 ]
 
@@ -106,12 +106,13 @@ export default function DecksPage() {
           const formattedDecks: DeckPageData[] = result.data.map((deckPage: any) => ({
             id: deckPage.id.toString(),
             name: deckPage.title || deckPage.deck_name || "無題のデッキ",
-            imageUrl: deckPage.thumbnail_image_url || "/placeholder.svg?width=150&height=210",
+            imageUrl: deckPage.thumbnail_image_url || "/placeholder.svg?width=120&height=168",
             cardName: deckPage.deck_name || "カード名不明",
             updatedAt: new Date(deckPage.updated_at).toLocaleDateString("ja-JP"),
             likes: deckPage.like_count || 0,
             favorites: 0,
             views: deckPage.view_count || 0,
+            comments: deckPage.comment_count || 0,
             is_deck_page: true, // deck_pagesテーブルのデータであることを示すフラグ
           }))
           setDecks(formattedDecks)
@@ -138,6 +139,12 @@ export default function DecksPage() {
     [toast],
   )
 
+  // ページ読み込み時にデフォルトで「みんなのデッキ」を表示
+  useEffect(() => {
+    fetchPostedDecks()
+    setSelectedCategory("posted")
+  }, [fetchPostedDecks])
+
   const handleCategoryClick = (categoryId: TabId) => {
     setSelectedCategory(categoryId)
     if (categoryId === "posted") {
@@ -152,8 +159,6 @@ export default function DecksPage() {
   }
 
   const renderDeckList = () => {
-    if (!selectedCategory) return null
-
     if (isLoading) {
       return (
         <div className="flex justify-center items-center py-20">
@@ -169,7 +174,7 @@ export default function DecksPage() {
       return (
         <div className="text-center py-20">
           <p className="text-red-500 mb-4">{error}</p>
-          <Button onClick={() => handleCategoryClick(selectedCategory)} variant="outline">
+          <Button onClick={() => handleCategoryClick(selectedCategory || "posted")} variant="outline">
             再試行
           </Button>
         </div>
@@ -204,7 +209,7 @@ export default function DecksPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-purple-50 to-purple-100">
+    <div className="p-6 py-3">
       <AuthHeader />
       <main className="flex-grow container mx-auto px-4 pb-8">
         {/* デッキを投稿するボタン */}
@@ -220,64 +225,52 @@ export default function DecksPage() {
           </Button>
         </div>
 
-        {selectedCategory ? (
-          // カテゴリが選択された場合はデッキリストを表示
-          <div className="space-y-6">
-            <div className="flex items-center gap-4">
-              <Button onClick={() => setSelectedCategory(null)} variant="outline" className="flex items-center gap-2">
-                ← 戻る
-              </Button>
-              <h2 className="text-2xl font-bold text-slate-800">
-                {categories.find((cat) => cat.id === selectedCategory)?.title}
-              </h2>
-            </div>
-            {renderDeckList()}
-          </div>
-        ) : (
-          // カテゴリ選択画面
-          <div className="space-y-8">
-            {/* カテゴリグリッド */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-              {categories.map((category) => {
-                const IconComponent = category.icon
-                return (
-                  <button
-                    key={category.id}
-                    onClick={() => handleCategoryClick(category.id)}
-                    className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-purple-100 hover:border-purple-200"
+        {/* カテゴリグリッド（2x2） */}
+        <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto mb-8">
+          {categories.map((category) => {
+            const IconComponent = category.icon
+            const isActive = selectedCategory === category.id
+            return (
+              <button
+                key={category.id}
+                onClick={() => handleCategoryClick(category.id)}
+                className={`group rounded-xl p-6 shadow-lg transition-all duration-300 transform hover:-translate-y-1 border ${
+                  isActive
+                    ? "bg-purple-100 border-purple-300 shadow-xl"
+                    : "bg-white border-purple-100 hover:border-purple-200 hover:shadow-xl"
+                }`}
+              >
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div
+                    className={`p-3 rounded-full transition-colors duration-300 ${
+                      isActive ? "bg-purple-200" : "bg-purple-100 group-hover:bg-purple-200"
+                    }`}
                   >
-                    <div className="flex flex-col items-center text-center space-y-4">
-                      <div className="p-4 bg-purple-100 rounded-full group-hover:bg-purple-200 transition-colors duration-300">
-                        <IconComponent className="h-8 w-8 text-purple-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-800 mb-2">{category.title}</h3>
-                        {category.description && <p className="text-sm text-slate-500">{category.description}</p>}
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+                    <IconComponent className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className={`text-sm font-semibold mb-1 ${isActive ? "text-purple-800" : "text-slate-800"}`}>
+                      {category.title}
+                    </h3>
+                    {category.description && (
+                      <p className="text-xs text-slate-500 leading-tight">{category.description}</p>
+                    )}
+                  </div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
 
-            {/* デッキを探すセクション */}
-            <div className="max-w-4xl mx-auto">
-              <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <Users className="h-5 w-5 text-purple-600" />
-                デッキを探す
-              </h2>
-              <div className="bg-white rounded-xl p-6 shadow-md border border-purple-100">
-                <button
-                  onClick={() => handleCategoryClick("posted")}
-                  className="flex items-center gap-3 text-purple-600 hover:text-purple-700 font-medium transition-colors duration-200"
-                >
-                  <Users className="h-4 w-4" />
-                  みんなのデッキ
-                </button>
-              </div>
-            </div>
+        {/* デッキリスト */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-center">
+            <h2 className="text-2xl font-bold text-slate-800">
+              {categories.find((cat) => cat.id === selectedCategory)?.title || "みんなのデッキ"}
+            </h2>
           </div>
-        )}
+          {renderDeckList()}
+        </div>
       </main>
       <Footer />
     </div>
