@@ -226,11 +226,11 @@ export default function DeckDetailPage() {
       {" "}
       {/* 横スクロールを有効化 */}
       <div
-        className="grid grid-rows-2 grid-flow-col auto-cols-[100px] gap-x-3 gap-y-4"
+        className="grid grid-rows-2 grid-flow-col auto-cols-[80px] sm:auto-cols-[90px] md:auto-cols-[100px] gap-x-3 gap-y-4"
         style={{ minWidth: "max-content" }} // コンテンツがはみ出さないように最小幅を設定
       >
         {cardsToRender.map((card) => (
-          <div key={card.uniqueKey} className="w-[100px] flex flex-col items-center">
+          <div key={card.uniqueKey} className="w-[80px] sm:w-[90px] md:w-[100px] flex flex-col items-center">
             {/* カード画像コンテナ: アスペクト比5:7 */}
             <div className="w-full aspect-[5/7] bg-gray-100 rounded-md overflow-hidden border border-gray-200 shadow-sm mb-1.5">
               <CardDisplay cardId={card.card_id} useThumb={false} fill objectFit="contain" />
