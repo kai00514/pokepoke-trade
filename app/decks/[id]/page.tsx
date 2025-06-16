@@ -42,7 +42,6 @@ export default function DeckDetailPage() {
   const [viewCount, setViewCount] = useState(0)
   const { toast } = useToast()
 
-  // カードをタイプごとにグループ化する関数
   const groupCardsByType = (cards: CardData[]): Record<string, CardData[]> => {
     return cards.reduce(
       (acc, card) => {
@@ -57,30 +56,23 @@ export default function DeckDetailPage() {
     )
   }
 
-  // デッキとカード情報を取得
   useEffect(() => {
     const fetchDeckData = async () => {
       setIsLoading(true)
       setError(null)
-
       try {
         const { data, error } = await getDeckById(id)
         if (error || !data) {
           setError(error || "デッキの取得に失敗しました")
           return
         }
-
         setDeck(data)
         setLikeCount(data.like_count || 0)
         setFavoriteCount(data.favorite_count || 0)
         setViewCount(data.view_count || 0)
-
-        // カードの詳細情報を取得
         if (data.deck_cards && data.deck_cards.length > 0) {
           const cardIds = data.deck_cards.map((dc) => String(dc.card_id))
           const details = await fetchCardDetailsByIds(cardIds)
-
-          // カード詳細をIDでマッピング
           const detailsMap = details.reduce(
             (acc, card) => {
               acc[String(card.id)] = card
@@ -88,11 +80,8 @@ export default function DeckDetailPage() {
             },
             {} as Record<string, CardData>,
           )
-
           setCardDetails(detailsMap)
         }
-
-        // ユーザーのアクション状態を取得
         if (user?.id) {
           const { liked, favorited } = await getDeckUserActions(id, user.id)
           setIsLiked(liked)
@@ -105,37 +94,28 @@ export default function DeckDetailPage() {
         setIsLoading(false)
       }
     }
-
     if (!authLoading) {
       fetchDeckData()
     }
   }, [id, user, authLoading])
 
-  // いいね機能
   const handleLike = async () => {
     if (!user) {
       toast({ title: "ログインしてください", variant: "destructive" })
       return
     }
-
     const originalIsLiked = isLiked
     const originalLikeCount = likeCount
-
-    // 楽観的UI更新
     setIsLiked(!isLiked)
     setLikeCount((prev) => (originalIsLiked ? prev - 1 : prev + 1))
-
     try {
       const action = originalIsLiked ? unlikeDeck : likeDeck
       const { error } = await action(id)
-
       if (error) {
-        // エラー時は元に戻す
         toast({ title: "エラー", description: error, variant: "destructive" })
         setIsLiked(originalIsLiked)
         setLikeCount(originalLikeCount)
       } else {
-        // 成功時はデッキ情報を再取得
         const { data: updatedDeck } = await getDeckById(id)
         if (updatedDeck) {
           setLikeCount(updatedDeck.like_count || 0)
@@ -149,31 +129,23 @@ export default function DeckDetailPage() {
     }
   }
 
-  // お気に入り機能
   const handleFavorite = async () => {
     if (!user) {
       toast({ title: "ログインしてください", variant: "destructive" })
       return
     }
-
     const originalIsFavorited = isFavorited
     const originalFavoriteCount = favoriteCount
-
-    // 楽観的UI更新
     setIsFavorited(!isFavorited)
     setFavoriteCount((prev) => (originalIsFavorited ? prev - 1 : prev + 1))
-
     try {
       const action = originalIsFavorited ? unfavoriteDeck : favoriteDeck
       const { error } = await action(id)
-
       if (error) {
-        // エラー時は元に戻す
         toast({ title: "エラー", description: error, variant: "destructive" })
         setIsFavorited(originalIsFavorited)
         setFavoriteCount(originalFavoriteCount)
       } else {
-        // 成功時はデッキ情報を再取得
         const { data: updatedDeck } = await getDeckById(id)
         if (updatedDeck) {
           setFavoriteCount(updatedDeck.favorite_count || 0)
@@ -187,14 +159,6 @@ export default function DeckDetailPage() {
     }
   }
 
-  // カードの枚数を取得
-  const getCardQuantity = (cardId: string | number): number => {
-    if (!deck?.deck_cards) return 0
-    const card = deck.deck_cards.find((dc) => String(dc.card_id) === String(cardId))
-    return card?.quantity || 0
-  }
-
-  // ローディング表示
   if (isLoading) {
     return (
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
@@ -216,7 +180,6 @@ export default function DeckDetailPage() {
     )
   }
 
-  // エラー表示
   if (error || !deck) {
     return (
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
@@ -244,25 +207,41 @@ export default function DeckDetailPage() {
     )
   }
 
-  // カード情報の準備 - 枚数分展開
   const cardsWithDetails = deck.deck_cards.flatMap((dc) => {
     const cardDetail = cardDetails[String(dc.card_id)]
     if (!cardDetail?.id) return []
-
-    // 枚数分のカードを作成
     return Array.from({ length: dc.quantity }, (_, index) => ({
       ...cardDetail,
       quantity: dc.quantity,
       card_id: dc.card_id,
-      uniqueKey: `${dc.card_id}-${index}`, // 一意のキーを追加
+      uniqueKey: `${dc.card_id}-${index}`,
     }))
   })
 
-  // タイプ別にカードをグループ化
   const cardsByType = groupCardsByType(cardsWithDetails)
-
-  // カードの総数
   const totalCards = deck.deck_cards.reduce((sum, card) => sum + card.quantity, 0)
+
+  const renderCardGrid = (cardsToRender: (CardData & { uniqueKey: string })[]) => (
+    <div className="overflow-x-auto pb-4">
+      {" "}
+      {/* 横スクロールを有効化 */}
+      <div
+        className="grid grid-rows-2 grid-flow-col auto-cols-[100px] gap-x-3 gap-y-4"
+        style={{ minWidth: "max-content" }} // コンテンツがはみ出さないように最小幅を設定
+      >
+        {cardsToRender.map((card) => (
+          <div key={card.uniqueKey} className="w-[100px] flex flex-col items-center">
+            {/* カード画像コンテナ: アスペクト比5:7 */}
+            <div className="w-full aspect-[5/7] bg-gray-100 rounded-md overflow-hidden border border-gray-200 shadow-sm mb-1.5">
+              <CardDisplay cardId={card.card_id} useThumb={false} fill objectFit="contain" />
+            </div>
+            {/* カード名 */}
+            <p className="text-xs font-medium text-center truncate w-full text-gray-700">{card.name}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
@@ -270,7 +249,6 @@ export default function DeckDetailPage() {
         <div className="min-h-screen bg-gray-50 pb-20">
           <Header />
           <main className="container mx-auto px-4 py-6 pb-8">
-            {/* 戻るボタン */}
             <div className="mb-4">
               <Button variant="ghost" size="sm" onClick={() => router.back()} className="text-gray-600">
                 <ArrowLeft className="mr-2 h-4 w-4" />
@@ -278,7 +256,6 @@ export default function DeckDetailPage() {
               </Button>
             </div>
 
-            {/* デッキヘッダー */}
             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -309,7 +286,6 @@ export default function DeckDetailPage() {
                   )}
                 </div>
 
-                {/* アクションボタン */}
                 <div className="flex items-center gap-4">
                   <TooltipProvider>
                     <Tooltip>
@@ -359,10 +335,8 @@ export default function DeckDetailPage() {
               </div>
             </div>
 
-            {/* カード一覧 */}
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-4">デッキ内容</h2>
-
               <Tabs defaultValue="all" className="w-full">
                 <TabsList className="mb-4">
                   <TabsTrigger value="all">全てのカード</TabsTrigger>
@@ -372,50 +346,15 @@ export default function DeckDetailPage() {
                     </TabsTrigger>
                   ))}
                 </TabsList>
-
-                <TabsContent value="all">
-                  <div className="overflow-auto">
-                    <div className="grid grid-cols-[repeat(10,minmax(80px,100px))] gap-3 w-max">
-                      {cardsWithDetails.map((card, index) => (
-                        <div key={card.uniqueKey} className="flex flex-col items-center">
-                          {/* カード画像コンテナ - 画像サイズと完全一致 */}
-                          <div className="relative w-full max-w-[100px] aspect-[5/7] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                            <CardDisplay cardId={card.card_id} useThumb={false} width={100} height={140} className="object-contain w-full h-full" />
-                          </div>
-                          {/* カード名 - 画像の下に独立配置 */}
-                          <div className="w-full max-w-[100px] mt-2">
-                            <p className="text-xs font-medium text-center truncate text-gray-700">{card.name}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </TabsContent>
-
+                <TabsContent value="all">{renderCardGrid(cardsWithDetails)}</TabsContent>
                 {Object.entries(cardsByType).map(([type, cards]) => (
                   <TabsContent key={type} value={type}>
-                    <div className="overflow-auto">
-                      <div className="grid grid-cols-[repeat(10,minmax(80px,100px))] gap-3 w-max">
-                        {cards.map((card) => (
-                          <div key={card.uniqueKey} className="flex flex-col items-center">
-                            {/* カード画像コンテナ - 画像サイズと完全一致 */}
-                            <div className="relative w-full max-w-[100px] aspect-[5/7] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                              <CardDisplay cardId={card.card_id} useThumb={false} width={100} height={140} className="object-contain w-full h-full" />
-                            </div>
-                            {/* カード名 - 画像の下に独立配置 */}
-                            <div className="w-full max-w-[100px] mt-2">
-                              <p className="text-xs font-medium text-center truncate text-gray-700">{card.name}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    {renderCardGrid(cards)}
                   </TabsContent>
                 ))}
               </Tabs>
             </div>
 
-            {/* コメントセクション */}
             <div className="mt-6">
               <DeckComments deckId={id} deckTitle={deck.title} />
             </div>
