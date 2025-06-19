@@ -16,6 +16,7 @@ export interface DeckWithCards {
   like_count?: number
   favorite_count?: number
   view_count?: number
+  comment_count?: number
   deck_cards: Array<{
     card_id: number
     quantity: number
@@ -27,6 +28,7 @@ export async function getDeckById(deckId: string): Promise<{
   error: string | null
 }> {
   try {
+    console.log("Fetching deck data for ID:", deckId)
     const { data, error } = await supabase
       .from("decks")
       .select(`
@@ -40,183 +42,98 @@ export async function getDeckById(deckId: string): Promise<{
       .single()
 
     if (error) {
+      console.error("Error fetching deck:", error)
       return { data: null, error: error.message }
     }
 
+    console.log("Fetched deck data:", data)
     return { data, error: null }
   } catch (err) {
+    console.error("Exception in getDeckById:", err)
     return { data: null, error: err instanceof Error ? err.message : "Unknown error" }
   }
 }
 
 export async function likeDeck(deckId: string): Promise<{ error: string | null }> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    console.log("Calling increment_deck_likes for deck:", deckId)
 
-    if (!user) {
-      return { error: "ログインが必要です" }
-    }
-
-    // Insert like record
-    const { error: insertError } = await supabase.from("deck_likes").insert({
-      deck_id: deckId,
-      user_id: user.id,
-    })
-
-    if (insertError) {
-      return { error: insertError.message }
-    }
-
-    // Update like count
-    const { error: updateError } = await supabase.rpc("increment_deck_likes", {
-      deck_id: deckId,
+    const { data, error: updateError } = await supabase.rpc("increment_deck_likes", {
+      deck_id_input: deckId,
     })
 
     if (updateError) {
+      console.error("RPC increment_deck_likes error:", updateError)
       return { error: updateError.message }
     }
 
+    console.log("increment_deck_likes successful, response:", data)
     return { error: null }
   } catch (err) {
+    console.error("Exception in likeDeck:", err)
     return { error: err instanceof Error ? err.message : "Unknown error" }
   }
 }
 
 export async function unlikeDeck(deckId: string): Promise<{ error: string | null }> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    console.log("Calling decrement_deck_likes for deck:", deckId)
 
-    if (!user) {
-      return { error: "ログインが必要です" }
-    }
-
-    // Delete like record
-    const { error: deleteError } = await supabase
-      .from("deck_likes")
-      .delete()
-      .eq("deck_id", deckId)
-      .eq("user_id", user.id)
-
-    if (deleteError) {
-      return { error: deleteError.message }
-    }
-
-    // Update like count
-    const { error: updateError } = await supabase.rpc("decrement_deck_likes", {
-      deck_id: deckId,
+    const { data, error: updateError } = await supabase.rpc("decrement_deck_likes", {
+      deck_id_input: deckId,
     })
 
     if (updateError) {
+      console.error("RPC decrement_deck_likes error:", updateError)
       return { error: updateError.message }
     }
 
+    console.log("decrement_deck_likes successful, response:", data)
     return { error: null }
   } catch (err) {
+    console.error("Exception in unlikeDeck:", err)
     return { error: err instanceof Error ? err.message : "Unknown error" }
   }
 }
 
 export async function favoriteDeck(deckId: string): Promise<{ error: string | null }> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    console.log("Calling increment_deck_favorites for deck:", deckId)
 
-    if (!user) {
-      return { error: "ログインが必要です" }
-    }
-
-    // Insert favorite record
-    const { error: insertError } = await supabase.from("deck_favorites").insert({
-      deck_id: deckId,
-      user_id: user.id,
-    })
-
-    if (insertError) {
-      return { error: insertError.message }
-    }
-
-    // Update favorite count
-    const { error: updateError } = await supabase.rpc("increment_deck_favorites", {
-      deck_id: deckId,
+    const { data, error: updateError } = await supabase.rpc("increment_deck_favorites", {
+      deck_id_input: deckId,
     })
 
     if (updateError) {
+      console.error("RPC increment_deck_favorites error:", updateError)
       return { error: updateError.message }
     }
 
+    console.log("increment_deck_favorites successful, response:", data)
     return { error: null }
   } catch (err) {
+    console.error("Exception in favoriteDeck:", err)
     return { error: err instanceof Error ? err.message : "Unknown error" }
   }
 }
 
 export async function unfavoriteDeck(deckId: string): Promise<{ error: string | null }> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    console.log("Calling decrement_deck_favorites for deck:", deckId)
 
-    if (!user) {
-      return { error: "ログインが必要です" }
-    }
-
-    // Delete favorite record
-    const { error: deleteError } = await supabase
-      .from("deck_favorites")
-      .delete()
-      .eq("deck_id", deckId)
-      .eq("user_id", user.id)
-
-    if (deleteError) {
-      return { error: deleteError.message }
-    }
-
-    // Update favorite count
-    const { error: updateError } = await supabase.rpc("decrement_deck_favorites", {
-      deck_id: deckId,
+    const { data, error: updateError } = await supabase.rpc("decrement_deck_favorites", {
+      deck_id_input: deckId,
     })
 
     if (updateError) {
+      console.error("RPC decrement_deck_favorites error:", updateError)
       return { error: updateError.message }
     }
 
+    console.log("decrement_deck_favorites successful, response:", data)
     return { error: null }
   } catch (err) {
+    console.error("Exception in unfavoriteDeck:", err)
     return { error: err instanceof Error ? err.message : "Unknown error" }
-  }
-}
-
-export async function getDeckUserActions(
-  deckId: string,
-  userId: string,
-): Promise<{ liked: boolean; favorited: boolean }> {
-  try {
-    // Check if user liked the deck
-    const { data: likeData } = await supabase
-      .from("deck_likes")
-      .select("id")
-      .eq("deck_id", deckId)
-      .eq("user_id", userId)
-      .single()
-
-    // Check if user favorited the deck
-    const { data: favoriteData } = await supabase
-      .from("deck_favorites")
-      .select("id")
-      .eq("deck_id", deckId)
-      .eq("user_id", userId)
-      .single()
-
-    return {
-      liked: !!likeData,
-      favorited: !!favoriteData,
-    }
-  } catch (err) {
-    return { liked: false, favorited: false }
   }
 }

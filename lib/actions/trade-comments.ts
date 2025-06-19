@@ -11,7 +11,7 @@ export async function addComment(
   try {
     const supabase = await createServerClient()
 
-    // ログインユーザーの場合はuser_idを設定、ゲストの場合はnull
+    // ログインユーザーの場合はuser_idを���定、ゲストの場合はnull
     const insertData = {
       post_id: postId,
       content: content.trim(),

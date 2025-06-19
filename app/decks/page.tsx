@@ -209,7 +209,7 @@ export default function DecksPage() {
   }
 
   return (
-    <div className="p-6 py-3">
+    <div className="p-0 py-0">
       <AuthHeader />
       <main className="flex-grow container mx-auto px-4 pb-8">
         {/* デッキを投稿するボタン */}

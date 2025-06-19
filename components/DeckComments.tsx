@@ -1,27 +1,22 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect, useRef } from "react"
-import { MessageCircle, Send, User, Clock, Loader2 } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Input } from "@/components/ui/input"
+import { Send, UserCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { createClient } from "@/lib/supabase/client"
+import { createBrowserClient } from "@/lib/supabase/client"
+import LoginPromptModal from "@/components/ui/login-prompt-modal"
 
+// Define types for comments
 interface Comment {
   id: string
-  post_id: string
-  user_id: string
-  user_name: string | null
-  content: string
-  created_at: string
-  is_guest: boolean
-  is_deleted: boolean
-  is_edited: boolean
+  author: string
+  avatar?: string | null
+  text: string
+  timestamp: string
+  isGuest?: boolean
 }
 
 interface DeckCommentsProps {
@@ -30,270 +25,376 @@ interface DeckCommentsProps {
 }
 
 export default function DeckComments({ deckId, deckTitle }: DeckCommentsProps) {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const { toast } = useToast()
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState("")
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
 
-  // コメントを取得
-  const fetchComments = async () => {
+  const supabase = createBrowserClient()
+
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      console.log("🔐 [DeckComments] Starting auth check...")
+      console.log("🔐 [DeckComments] useAuth hook values:", { user, loading })
+
+      try {
+        const { data, error } = await supabase.auth.getSession()
+        console.log("🔐 [DeckComments] Supabase session check:", {
+          hasSession: !!data.session,
+          hasUser: !!data.session?.user,
+          userId: data.session?.user?.id,
+          userEmail: data.session?.user?.email,
+          displayName: data.session?.user?.user_metadata?.display_name,
+          error: error,
+        })
+
+        const authenticated = !!data.session?.user
+        setIsAuthenticated(authenticated)
+
+        console.log("🔐 [DeckComments] Final auth status:", {
+          isAuthenticated: authenticated,
+          useAuthUser: !!user,
+          useAuthLoading: loading,
+        })
+      } catch (error) {
+        console.error("❌ [DeckComments] Auth check error:", error)
+        setIsAuthenticated(false)
+      }
+    }
+
+    // 初回チェック
+    checkAuth()
+
+    // 認証状態変更の監視
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("🔐 [DeckComments] Auth state changed:", {
+        event,
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        userId: session?.user?.id,
+      })
+
+      const authenticated = !!session?.user
+      setIsAuthenticated(authenticated)
+    })
+
+    return () => {
+      authListener.subscription.unsubscribe()
+    }
+  }, [supabase.auth, user, loading])
+
+  const fetchComments = useCallback(async () => {
+    if (!deckId) return
+    console.log("📥 [DeckComments] Fetching comments for deckId:", deckId)
+    setIsLoading(true)
     try {
-      setError(null)
       const response = await fetch(`/api/deck-comments?deckId=${deckId}`)
       const data = await response.json()
 
+      console.log("📥 [DeckComments] Fetch response:", {
+        success: data.success,
+        commentsCount: data.comments?.length || 0,
+        error: data.error,
+      })
+
       if (data.success) {
-        setComments(data.comments || [])
+        // Transform the data to match the Comment interface
+        const transformedComments = data.comments.map((comment: any) => ({
+          id: comment.id,
+          author: comment.user_name || "匿名ユーザー",
+          avatar: null,
+          text: comment.content,
+          timestamp: new Date(comment.created_at).toLocaleString("ja-JP"),
+          isGuest: !comment.user_id, // user_idがnullの場合はゲスト
+        }))
+        console.log("📥 [DeckComments] Transformed comments:", transformedComments.length)
+        setComments(transformedComments)
       } else {
-        setError(data.error || "コメントの取得に失敗しました")
+        console.error("❌ [DeckComments] Failed to fetch comments:", data.error)
+        toast({
+          title: "エラー",
+          description: data.error || "コメントの読み込みに失敗しました。",
+          variant: "destructive",
+        })
       }
-    } catch (err) {
-      console.error("Error fetching comments:", err)
-      setError("コメントの取得中にエラーが発生しました")
+    } catch (error) {
+      console.error("❌ [DeckComments] Error fetching comments:", error)
+      toast({
+        title: "エラー",
+        description: "予期しないエラーが発生しました。",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [deckId, toast])
 
-  // コメントを投稿
-  const handleSubmitComment = async () => {
+  useEffect(() => {
+    fetchComments()
+  }, [fetchComments])
+
+  const handleCommentSubmit = useCallback(
+    async (isGuestSubmission = false) => {
+      console.log("📤 [DeckComments] Starting comment submission")
+
+      if (!newComment.trim()) {
+        console.log("❌ [DeckComments] Empty comment")
+        toast({
+          title: "入力エラー",
+          description: "コメントを入力してください。",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const commentText = newComment.trim()
+
+      // 認証状態を確認
+      const { data: sessionData } = await supabase.auth.getSession()
+      const currentUser = sessionData.session?.user
+      const isActualGuestUser = !currentUser || isGuestSubmission // isGuestSubmissionがtrueなら強制的にゲスト扱い
+
+      console.log("📤 [DeckComments] User info for submission:", {
+        hasCurrentUser: !!currentUser,
+        currentUserId: currentUser?.id,
+        isActualGuestUser,
+        userEmail: currentUser?.email,
+        displayName: currentUser?.user_metadata?.display_name,
+      })
+
+      // user_nameの決定
+      let userName = "ゲスト"
+      if (!isActualGuestUser && currentUser) {
+        userName = currentUser.user_metadata?.display_name || currentUser.email || "匿名ユーザー"
+      }
+
+      console.log("📤 [DeckComments] Determined userName:", userName)
+
+      // 楽観的UI更新 - 即座にコメントを表示
+      const optimisticComment: Comment = {
+        id: `temp-${Date.now()}`,
+        author: userName,
+        avatar: null,
+        text: commentText,
+        timestamp: "たった今",
+        isGuest: isActualGuestUser,
+      }
+
+      // 即座にコメントを画面に追加
+      setComments((prev) => [...prev, optimisticComment])
+
+      // 入力フィールドをクリア
+      setNewComment("")
+
+      try {
+        // バックグラウンドでサーバーに送信
+        const payload = {
+          deckId: deckId,
+          content: commentText,
+          userId: isActualGuestUser ? null : currentUser?.id, // ゲストの場合はnull
+          userName: userName,
+          isGuest: isActualGuestUser,
+        }
+
+        console.log("📤 [DeckComments] Sending payload:", {
+          deckId: payload.deckId,
+          contentLength: payload.content.length,
+          userId: payload.userId,
+          userName: payload.userName,
+          isGuest: payload.isGuest,
+        })
+
+        const response = await fetch("/api/deck-comments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+
+        const data = await response.json()
+        console.log("📤 [DeckComments] Response:", {
+          status: response.status,
+          success: data.success,
+          commentId: data.comment?.id,
+          error: data.error,
+        })
+
+        if (data.success) {
+          // 成功時は楽観的コメントを実際のコメントデータで置き換え
+          console.log("✅ [DeckComments] Comment submitted successfully")
+
+          const actualComment: Comment = {
+            id: data.comment.id,
+            author: data.comment.user_name || userName,
+            avatar: null,
+            text: data.comment.content,
+            timestamp: new Date(data.comment.created_at).toLocaleString("ja-JP"),
+            isGuest: !data.comment.user_id,
+          }
+
+          // 楽観的コメントを実際のコメントで置き換え
+          setComments((prev) => prev.map((comment) => (comment.id === optimisticComment.id ? actualComment : comment)))
+
+          toast({
+            title: "投稿完了",
+            description: isActualGuestUser ? "ゲストとしてコメントを投稿しました" : "コメントを投稿しました",
+            duration: 2000,
+          })
+
+          // fetchComments()の呼び出しを削除
+        } else {
+          throw new Error(data.error || "コメントの投稿に失敗しました")
+        }
+      } catch (error) {
+        // エラー時は楽観的に追加したコメントを削除
+        console.error("❌ [DeckComments] Error submitting comment:", error)
+        setComments((prev) => prev.filter((comment) => comment.id !== optimisticComment.id))
+
+        // 入力内容を復元
+        setNewComment(commentText)
+
+        toast({
+          title: "コメント投稿エラー",
+          description: "コメントの投稿に失敗しました。もう一度お試しください。",
+          variant: "destructive",
+        })
+      }
+    },
+    [newComment, deckId, toast, supabase.auth],
+  )
+
+  const handleCommentSubmitClick = useCallback(async () => {
+    console.log("🖱️ [DeckComments] Submit button clicked")
+
     if (!newComment.trim()) {
-      toast({ title: "エラー", description: "コメントを入力してください", variant: "destructive" })
+      toast({
+        title: "入力エラー",
+        description: "コメントを入力してください。",
+        variant: "destructive",
+      })
       return
     }
 
-    const commentContent = newComment.trim()
-    const tempId = `temp-${Date.now()}`
+    // リアルタイムで認証状態を再確認
+    const { data: sessionData } = await supabase.auth.getSession()
+    const hasValidSession = !!sessionData.session?.user
 
-    // 楽観的UI更新 - 即座にコメントを画面に追加
-    const optimisticComment = {
-      id: tempId,
-      post_id: deckId,
-      user_id: user?.id || null,
-      user_name: user?.user_metadata?.display_name || user?.email || "ゲスト",
-      content: commentContent,
-      created_at: new Date().toISOString(),
-      is_guest: !user,
-      is_deleted: false,
-      is_edited: false,
+    console.log("🖱️ [DeckComments] Real-time auth check:", {
+      hasValidSession,
+      sessionUserId: sessionData.session?.user?.id,
+      isAuthenticated,
+    })
+
+    if (!hasValidSession) {
+      console.log("🖱️ [DeckComments] Not authenticated, showing login prompt")
+      setShowLoginPrompt(true)
+    } else {
+      console.log("🖱️ [DeckComments] Authenticated, proceeding with submission")
+      handleCommentSubmit(false) // 認証済みユーザーとして送信
     }
+  }, [newComment, isAuthenticated, handleCommentSubmit, toast, supabase.auth])
 
-    // 即座にコメントを表示
-    setComments((prev) => [...prev, optimisticComment])
-    setNewComment("")
+  const handleContinueAsGuest = useCallback(() => {
+    console.log("🖱️ [DeckComments] 'Continue as Guest' clicked")
+    setShowLoginPrompt(false) // モーダルを閉じる
+    handleCommentSubmit(true) // ゲストとしてコメントを送信
+  }, [handleCommentSubmit, setShowLoginPrompt])
 
-    // スクロールを最下部に移動
-    setTimeout(() => {
-      if (scrollAreaRef.current) {
-        const scrollContainer = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]")
-        if (scrollContainer) {
-          scrollContainer.scrollTop = scrollContainer.scrollHeight
-        }
-      }
-    }, 50)
-
-    try {
-      // バックグラウンドでサーバーに送信
-      const payload = {
-        postId: deckId,
-        content: commentContent,
-        userId: user?.id,
-        userName: user?.user_metadata?.display_name || user?.email || "ゲスト",
-        isGuest: !user,
-      }
-
-      const response = await fetch("/api/trade-comments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-
-      const data = await response.json()
-
-      if (data.success && data.comment) {
-        // サーバーからの正式なコメントで置き換え
-        setComments((prev) => prev.map((comment) => (comment.id === tempId ? data.comment : comment)))
-
-        // 成功のフィードバック（控えめに）
-        toast({
-          title: "投稿完了",
-          description: "コメントを投稿しました",
-          duration: 2000,
-        })
-      } else {
-        throw new Error(data.error || "コメントの投稿に失敗しました")
-      }
-    } catch (error) {
-      // エラー時は楽観的に追加したコメントを削除
-      setComments((prev) => prev.filter((comment) => comment.id !== tempId))
-
-      // 入力内容を復元
-      setNewComment(commentContent)
-
-      console.error("Error submitting comment:", error)
-      toast({
-        title: "エラー",
-        description: "コメントの投稿に失敗しました。もう一度お試しください。",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // リアルタイム更新の設定
-  useEffect(() => {
-    fetchComments()
-
-    // Supabaseリアルタイム購読
-    const channel = supabase
-      .channel(`deck-comments-${deckId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "trade_comments",
-          filter: `post_id=eq.${deckId}`,
-        },
-        (payload) => {
-          console.log("Real-time update:", payload)
-          // コメントが追加・更新・削除された場合に再取得
-          fetchComments()
-        },
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [deckId])
-
-  // エンターキーでの投稿
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmitComment()
-    }
-  }
-
-  // 時間フォーマット
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
-
-    if (diffInMinutes < 1) return "たった今"
-    if (diffInMinutes < 60) return `${diffInMinutes}分前`
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}時間前`
-    return date.toLocaleDateString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-lg shadow-xl">
+        <div className="bg-purple-600 text-white p-4 rounded-t-lg">
+          <h2 className="text-xl font-semibold">コメント</h2>
+        </div>
+        <div className="p-4 sm:p-6 flex justify-center items-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <MessageCircle className="h-5 w-5" />
-          コメント ({comments.length})
-        </CardTitle>
-        <p className="text-sm text-gray-600">「{deckTitle}」について話し合いましょう</p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* コメント表示エリア */}
-        <div className="border rounded-lg">
-          <ScrollArea ref={scrollAreaRef} className="h-80 p-4">
-            {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">コメントを読み込み中...</p>
-                </div>
-              </div>
-            ) : error ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center text-red-500">
-                  <p>{error}</p>
-                  <Button variant="outline" size="sm" onClick={fetchComments} className="mt-2">
-                    再試行
-                  </Button>
-                </div>
-              </div>
-            ) : comments.length === 0 ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center text-gray-500">
-                  <MessageCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>まだコメントがありません</p>
-                  <p className="text-sm">最初のコメントを投稿してみましょう！</p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {comments
-                  .filter((comment) => !comment.is_deleted)
-                  .map((comment) => (
-                    <div
-                      key={comment.id}
-                      className="flex gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-                    >
-                      <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
-                          <User className="h-4 w-4 text-white" />
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-sm text-gray-900">
-                            {comment.user_name || (comment.is_guest ? "ゲスト" : "匿名ユーザー")}
-                          </span>
-                          {comment.is_guest && (
-                            <span className="px-2 py-0.5 text-xs bg-gray-200 text-gray-600 rounded-full">ゲスト</span>
-                          )}
-                          <div className="flex items-center gap-1 text-xs text-gray-500">
-                            <Clock className="h-3 w-3" />
-                            {formatTime(comment.created_at)}
-                          </div>
-                          {comment.is_edited && <span className="text-xs text-yellow-600">編集済み</span>}
-                        </div>
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{comment.content}</p>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            )}
-          </ScrollArea>
-        </div>
+    <div className="bg-white rounded-lg shadow-xl">
+      <div className="bg-purple-600 text-white p-4 rounded-t-lg">
+        <h2 className="text-xl font-semibold">コメント ({comments.length})</h2>
+      </div>
 
-        {/* コメント投稿エリア */}
-        <div className="space-y-3">
-          <Textarea
+      <div className="p-4 sm:p-6 space-y-4">
+        {comments.length > 0 ? (
+          comments.map((comment) => (
+            <div
+              key={comment.id}
+              className="flex items-start space-x-3 pb-4 border-b border-slate-100 last:border-b-0 last:pb-0"
+            >
+              <UserCircle className="h-9 w-9 text-slate-400 flex-shrink-0" />
+              <div className="flex-grow">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-semibold text-slate-700">{comment.author}</span>
+                    {comment.isGuest && (
+                      <span className="px-2 py-0.5 text-xs bg-gray-200 text-gray-600 rounded-full">ゲスト</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-slate-400">{comment.timestamp}</span>
+                </div>
+                <p className="text-sm text-slate-600 mt-0.5 whitespace-pre-wrap">{comment.text}</p>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-slate-500 text-center py-4">まだコメントはありません。</p>
+        )}
+      </div>
+
+      <div className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50 rounded-b-lg">
+        {/* ユーザー状態の表示 */}
+        <div className="mb-3 text-sm text-gray-600">
+          {isAuthenticated ? <span>ログイン中: {user?.user_metadata?.display_name || user?.email}</span> : null}{" "}
+          {/* 修正箇所: else部分を追加 */}
+        </div>
+        <div className="flex items-center space-x-2">
+          <Input
+            type="text"
+            placeholder={
+              isAuthenticated ? "コメントを入力してください..." : "ゲストとしてコメントを入力してください..."
+            }
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder={user ? "コメントを入力してください..." : "ゲストとしてコメントを投稿できます"}
-            className="min-h-[80px] resize-none"
+            className="flex-grow bg-white"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault()
+                handleCommentSubmitClick()
+              }
+            }}
           />
-          <div className="flex items-center justify-between">
-            <div className="text-xs text-gray-500">
-              {user ? (
-                <span>{user.user_metadata?.display_name || user.email || "匿名ユーザー"} としてコメント</span>
-              ) : (
-                <span>ゲストとしてコメント（ログインすると名前が表示されます）</span>
-              )}
-            </div>
-            <Button
-              onClick={handleSubmitComment}
-              disabled={!newComment.trim()}
-              size="sm"
-              className="flex items-center gap-2"
-            >
-              <Send className="h-4 w-4" />
-              投稿
-            </Button>
-          </div>
+          <Button
+            type="button"
+            onClick={handleCommentSubmitClick}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+            disabled={!newComment.trim()}
+          >
+            <Send className="h-4 w-4 mr-0 sm:mr-2" />
+            <span className="hidden sm:inline">投稿</span>
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+        {/* デバッグ情報表示（開発時のみ） */}
+        {process.env.NODE_ENV === "development" && (
+          <div className="mt-2 text-xs text-gray-500 space-y-1">
+            <div>認証状態: {isAuthenticated ? "ログイン済み" : "ゲスト"}</div>
+            <div>useAuth user: {user ? "あり" : "なし"}</div>
+            <div>useAuth loading: {loading ? "読み込み中" : "完了"}</div>
+          </div>
+        )}{" "}
+        {/* 修正箇所: 閉じタグを修正 */}
+      </div>
+      {/* Login Prompt Modal */}
+      {showLoginPrompt && (
+        <LoginPromptModal onClose={() => setShowLoginPrompt(false)} onContinueAsGuest={handleContinueAsGuest} />
+      )}
+    </div>
   )
 }
