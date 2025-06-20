@@ -27,8 +27,8 @@ export async function getDeckById(deckId: string): Promise<{
   data: DeckWithCards | null
   error: string | null
 }> {
+  console.log("🔍 getDeckById called with deckId:", deckId)
   try {
-    console.log("Fetching deck data for ID:", deckId)
     const { data, error } = await supabase
       .from("decks")
       .select(`
@@ -41,99 +41,117 @@ export async function getDeckById(deckId: string): Promise<{
       .eq("id", deckId)
       .single()
 
+    console.log("🔍 getDeckById supabase response:", { data, error })
+
     if (error) {
-      console.error("Error fetching deck:", error)
+      console.error("🔍 getDeckById error:", error)
       return { data: null, error: error.message }
     }
 
-    console.log("Fetched deck data:", data)
+    console.log("🔍 getDeckById success, returning data:", data)
     return { data, error: null }
   } catch (err) {
-    console.error("Exception in getDeckById:", err)
+    console.error("🔍 getDeckById exception:", err)
     return { data: null, error: err instanceof Error ? err.message : "Unknown error" }
   }
 }
 
 export async function likeDeck(deckId: string): Promise<{ error: string | null }> {
-  try {
-    console.log("Calling increment_deck_likes for deck:", deckId)
+  console.log("👍 likeDeck called with deckId:", deckId)
+  console.log("👍 Supabase client:", supabase)
 
+  try {
+    console.log("👍 Calling supabase.rpc('increment_deck_likes')")
     const { data, error: updateError } = await supabase.rpc("increment_deck_likes", {
       deck_id_input: deckId,
     })
 
+    console.log("👍 RPC response:", { data, error: updateError })
+
     if (updateError) {
-      console.error("RPC increment_deck_likes error:", updateError)
+      console.error("👍 RPC increment_deck_likes error:", updateError)
       return { error: updateError.message }
     }
 
-    console.log("increment_deck_likes successful, response:", data)
+    console.log("👍 likeDeck successful")
     return { error: null }
   } catch (err) {
-    console.error("Exception in likeDeck:", err)
+    console.error("👍 likeDeck exception:", err)
     return { error: err instanceof Error ? err.message : "Unknown error" }
   }
 }
 
 export async function unlikeDeck(deckId: string): Promise<{ error: string | null }> {
-  try {
-    console.log("Calling decrement_deck_likes for deck:", deckId)
+  console.log("👎 unlikeDeck called with deckId:", deckId)
+  console.log("👎 Supabase client:", supabase)
 
+  try {
+    console.log("👎 Calling supabase.rpc('decrement_deck_likes')")
     const { data, error: updateError } = await supabase.rpc("decrement_deck_likes", {
       deck_id_input: deckId,
     })
 
+    console.log("👎 RPC response:", { data, error: updateError })
+
     if (updateError) {
-      console.error("RPC decrement_deck_likes error:", updateError)
+      console.error("👎 RPC decrement_deck_likes error:", updateError)
       return { error: updateError.message }
     }
 
-    console.log("decrement_deck_likes successful, response:", data)
+    console.log("👎 unlikeDeck successful")
     return { error: null }
   } catch (err) {
-    console.error("Exception in unlikeDeck:", err)
+    console.error("👎 unlikeDeck exception:", err)
     return { error: err instanceof Error ? err.message : "Unknown error" }
   }
 }
 
 export async function favoriteDeck(deckId: string): Promise<{ error: string | null }> {
-  try {
-    console.log("Calling increment_deck_favorites for deck:", deckId)
+  console.log("⭐ favoriteDeck called with deckId:", deckId)
+  console.log("⭐ Supabase client:", supabase)
 
+  try {
+    console.log("⭐ Calling supabase.rpc('increment_deck_favorites')")
     const { data, error: updateError } = await supabase.rpc("increment_deck_favorites", {
       deck_id_input: deckId,
     })
 
+    console.log("⭐ RPC response:", { data, error: updateError })
+
     if (updateError) {
-      console.error("RPC increment_deck_favorites error:", updateError)
+      console.error("⭐ RPC increment_deck_favorites error:", updateError)
       return { error: updateError.message }
     }
 
-    console.log("increment_deck_favorites successful, response:", data)
+    console.log("⭐ favoriteDeck successful")
     return { error: null }
   } catch (err) {
-    console.error("Exception in favoriteDeck:", err)
+    console.error("⭐ favoriteDeck exception:", err)
     return { error: err instanceof Error ? err.message : "Unknown error" }
   }
 }
 
 export async function unfavoriteDeck(deckId: string): Promise<{ error: string | null }> {
-  try {
-    console.log("Calling decrement_deck_favorites for deck:", deckId)
+  console.log("⭐❌ unfavoriteDeck called with deckId:", deckId)
+  console.log("⭐❌ Supabase client:", supabase)
 
+  try {
+    console.log("⭐❌ Calling supabase.rpc('decrement_deck_favorites')")
     const { data, error: updateError } = await supabase.rpc("decrement_deck_favorites", {
       deck_id_input: deckId,
     })
 
+    console.log("⭐❌ RPC response:", { data, error: updateError })
+
     if (updateError) {
-      console.error("RPC decrement_deck_favorites error:", updateError)
+      console.error("⭐❌ RPC decrement_deck_favorites error:", updateError)
       return { error: updateError.message }
     }
 
-    console.log("decrement_deck_favorites successful, response:", data)
+    console.log("⭐❌ unfavoriteDeck successful")
     return { error: null }
   } catch (err) {
-    console.error("Exception in unfavoriteDeck:", err)
+    console.error("⭐❌ unfavoriteDeck exception:", err)
     return { error: err instanceof Error ? err.message : "Unknown error" }
   }
 }

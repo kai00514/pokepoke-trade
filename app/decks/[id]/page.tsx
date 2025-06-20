@@ -19,6 +19,7 @@ import type { DeckWithCards } from "@/types/deck-types"
 import type { CardData } from "@/lib/card-utils"
 import { AuthProvider } from "@/contexts/auth-context"
 import DeckComments from "@/components/DeckComments"
+import { LoginPrompt } from "@/components/login-prompt"
 
 export default function DeckDetailPage() {
   const { id } = useParams() as { id: string }
@@ -35,6 +36,7 @@ export default function DeckDetailPage() {
   const [commentCount, setCommentCount] = useState(0)
   const [isLikeLoading, setIsLikeLoading] = useState(false)
   const [isFavoriteLoading, setIsFavoriteLoading] = useState(false)
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
   const { toast } = useToast()
 
   const groupCardsByType = (cards: CardData[]): Record<string, CardData[]> => {
@@ -105,18 +107,14 @@ export default function DeckDetailPage() {
   }, [id, authLoading])
 
   const handleLike = async () => {
-    if (!user) {
-      toast({ title: "ログインしてください", variant: "destructive" })
-      return
-    }
+    console.log("❤️ handleLike called:", { isLiked, likeCount, user: user?.id })
 
+    // いいねはログインしていなくても実行可能
     if (isLikeLoading) return
 
     setIsLikeLoading(true)
     const originalIsLiked = isLiked
     const originalLikeCount = likeCount
-
-    console.log("handleLike - Current state:", { isLiked, likeCount })
 
     // UIを即座に更新
     setIsLiked(!isLiked)
@@ -157,8 +155,12 @@ export default function DeckDetailPage() {
   }
 
   const handleFavorite = async () => {
+    console.log("⭐ handleFavorite called:", { isFavorited, favoriteCount, user: user?.id })
+
+    // お気に入りは会員ユーザーのみ実行可能
     if (!user) {
-      toast({ title: "ログインしてください", variant: "destructive" })
+      console.log("⭐ User not logged in - showing login prompt")
+      setShowLoginPrompt(true)
       return
     }
 
@@ -167,8 +169,6 @@ export default function DeckDetailPage() {
     setIsFavoriteLoading(true)
     const originalIsFavorited = isFavorited
     const originalFavoriteCount = favoriteCount
-
-    console.log("handleFavorite - Current state:", { isFavorited, favoriteCount })
 
     // UIを即座に更新
     setIsFavorited(!isFavorited)
@@ -421,6 +421,14 @@ export default function DeckDetailPage() {
             <FooterNavigation />
           </div>
         </div>
+
+        {/* ログイン誘導モーダル */}
+        <LoginPrompt
+          open={showLoginPrompt}
+          setOpen={setShowLoginPrompt}
+          title="お気に入り機能は会員限定です"
+          description="お気に入りのデッキを保存するにはログインしてください。"
+        />
       </AuthProvider>
     </ThemeProvider>
   )
