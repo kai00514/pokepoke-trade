@@ -88,11 +88,12 @@ export async function getDecksList(options?: {
  */
 export async function getDeckPagesList(options?: {
   sortBy?: "latest" | "popular" | "tier"
+  category?: "tier" | "newpack" | "featured"
   limit?: number
   page?: number
 }): Promise<{ success: boolean; data?: any[]; total?: number; hasMore?: boolean; error?: string }> {
   try {
-    const { sortBy = "latest", limit = 20, page = 1 } = options || {}
+    const { sortBy = "latest", category, limit = 20, page = 1 } = options || {}
     const offset = (page - 1) * limit
 
     let query = supabase
@@ -108,12 +109,19 @@ export async function getDeckPagesList(options?: {
         like_count,
         comment_count,
         updated_at,
-        is_published
+        is_published,
+        category
       `,
         { count: "exact" },
       )
       .eq("is_published", true)
-      .range(offset, offset + limit - 1)
+
+    // カテゴリでフィルタリング
+    if (category) {
+      query = query.eq("category", category)
+    }
+
+    query = query.range(offset, offset + limit - 1)
 
     // ソート条件
     switch (sortBy) {

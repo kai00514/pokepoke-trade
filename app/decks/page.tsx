@@ -96,11 +96,27 @@ export default function DecksPage() {
 
   // deck_pagesテーブルからデッキを取得
   const fetchDeckPages = useCallback(
-    async (sortBy: "tier" | "popular" | "latest") => {
+    async (category: "tier" | "newpack" | "featured") => {
       setIsLoading(true)
       setError(null)
       try {
-        const result = await getDeckPagesList({ sortBy, limit: 50 })
+        let sortBy: "tier" | "popular" | "latest" = "latest"
+
+        // カテゴリに応じてソート方法を決定
+        if (category === "tier") {
+          sortBy = "tier"
+        } else if (category === "featured") {
+          sortBy = "popular"
+        } else if (category === "newpack") {
+          sortBy = "latest"
+        }
+
+        const result = await getDeckPagesList({
+          category,
+          sortBy,
+          limit: 50,
+        })
+
         if (result.success && result.data) {
           // deck_pagesのデータをDeck型に変換
           const formattedDecks: DeckPageData[] = result.data.map((deckPage: any) => ({
@@ -152,9 +168,9 @@ export default function DecksPage() {
     } else if (categoryId === "tier") {
       fetchDeckPages("tier")
     } else if (categoryId === "featured") {
-      fetchDeckPages("popular")
+      fetchDeckPages("featured")
     } else if (categoryId === "newpack") {
-      fetchDeckPages("latest")
+      fetchDeckPages("newpack")
     }
   }
 

@@ -69,6 +69,7 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
   const [isLikeLoading, setIsLikeLoading] = useState(false)
   const [isFavoriteLoading, setIsFavoriteLoading] = useState(false)
   const [showLoginModal, setShowLoginModal] = useState(false)
+  const [loginModalType, setLoginModalType] = useState<"like" | "favorite">("like") // 新しい状態を追加
 
   console.log("📊 DeckCard initial state:", {
     deckId: deck.id,
@@ -230,6 +231,7 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
       // お気に入りは会員ユーザーのみ実行可能
       if (!user) {
         console.log("⭐ User not logged in - showing login modal for favorite")
+        setLoginModalType("favorite") // お気に入り用のモーダルタイプを設定
         setShowLoginModal(true)
         return
       }
@@ -398,7 +400,13 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
       </Link>
 
       {/* ログイン誘導モーダル */}
-      {showLoginModal && <LoginPromptModal onClose={handleLoginModalClose} onContinueAsGuest={handleContinueAsGuest} />}
+      {showLoginModal && (
+        <LoginPromptModal
+          onClose={handleLoginModalClose}
+          onContinueAsGuest={handleContinueAsGuest}
+          showContinueAsGuest={loginModalType === "like"} // いいねの場合のみ表示
+        />
+      )}
     </>
   )
 }

@@ -48,6 +48,8 @@ export async function getDeckById(deckId: string): Promise<{
       return { data: null, error: error.message }
     }
 
+    // コメント数が取得できていることをログ出力
+    console.log("🔍 getDeckById success, comment_count:", data.comment_count)
     console.log("🔍 getDeckById success, returning data:", data)
     return { data, error: null }
   } catch (err) {
