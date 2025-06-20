@@ -247,7 +247,6 @@ export default function DecksPage() {
           >
             <Link href="/favorites">
               <Star className="mr-2 h-5 w-5" />
-              お気に入り
             </Link>
           </Button>
         </div>
