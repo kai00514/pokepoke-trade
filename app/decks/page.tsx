@@ -6,7 +6,7 @@ import { useState, useCallback, useEffect } from "react"
 import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
-import { PlusCircle, Users, ListChecks, BarChartBig, Zap } from "lucide-react"
+import { PlusCircle, Users, ListChecks, BarChartBig, Zap, Star } from 'lucide-react'
 import Link from "next/link"
 import DeckCard, { type Deck } from "@/components/deck-card"
 import { getDecksList, getDeckPagesList } from "@/lib/actions/deck-posts"
@@ -228,8 +228,8 @@ export default function DecksPage() {
     <div className="p-0 py-0">
       <AuthHeader />
       <main className="flex-grow container mx-auto px-4 pb-8">
-        {/* デッキを投稿するボタン */}
-        <div className="my-6 flex justify-center">
+        {/* デッキを投稿するボタンとお気に入りボタン */}
+        <div className="my-6 flex justify-center items-center gap-4">
           <Button
             asChild
             className="bg-emerald-500 hover:bg-emerald-600 text-white text-base font-semibold py-3 px-8 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 ease-in-out transform hover:-translate-y-0.5"
@@ -237,6 +237,17 @@ export default function DecksPage() {
             <Link href="/decks/create">
               <PlusCircle className="mr-2 h-5 w-5" />
               デッキを投稿する
+            </Link>
+          </Button>
+          
+          <Button
+            asChild
+            variant="outline"
+            className="bg-white border-yellow-300 text-yellow-600 hover:bg-yellow-50 hover:border-yellow-400 text-base font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 ease-in-out transform hover:-translate-y-0.5"
+          >
+            <Link href="/favorites">
+              <Star className="mr-2 h-5 w-5" />
+              お気に入り
             </Link>
           </Button>
         </div>
