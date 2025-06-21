@@ -186,6 +186,12 @@ export async function getDeckPageById(id: string): Promise<{ success: boolean; d
       return { success: false, error: error.message, data: null }
     }
 
+    // デバッグ: 取得したデータの詳細を確認
+    console.log("Raw deck_pages data:", data)
+    console.log("deck_cards type:", typeof data.deck_cards)
+    console.log("deck_cards value:", data.deck_cards)
+    console.log("deck_cards is array:", Array.isArray(data.deck_cards))
+
     // ビュー数を増加（非同期で実行、エラーは無視）
     supabase
       .from("deck_pages")
@@ -197,34 +203,73 @@ export async function getDeckPageById(id: string): Promise<{ success: boolean; d
         }
       })
 
-    // cards_dataが存在し、配列である場合、カード詳細情報を取得して結合
-    if (Array.isArray(data.cards_data) && data.cards_data.length > 0) {
-      const cardIds = data.cards_data.map((card: any) => card.card_id.toString())
-      console.log("Fetching card details for IDs:", cardIds) // デバッグログ
-      const cardDetails = await fetchCardDetailsByIds(cardIds)
-      console.log("Fetched card details:", cardDetails) // デバッグログ
+    // deck_cardsの処理
+    let cardsData: any[] = []
 
-      const cardDetailsMap = new Map<number, CardData>()
-      cardDetails.forEach((detail) => {
-        cardDetailsMap.set(detail.id, detail)
-      })
-
-      data.cards_data = data.cards_data.map((card: any) => {
-        const detail = cardDetailsMap.get(card.card_id)
-        const enrichedCard = {
-          card_id: card.card_id,
-          quantity: card.card_count, // card_countをquantityにマッピング
-          name: detail?.name || "不明なカード",
-          image_url: detail?.image_url || "/placeholder.svg?height=100&width=70", // フォールバック画像
-          thumb_url: detail?.thumb_url || detail?.image_url || "/placeholder.svg?height=100&width=70",
+    if (data.deck_cards) {
+      // deck_cardsが文字列の場合はJSONパースを試行
+      if (typeof data.deck_cards === "string") {
+        try {
+          cardsData = JSON.parse(data.deck_cards)
+          console.log("Parsed deck_cards from string:", cardsData)
+        } catch (parseError) {
+          console.error("Failed to parse deck_cards as JSON:", parseError)
+          cardsData = []
         }
-        console.log(`Enriched card ${enrichedCard.card_id}:`, enrichedCard) // 個別のカードエンリッチ結果
-        return enrichedCard
-      })
-      console.log("Final enriched cards_data:", data.cards_data) // 最終的なcards_data
+      }
+      // deck_cardsが既に配列の場合
+      else if (Array.isArray(data.deck_cards)) {
+        cardsData = data.deck_cards
+        console.log("deck_cards is already an array:", cardsData)
+      }
+      // その他のオブジェクト型の場合
+      else if (typeof data.deck_cards === "object") {
+        console.log("deck_cards is an object, attempting to convert:", data.deck_cards)
+        // オブジェクトを配列に変換を試行
+        cardsData = Object.values(data.deck_cards).filter((item) => item && typeof item === "object")
+      }
+    }
+
+    console.log("Final processed cardsData:", cardsData)
+    console.log("cardsData length:", cardsData.length)
+
+    // cardsDataが存在し、配列である場合、カード詳細情報を取得して結合
+    if (Array.isArray(cardsData) && cardsData.length > 0) {
+      const cardIds = cardsData.map((card: any) => card.card_id?.toString()).filter(Boolean)
+      console.log("Extracting card IDs:", cardIds)
+
+      if (cardIds.length > 0) {
+        console.log("Fetching card details for IDs:", cardIds)
+        const cardDetails = await fetchCardDetailsByIds(cardIds)
+        console.log("Fetched card details:", cardDetails)
+
+        const cardDetailsMap = new Map<number, CardData>()
+        cardDetails.forEach((detail) => {
+          cardDetailsMap.set(detail.id, detail)
+        })
+
+        data.cards_data = cardsData.map((card: any) => {
+          const detail = cardDetailsMap.get(card.card_id)
+          const enrichedCard = {
+            card_id: card.card_id,
+            quantity: card.card_count || 1, // card_countをquantityにマッピング
+            name: detail?.name || "不明なカード",
+            image_url: detail?.image_url || "/placeholder.svg?height=100&width=70",
+            thumb_url: detail?.thumb_url || detail?.image_url || "/placeholder.svg?height=100&width=70",
+            pack_name: card.pack_name || "不明なパック",
+            display_order: card.display_order || 0,
+          }
+          console.log(`Enriched card ${enrichedCard.card_id}:`, enrichedCard)
+          return enrichedCard
+        })
+        console.log("Final enriched cards_data:", data.cards_data)
+      } else {
+        console.log("No valid card IDs found in cardsData")
+        data.cards_data = []
+      }
     } else {
-      data.cards_data = [] // cards_dataがない場合は空の配列に設定
-      console.log("cards_data is empty or not an array.") // デバッグログ
+      data.cards_data = []
+      console.log("deck_cards is empty, null, or not an array after processing.")
     }
 
     return { success: true, data, error: undefined }

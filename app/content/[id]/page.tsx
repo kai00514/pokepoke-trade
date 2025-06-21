@@ -15,12 +15,28 @@ import { DeckEvaluation } from "@/components/deck-evaluation"
 import { DeckCardsGrid } from "@/components/deck-cards-grid"
 import { StrengthsWeaknesses } from "@/components/strengths-weaknesses"
 import { HowToPlay } from "@/components/how-to-play"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog"
+import DeckComments from "@/components/DeckComments" // DeckCommentsをインポート
 
 export default function PokemonDeckPage() {
   const params = useParams()
   const [deckData, setDeckData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [userScore, setUserScore] = useState(5)
+  const [evalValue, setEvalValue] = useState(0)
+  const [evalCount, setEvalCount] = useState(0)
+  const [hasEvaluated, setHasEvaluated] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
 
   useEffect(() => {
     const fetchDeck = async () => {
@@ -62,25 +78,29 @@ export default function PokemonDeckPage() {
           evaluationTitle: "デッキ評価",
           // JSONBカラムは直接オブジェクトとしてアクセス
           tierInfo: data.tier_info || {
-            rank: "B",
-            tier: "Bランク",
-            descriptions: ["バランスの取れたデッキ"],
+            rank: data.tier_rank || "",
+            tier: data.tier_name || "",
+            descriptions: data.tier_descriptions || [],
           },
-          deckStats: data.deck_stats || {
-            accessibility: 3,
-            speed: 3,
-            power: 3,
-            durability: 3,
-            stability: 3,
+          deckStats: {
+            accessibility: data.stat_accessibility || 3,
+            speed: data.stat_speed || 3,
+            power: data.stat_power || 3,
+            durability: data.stat_durability || 3,
+            stability: data.stat_stability || 3,
           },
           strengthsWeaknessesList: data.strengths_weaknesses_list || [],
           strengthsWeaknessesDetails: data.strengths_weaknesses_details || [],
           howToPlayList: data.how_to_play_list || [],
           howToPlaySteps: data.how_to_play_steps || [],
+          evalValue: data.eval_value || 0,
+          evalCount: data.eval_count || 0,
         }
 
         console.log("Converted data for UI:", convertedData) // デバッグ用
         setDeckData(convertedData)
+        setEvalValue(convertedData.evalValue)
+        setEvalCount(convertedData.evalCount)
       } catch (err) {
         console.error("Failed to fetch deck:", err)
         setError("デッキの取得に失敗しました")
@@ -91,6 +111,112 @@ export default function PokemonDeckPage() {
 
     fetchDeck()
   }, [params.id])
+
+  const handleScoreSubmit = async () => {
+    if (isSubmitting) return
+
+    console.log("\n🎯 === SCORE SUBMISSION START ===")
+    setIsSubmitting(true)
+
+    try {
+      // ゲストユーザー用のランダムID生成（セッションベース）
+      console.log("🔍 Checking for existing guest user ID...")
+      let guestUserId = sessionStorage.getItem("guestUserId")
+
+      if (!guestUserId) {
+        console.log("🆕 Generating new guest user ID...")
+        guestUserId = crypto.randomUUID()
+        sessionStorage.setItem("guestUserId", guestUserId)
+        console.log("✅ New guest user ID created:", guestUserId)
+      } else {
+        console.log("♻️  Using existing guest user ID:", guestUserId)
+      }
+
+      const submissionData = {
+        deckPageId: params.id,
+        userId: guestUserId,
+        score: userScore,
+      }
+
+      console.log("📤 Submitting evaluation with data:")
+      console.log("   - deckPageId:", submissionData.deckPageId)
+      console.log("   - userId:", submissionData.userId)
+      console.log("   - score:", submissionData.score)
+      console.log("   - score type:", typeof submissionData.score)
+
+      console.log("🌐 Making fetch request to /api/deck-evaluation...")
+      const fetchStartTime = Date.now()
+
+      const response = await fetch("/api/deck-evaluation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(submissionData),
+      })
+
+      const fetchEndTime = Date.now()
+      console.log(`⏱️  Fetch completed in ${fetchEndTime - fetchStartTime}ms`)
+
+      console.log("📡 Response received:")
+      console.log("   - Status:", response.status)
+      console.log("   - Status Text:", response.statusText)
+      console.log("   - Content-Type:", response.headers.get("content-type"))
+      console.log("   - OK:", response.ok)
+
+      // レスポンスを一度だけ読み込む
+      console.log("📖 Reading response text...")
+      const responseText = await response.text()
+      console.log("📄 Raw response text:")
+      console.log("   - Length:", responseText.length)
+      console.log("   - First 200 chars:", responseText.substring(0, 200))
+      console.log("   - Full text:", responseText)
+
+      let responseData
+      try {
+        console.log("🔄 Parsing JSON...")
+        responseData = JSON.parse(responseText)
+        console.log("✅ JSON parsed successfully:", responseData)
+      } catch (jsonError) {
+        console.error("❌ JSON parse failed:")
+        console.error("   - Error:", jsonError)
+        console.error("   - Response was:", responseText)
+        throw new Error(`サーバーエラー (${response.status}): ${responseText.substring(0, 100)}...`)
+      }
+
+      if (!response.ok) {
+        console.error("❌ Response not OK:")
+        console.error("   - Status:", response.status)
+        console.error("   - Error data:", responseData)
+        throw new Error(responseData.error || `サーバーエラー (${response.status})`)
+      }
+
+      console.log("🎉 Success! Updating UI state...")
+      console.log("   - New eval value:", responseData.newEvalValue)
+      console.log("   - New eval count:", responseData.newEvalCount)
+
+      setEvalValue(responseData.newEvalValue)
+      setEvalCount(responseData.newEvalCount)
+      setHasEvaluated(true)
+
+      console.log("✅ UI state updated successfully")
+      // alert("評価を送信しました！") // この行を削除またはコメントアウト
+      setShowSuccessModal(true)
+    } catch (error: any) {
+      console.error("\n💥 === SCORE SUBMISSION ERROR ===")
+      console.error("Error type:", typeof error)
+      console.error("Error constructor:", error?.constructor?.name)
+      console.error("Error message:", error?.message)
+      console.error("Error stack:", error?.stack)
+      console.error("=== END SUBMISSION ERROR ===\n")
+
+      alert(`エラー: ${error.message}`)
+    } finally {
+      console.log("🏁 Setting isSubmitting to false")
+      setIsSubmitting(false)
+      console.log("=== SCORE SUBMISSION END ===\n")
+    }
+  }
 
   if (isLoading) {
     return (
@@ -127,6 +253,22 @@ export default function PokemonDeckPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-purple-100">
+      {/* 成功モーダル */}
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>評価完了</DialogTitle>
+            <DialogDescription>デッキの評価を送信しました！</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" onClick={() => setShowSuccessModal(false)}>
+                OK
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <AuthHeader />
 
       {/* Header */}
@@ -238,10 +380,6 @@ export default function PokemonDeckPage() {
               deckStats={deckData.deckStats}
             />
 
-            <Button className="w-full bg-green-500 hover:bg-green-600 text-white mb-6">
-              ▶ 環境最強デッキランキング
-            </Button>
-
             {/* User Rating */}
             <div>
               <h4 className="font-medium mb-4 text-blue-600 border-l-4 border-blue-500 pl-3">みんなの評価</h4>
@@ -249,29 +387,54 @@ export default function PokemonDeckPage() {
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-lg font-medium">スコア平均</span>
                   <div className="text-right">
-                    <div className="text-3xl font-bold">8.8</div>
-                    <div className="text-sm text-gray-600">/10点(710件)</div>
+                    <div className="text-3xl font-bold">{evalValue.toFixed(1)}</div>
+                    <div className="text-sm text-gray-600">/10点({evalCount}件)</div>
                   </div>
                 </div>
 
                 <div className="relative mb-4">
                   <div className="flex justify-between text-sm text-gray-600 mb-2">
-                    <span>5</span>
+                    <span>1</span>
                     <span>10</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 relative">
-                    <div className="bg-green-500 h-2 rounded-full" style={{ width: "75%" }}></div>
-                    <div className="absolute top-0 left-3/4 transform -translate-x-1/2 -translate-y-1">
-                      <div className="bg-green-500 text-white px-2 py-1 rounded text-xs">7.5</div>
+                  <div
+                    className="w-full bg-gray-200 rounded-full h-4 relative cursor-pointer"
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      const x = e.clientX - rect.left
+                      const percentage = x / rect.width
+                      const score = Math.max(1, Math.min(10, Math.round(percentage * 9 + 1)))
+                      setUserScore(score)
+                    }}
+                  >
+                    <div
+                      className="bg-green-500 h-4 rounded-full transition-all duration-200"
+                      style={{ width: `${((userScore - 1) / 9) * 100}%` }}
+                    ></div>
+                    <div
+                      className="absolute top-0 transform -translate-x-1/2 -translate-y-1"
+                      style={{ left: `${((userScore - 1) / 9) * 100}%` }}
+                    >
+                      <div className="bg-green-500 text-white px-2 py-1 rounded text-xs">{userScore}</div>
                     </div>
                   </div>
                 </div>
 
                 <div className="text-center text-sm text-gray-600 mb-4">＼採点してスコアグラフを見てみよう／</div>
 
-                <Button className="w-full bg-green-500 hover:bg-green-600 text-white">採点！</Button>
+                <Button
+                  className="w-full bg-green-500 hover:bg-green-600 text-white"
+                  onClick={handleScoreSubmit}
+                  disabled={isSubmitting || hasEvaluated}
+                >
+                  {isSubmitting ? "送信中..." : hasEvaluated ? "評価済み" : "採点！"}
+                </Button>
               </div>
             </div>
+
+            <Button className="w-full bg-green-500 hover:bg-green-600 text-white mb-6">
+              ▶ 環境最強デッキランキング
+            </Button>
           </CardContent>
         </Card>
 
@@ -308,77 +471,9 @@ export default function PokemonDeckPage() {
           </CardContent>
         </Card>
 
-        {/* Comments Section */}
+        {/* Comments Section - DeckCommentsコンポーネントに置き換え */}
         <Card className="mb-8" id="comments">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MessageCircle className="w-5 h-5" />
-              コメント欄
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="mb-6">
-              <textarea
-                placeholder="コメントを入力してください..."
-                className="w-full p-3 border border-gray-300 rounded-lg resize-none h-24 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <div className="flex justify-between items-center mt-2">
-                <span className="text-sm text-gray-500">最大500文字</span>
-                <Button className="bg-blue-500 hover:bg-blue-600 text-white">コメントを投稿</Button>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="text-sm font-medium text-gray-700 mb-4">コメント一覧 ({deckData.commentCount}件)</div>
-
-              {/* Sample Comments */}
-              {[
-                {
-                  id: 1,
-                  user: "ポケモントレーナー123",
-                  time: "2時間前",
-                  content: "このデッキ構成、とても参考になりました！実際に使ってみたところ、安定して勝てています。",
-                  likes: 12,
-                },
-                {
-                  id: 2,
-                  user: "カードマスター",
-                  time: "5時間前",
-                  content: "グラジオの使い方が上手ですね。序盤の安定感が全然違います。",
-                  likes: 8,
-                },
-                {
-                  id: 3,
-                  user: "デッキビルダー",
-                  time: "1日前",
-                  content: "サブアタッカーの選択肢が豊富で、メタに合わせて調整しやすいのが良いですね。",
-                  likes: 15,
-                },
-              ].map((comment) => (
-                <div key={comment.id} className="bg-gray-50 rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                        {comment.user.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="font-medium text-sm">{comment.user}</div>
-                        <div className="text-xs text-gray-500">{comment.time}</div>
-                      </div>
-                    </div>
-                    <Button variant="ghost" size="sm" className="text-gray-500 hover:text-blue-600">
-                      <span className="text-xs">👍 {comment.likes}</span>
-                    </Button>
-                  </div>
-                  <p className="text-sm text-gray-700">{comment.content}</p>
-                </div>
-              ))}
-
-              <Button variant="outline" className="w-full">
-                もっと見る
-              </Button>
-            </div>
-          </CardContent>
+          <DeckComments deckId={deckData.id} deckTitle={deckData.title} />
         </Card>
       </div>
 

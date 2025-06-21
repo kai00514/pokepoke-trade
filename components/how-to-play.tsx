@@ -33,25 +33,31 @@ export function HowToPlay({ howToPlayList, howToPlaySteps }: HowToPlayProps) {
             </div>
           </div>
           <div className="bg-blue-50 p-4 rounded-b-lg">
-            {step.images && step.images.length > 0 && (
-              <div className="flex gap-4 mb-4">
-                {step.images.map((imageUrl, imgIndex) => (
-                  <div key={imgIndex} className="w-32 h-44">
-                    {imageUrl ? (
-                      <Image
-                        src={imageUrl || "/placeholder.svg"}
-                        alt={`${step.title} 画像 ${imgIndex + 1}`}
-                        width={128}
-                        height={176}
-                        className="w-full h-full object-cover rounded border"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-green-100 to-blue-100 rounded border"></div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            {step.image_urls &&
+              step.image_urls.length > 0 && ( // ここを修正
+                <div className="flex gap-4 mb-4">
+                  {step.image_urls.map(
+                    (
+                      imageUrl,
+                      imgIndex, // ここを修正
+                    ) => (
+                      <div key={imgIndex} className="w-32 h-44">
+                        {imageUrl ? (
+                          <Image
+                            src={imageUrl || "/placeholder.svg"} // ここを修正
+                            alt={`${step.title} 画像 ${imgIndex + 1}`}
+                            width={128}
+                            height={176}
+                            className="w-full h-full object-cover rounded border"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-green-100 to-blue-100 rounded border"></div>
+                        )}
+                      </div>
+                    ),
+                  )}
+                </div>
+              )}
             <p className="text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: step.description }} />
           </div>
         </div>

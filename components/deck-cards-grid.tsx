@@ -141,31 +141,12 @@ export function DeckCardsGrid({ deckName, energyType, energyImage, cards }: Deck
                     e.currentTarget.src = "/placeholder.svg?height=140&width=100"
                   }}
                 />
-                {card.quantity > 1 && (
-                  <div className="absolute bottom-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                    {card.quantity}
-                  </div>
-                )}
               </div>
             ) : (
               <div className="w-full h-full bg-gray-200 rounded-lg border-2 border-dashed border-gray-300"></div>
             )}
           </div>
         ))}
-      </div>
-
-      {/* カード一覧 */}
-      <div className="space-y-2">
-        <h5 className="font-medium text-sm text-gray-700">デッキ構成 ({totalCards}枚)</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-          {cards.map((card, index) => (
-            <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-              <span className="font-medium">{card.name}</span>
-              <span className="text-gray-500">×{card.quantity}</span>
-              {card.pack_name && <span className="text-xs text-gray-400">({card.pack_name})</span>}
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   )

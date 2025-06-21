@@ -1,17 +1,129 @@
 "use client"
 
 import { TrendingUp } from "lucide-react"
-import { useEffect, useRef } from "react"
 import type { DeckStats, TierInfo } from "@/types/deck"
+import { useState, useEffect, useCallback } from "react"
+import { useAuth } from "@/contexts/auth-context"
+import { useToast } from "@/components/ui/use-toast"
 
 interface DeckEvaluationProps {
   evaluationTitle: string
   tierInfo: TierInfo
   deckStats: DeckStats
+  evalValue: number
+  evalCount: number
+  deckPageId: string
+  onEvaluationUpdate: (newEvalValue: number, newEvalCount: number) => void
 }
 
-export function DeckEvaluation({ evaluationTitle, tierInfo, deckStats }: DeckEvaluationProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+export function DeckEvaluation({
+  evaluationTitle,
+  tierInfo,
+  deckStats,
+  evalValue: initialEvalValue,
+  evalCount: initialEvalCount,
+  deckPageId,
+  onEvaluationUpdate,
+}: DeckEvaluationProps) {
+  // レーダーチャート関連のrefとuseEffectを削除
+  // const canvasRef = useRef<HTMLCanvasElement>(null) // この行を削除
+
+  const { user, loading: authLoading } = useAuth()
+  const { toast } = useToast()
+  const [userScore, setUserScore] = useState<number[]>([5])
+  const [currentEvalValue, setCurrentEvalValue] = useState(initialEvalValue)
+  const [currentEvalCount, setCurrentEvalCount] = useState(initialEvalCount)
+  const [hasEvaluated, setHasEvaluated] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    setCurrentEvalValue(initialEvalValue)
+    setCurrentEvalCount(initialEvalCount)
+  }, [initialEvalValue, initialEvalCount])
+
+  useEffect(() => {
+    const checkUserEvaluation = async () => {
+      if (user && deckPageId) {
+        try {
+          const response = await fetch(`/api/deck-evaluation?deckPageId=${deckPageId}&userId=${user.id}`)
+          if (!response.ok) {
+            throw new Error("ユーザー評価の確認に失敗しました")
+          }
+          const data = await response.json()
+          setHasEvaluated(data.hasEvaluated)
+        } catch (error) {
+          console.error("Error checking user evaluation:", error)
+          toast({
+            title: "エラー",
+            description: "ユーザー評価の確認中にエラーが発生しました。",
+            variant: "destructive",
+          })
+        }
+      }
+    }
+    if (!authLoading) {
+      checkUserEvaluation()
+    }
+  }, [user, deckPageId, authLoading, toast])
+
+  const handleScoreSubmit = useCallback(async () => {
+    if (!user) {
+      toast({
+        title: "ログインが必要です",
+        description: "デッキを評価するにはログインしてください。",
+        variant: "destructive",
+      })
+      return
+    }
+    if (hasEvaluated) {
+      toast({
+        title: "既に評価済みです",
+        description: "このデッキは既に評価されています。",
+        variant: "default",
+      })
+      return
+    }
+    if (isSubmitting) return
+
+    setIsSubmitting(true)
+    try {
+      const response = await fetch("/api/deck-evaluation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          deckPageId,
+          userId: user.id,
+          score: userScore[0],
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "評価の送信に失敗しました")
+      }
+
+      const result = await response.json()
+      setCurrentEvalValue(result.newEvalValue)
+      setCurrentEvalCount(result.newEvalCount)
+      setHasEvaluated(true)
+      onEvaluationUpdate(result.newEvalValue, result.newEvalCount)
+      toast({
+        title: "評価を送信しました",
+        description: `あなたの評価 ${userScore[0]} 点が反映されました。`,
+      })
+    } catch (error: any) {
+      console.error("Error submitting evaluation:", error)
+      toast({
+        title: "エラー",
+        description: error.message || "評価の送信中にエラーが発生しました。",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }, [user, hasEvaluated, isSubmitting, deckPageId, userScore, onEvaluationUpdate, toast])
 
   const getTierColor = (rank: string) => {
     switch (rank) {
@@ -38,94 +150,95 @@ export function DeckEvaluation({ evaluationTitle, tierInfo, deckStats }: DeckEva
     { label: "安定", value: deckStats.stability, max: 5 },
   ]
 
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+  // レーダーチャート描画のuseEffectを削除
+  // useEffect(() => { // このuseEffectブロック全体を削除
+  //   const canvas = canvasRef.current
+  //   if (!canvas) return
 
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
+  //   const ctx = canvas.getContext("2d")
+  //   if (!ctx) return
 
-    const centerX = canvas.width / 2
-    const centerY = canvas.height / 2
-    const radius = Math.min(centerX, centerY) - 40
+  //   const centerX = canvas.width / 2
+  //   const centerY = canvas.height / 2
+  //   const radius = Math.min(centerX, centerY) - 40
 
-    // キャンバスをクリア
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+  //   // キャンバスをクリア
+  //   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // レーダーチャートの背景グリッドを描画
-    ctx.strokeStyle = "#e5e7eb"
-    ctx.lineWidth = 1
+  //   // レーダーチャートの背景グリッドを描画
+  //   ctx.strokeStyle = "#e5e7eb"
+  //   ctx.lineWidth = 1
 
-    // 同心円を描画
-    for (let i = 1; i <= 5; i++) {
-      ctx.beginPath()
-      ctx.arc(centerX, centerY, (radius * i) / 5, 0, 2 * Math.PI)
-      ctx.stroke()
-    }
+  //   // 同心円を描画
+  //   for (let i = 1; i <= 5; i++) {
+  //     ctx.beginPath()
+  //     ctx.arc(centerX, centerY, (radius * i) / 5, 0, 2 * Math.PI)
+  //     ctx.stroke()
+  //   }
 
-    // 軸線を描画
-    const angleStep = (2 * Math.PI) / statsArray.length
-    for (let i = 0; i < statsArray.length; i++) {
-      const angle = i * angleStep - Math.PI / 2
-      const x = centerX + Math.cos(angle) * radius
-      const y = centerY + Math.sin(angle) * radius
+  //   // 軸線を描画
+  //   const angleStep = (2 * Math.PI) / statsArray.length
+  //   for (let i = 0; i < statsArray.length; i++) {
+  //     const angle = i * angleStep - Math.PI / 2
+  //     const x = centerX + Math.cos(angle) * radius
+  //     const y = centerY + Math.sin(angle) * radius
 
-      ctx.beginPath()
-      ctx.moveTo(centerX, centerY)
-      ctx.lineTo(x, y)
-      ctx.stroke()
-    }
+  //     ctx.beginPath()
+  //     ctx.moveTo(centerX, centerY)
+  //     ctx.lineTo(x, y)
+  //     ctx.stroke()
+  //   }
 
-    // データポイントを描画
-    ctx.fillStyle = "rgba(59, 130, 246, 0.3)"
-    ctx.strokeStyle = "#3b82f6"
-    ctx.lineWidth = 2
+  //   // データポイントを描画
+  //   ctx.fillStyle = "rgba(59, 130, 246, 0.3)"
+  //   ctx.strokeStyle = "#3b82f6"
+  //   ctx.lineWidth = 2
 
-    ctx.beginPath()
-    for (let i = 0; i < statsArray.length; i++) {
-      const angle = i * angleStep - Math.PI / 2
-      const value = statsArray[i].value / statsArray[i].max
-      const x = centerX + Math.cos(angle) * radius * value
-      const y = centerY + Math.sin(angle) * radius * value
+  //   ctx.beginPath()
+  //   for (let i = 0; i < statsArray.length; i++) {
+  //     const angle = i * angleStep - Math.PI / 2
+  //     const value = statsArray[i].value / statsArray[i].max
+  //     const x = centerX + Math.cos(angle) * radius * value
+  //     const y = centerY + Math.sin(angle) * radius * value
 
-      if (i === 0) {
-        ctx.moveTo(x, y)
-      } else {
-        ctx.lineTo(x, y)
-      }
-    }
-    ctx.closePath()
-    ctx.fill()
-    ctx.stroke()
+  //     if (i === 0) {
+  //       ctx.moveTo(x, y)
+  //     } else {
+  //       ctx.lineTo(x, y)
+  //     }
+  //   }
+  //   ctx.closePath()
+  //   ctx.fill()
+  //   ctx.stroke()
 
-    // データポイントの点を描画
-    ctx.fillStyle = "#3b82f6"
-    for (let i = 0; i < statsArray.length; i++) {
-      const angle = i * angleStep - Math.PI / 2
-      const value = statsArray[i].value / statsArray[i].max
-      const x = centerX + Math.cos(angle) * radius * value
-      const y = centerY + Math.sin(angle) * radius * value
+  //   // データポイントの点を描画
+  //   ctx.fillStyle = "#3b82f6"
+  //   for (let i = 0; i < statsArray.length; i++) {
+  //     const angle = i * angleStep - Math.PI / 2
+  //     const value = statsArray[i].value / statsArray[i].max
+  //     const x = centerX + Math.cos(angle) * radius * value
+  //     const y = centerY + Math.sin(angle) * radius * value
 
-      ctx.beginPath()
-      ctx.arc(x, y, 4, 0, 2 * Math.PI)
-      ctx.fill()
-    }
+  //     ctx.beginPath()
+  //     ctx.arc(x, y, 4, 0, 2 * Math.PI)
+  //     ctx.fill()
+  //   }
 
-    // ラベルを描画
-    ctx.fillStyle = "#374151"
-    ctx.font = "12px sans-serif"
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
+  //   // ラベルを描画
+  //   ctx.fillStyle = "#374151"
+  //   ctx.font = "12px sans-serif"
+  //   ctx.textAlign = "center"
+  //   ctx.textBaseline = "middle"
 
-    for (let i = 0; i < statsArray.length; i++) {
-      const angle = i * angleStep - Math.PI / 2
-      const labelRadius = radius + 20
-      const x = centerX + Math.cos(angle) * labelRadius
-      const y = centerY + Math.sin(angle) * labelRadius
+  //   for (let i = 0; i < statsArray.length; i++) {
+  //     const angle = i * angleStep - Math.PI / 2
+  //     const labelRadius = radius + 20
+  //     const x = centerX + Math.cos(angle) * labelRadius
+  //     const y = centerY + Math.sin(angle) * labelRadius
 
-      ctx.fillText(statsArray[i].label, x, y)
-    }
-  }, [deckStats])
+  //     ctx.fillText(statsArray[i].label, x, y)
+  //   }
+  // }, [deckStats])
 
   return (
     <div>
@@ -154,10 +267,10 @@ export function DeckEvaluation({ evaluationTitle, tierInfo, deckStats }: DeckEva
         </h4>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* レーダーチャート */}
-          <div className="flex justify-center">
+          {/* レーダーチャートのJSXを削除 */}
+          {/* <div className="flex justify-center"> // このdivブロック全体を削除
             <canvas ref={canvasRef} width={300} height={300} className="max-w-full h-auto" />
-          </div>
+          </div> */}
 
           {/* 数値表示 */}
           <div className="space-y-4">
