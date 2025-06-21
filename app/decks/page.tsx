@@ -6,9 +6,9 @@ import { useState, useCallback, useEffect } from "react"
 import AuthHeader from "@/components/auth-header"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
-import { PlusCircle, Users, ListChecks, BarChartBig, Zap, Star } from 'lucide-react'
+import { PlusCircle, Users, ListChecks, BarChartBig, Zap, Star } from "lucide-react"
 import Link from "next/link"
-import DeckCard, { type Deck } from "@/components/deck-card"
+import { DeckCard, type Deck } from "@/components/deck-card" // ここを名前付きインポートに修正
 import { getDecksList, getDeckPagesList } from "@/lib/actions/deck-posts"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -51,6 +51,7 @@ const categories: CategoryInfo[] = [
 // deck_pagesデータ用の拡張型
 interface DeckPageData extends Deck {
   is_deck_page?: boolean
+  category?: string // categoryプロパティを追加
 }
 
 export default function DecksPage() {
@@ -71,6 +72,7 @@ export default function DecksPage() {
         const decksWithFlag = result.data.map((deck) => ({
           ...deck,
           is_deck_page: false,
+          category: "posts", // デフォルトカテゴリを設定
         }))
         setDecks(decksWithFlag)
       } else {
@@ -130,6 +132,7 @@ export default function DecksPage() {
             views: deckPage.view_count || 0,
             comments: deckPage.comment_count || 0,
             is_deck_page: true, // deck_pagesテーブルのデータであることを示すフラグ
+            category: category, // categoryプロパティを追加
           }))
           setDecks(formattedDecks)
         } else {
@@ -218,7 +221,7 @@ export default function DecksPage() {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {decks.map((deck) => (
-          <DeckCard key={deck.id} deck={deck} />
+          <DeckCard key={deck.id} deck={deck} currentCategory={deck.category || "posts"} />
         ))}
       </div>
     )
@@ -239,7 +242,7 @@ export default function DecksPage() {
               デッキを投稿する
             </Link>
           </Button>
-          
+
           <Button
             asChild
             variant="outline"
