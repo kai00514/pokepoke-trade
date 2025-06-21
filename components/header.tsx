@@ -4,16 +4,20 @@ import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Bell } from "lucide-react"
+import { Plus, Bell, User } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useState, useEffect } from "react"
 import { getNotifications } from "@/lib/services/notification-service"
 
 export default function Header() {
-  const { user, loading, signOut } = useAuth()
+  const { user, userProfile, loading, signOut } = useAuth()
   const [unreadCount, setUnreadCount] = useState(0)
 
-  console.log("🔍 Header component - Auth state:", { user: user ? { id: user.id, email: user.email } : null, loading })
+  console.log("🔍 Header component - Auth state:", {
+    user: user ? { id: user.id, email: user.email } : null,
+    userProfile,
+    loading,
+  })
 
   // 未読通知数を取得
   useEffect(() => {
@@ -51,7 +55,6 @@ export default function Header() {
 
   const handleNotificationClick = () => {
     console.log("🔔 Notification icon clicked - redirecting to /notifications")
-    // 通知ページにリダイレクト
     window.location.href = "/notifications"
   }
 
@@ -94,7 +97,6 @@ export default function Header() {
           </Button>
 
           {user && (
-            // ログイン済みユーザーのみ通知アイコンを表示
             <Button
               variant="ghost"
               size="icon"
@@ -115,9 +117,28 @@ export default function Header() {
           )}
 
           {user ? (
-            // ログイン済みユーザー
-            <>
-              <span className="text-white text-sm hidden sm:inline">{user.email}</span>
+            // ログイン済みユーザー - ユーザー名とアバターを表示
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5">
+                <div className="relative w-6 h-6 sm:w-8 sm:h-8">
+                  {userProfile?.avatar_url ? (
+                    <Image
+                      src={userProfile.avatar_url || "/placeholder.svg"}
+                      alt="ユーザーアバター"
+                      width={32}
+                      height={32}
+                      className="rounded-full object-cover w-full h-full"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-white/20 rounded-full flex items-center justify-center">
+                      <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                    </div>
+                  )}
+                </div>
+                <span className="text-white text-sm font-medium hidden sm:inline">
+                  {userProfile?.user_name || user.email?.split("@")[0] || "ユーザー"}
+                </span>
+              </div>
               <Button
                 variant="outline"
                 className="bg-white text-violet-600 border-violet-600 hover:bg-violet-100 hover:text-violet-700 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2"
@@ -125,7 +146,7 @@ export default function Header() {
               >
                 ログアウト
               </Button>
-            </>
+            </div>
           ) : (
             // 未ログインユーザー
             <>
