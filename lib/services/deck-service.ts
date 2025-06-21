@@ -358,12 +358,12 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
       console.error("🌟 Error fetching favorite entries:", fetchError)
       return { data: [], error: fetchError.message }
     }
-    console.log("🌟 Fetched favorite entries:", favoriteEntries) // デバッグログ
+    console.log("🌟 Fetched favorite entries:", favoriteEntries)
 
     const deckIds = favoriteEntries.map((entry) => entry.deck_id).filter(Boolean) as string[]
     const deckPageIds = favoriteEntries.map((entry) => entry.deck_page_id).filter(Boolean) as string[]
-    console.log("🌟 Extracted deckIds:", deckIds) // デバッグログ
-    console.log("🌟 Extracted deckPageIds:", deckPageIds) // デバッグログ
+    console.log("🌟 Extracted deckIds:", deckIds)
+    console.log("🌟 Extracted deckPageIds:", deckPageIds)
 
     let decksData: any[] = []
     let deckPagesData: any[] = []
@@ -401,7 +401,7 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
         .in("id", deckIds)
       if (decksError) console.error("🌟 Error fetching favorited decks:", decksError)
       else decksData = fetchedDecks
-      console.log("🌟 Fetched decksData:", decksData) // デバッグログ
+      console.log("🌟 Fetched decksData:", decksData)
     }
 
     if (deckPageIds.length > 0) {
@@ -419,13 +419,13 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
           like_count,
           comment_count,
           favorite_count,
-          category // ここにcategoryカラムを追加
+          category
         `,
         )
         .in("id", deckPageIds)
       if (deckPagesError) console.error("🌟 Error fetching favorited deck pages:", deckPagesError)
       else deckPagesData = fetchedDeckPages
-      console.log("🌟 Fetched deckPagesData:", fetchedDeckPages) // デバッグログ
+      console.log("🌟 Fetched deckPagesData:", fetchedDeckPages)
     }
 
     const allDecksMap = new Map<string, any>()
@@ -433,32 +433,31 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
       allDecksMap.set(d.id, {
         ...d,
         is_deck_page: false,
-        // deck_pagesにないプロパティをnullで初期化
         deck_name: null,
         thumbnail_image_url: null,
         tier_rank: null,
-        category: "投稿", // decksテーブルのデータは「投稿」カテゴリとする
+        category: "投稿",
       }),
     )
     deckPagesData.forEach((dp) =>
       allDecksMap.set(dp.id, {
-        id: dp.id, // UUIDのまま
+        id: dp.id,
         title: dp.title || dp.deck_name || "無題のデッキ",
-        description: null, // deck_pagesにはdescriptionがないため
-        user_id: null, // deck_pagesにはuser_idがないため
-        is_public: true, // deck_pagesは公開を前提
-        tags: [], // deck_pagesにはtagsがないため
-        thumbnail_card_id: null, // deck_pagesにはthumbnail_card_idがないため
-        created_at: dp.updated_at, // deck_pagesにはcreated_atがないためupdated_atを使用
+        description: null,
+        user_id: null,
+        is_public: true,
+        tags: [],
+        thumbnail_card_id: null,
+        created_at: dp.updated_at,
         updated_at: dp.updated_at,
         like_count: dp.like_count || 0,
         favorite_count: dp.favorite_count || 0,
         view_count: dp.view_count || 0,
         comment_count: dp.comment_count || 0,
-        deck_cards: [], // deck_pagesにはdeck_cardsがないため
+        deck_cards: [],
         thumbnail_image: dp.thumbnail_image_url
           ? {
-              id: 0, // ダミーID
+              id: 0,
               name: dp.deck_name || dp.title || "無題のデッキ",
               image_url: dp.thumbnail_image_url,
               thumb_url: dp.thumbnail_image_url,
@@ -468,11 +467,11 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
         deck_name: dp.deck_name,
         thumbnail_image_url: dp.thumbnail_image_url,
         tier_rank: dp.tier_rank,
-        category: dp.category, // deck_pagesのcategoryをそのまま使用
+        category: dp.category,
       }),
     )
-    console.log("🌟 allDecksMap size:", allDecksMap.size) // デバッグログ
-    console.log("🌟 allDecksMap content (first 5):", Array.from(allDecksMap.entries()).slice(0, 5)) // デバッグログ
+    console.log("🌟 allDecksMap size:", allDecksMap.size)
+    console.log("🌟 allDecksMap content (first 5):", Array.from(allDecksMap.entries()).slice(0, 5))
 
     // Reconstruct the list in the original favorite order
     const formattedDecks: DeckWithCards[] = []
@@ -484,14 +483,14 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
         const deck = allDecksMap.get(deckId)
         formattedDecks.push({
           ...deck,
-          source_tab: "お気に入り", // Ensure this is set for favorites page
-          category: deck.category, // allDecksMapから取得したcategoryを使用
+          source_tab: "お気に入り",
+          category: deck.category,
         })
         if (deck.user_id && !userIdsToFetch.includes(deck.user_id)) {
           userIdsToFetch.push(deck.user_id)
         }
       } else {
-        console.warn("🌟 Deck not found in allDecksMap for favorite entry:", deckId, entry) // デバッグログ
+        console.warn("🌟 Deck not found in allDecksMap for favorite entry:", deckId, entry)
       }
     }
 

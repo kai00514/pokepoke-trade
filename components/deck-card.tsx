@@ -116,6 +116,7 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts", onRem
         // Pass deck.is_deck_page to isFavorited
         const favorited = await checkIsFavorited(deck.id, deck.is_deck_page || false)
         setIsFavorited(favorited)
+        console.log(`🔧 DeckCard useEffect - isFavorited for ${deck.id}: ${favorited}`) // デバッグログ
       }
       fetchFavoriteStatus()
     } else {
@@ -336,9 +337,10 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts", onRem
         console.log("⭐ Action function:", action)
 
         // Pass deck.is_deck_page to favoriteDeck/unfavoriteDeck
+        // favoriteDeckにはcategoryも渡す
         const result = originalIsFavorited
           ? await action(deck.id, deck.is_deck_page || false)
-          : await action(deck.id, currentCategory, deck.is_deck_page || false)
+          : await action(deck.id, deck.category || "posts", deck.is_deck_page || false) // deck.categoryを渡す
         console.log("⭐ Action result:", result)
 
         if (result.error) {
