@@ -39,6 +39,14 @@ export default function DeckDetailPage() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
   const { toast } = useToast()
 
+  // "create"というIDが渡された場合、/decks/createにリダイレクト
+  useEffect(() => {
+    if (id === "create") {
+      console.log("Detected 'create' as ID, redirecting to /decks/create")
+      router.replace("/decks/create")
+    }
+  }, [id, router])
+
   const groupCardsByType = (cards: CardData[]): Record<string, CardData[]> => {
     return cards.reduce(
       (acc, card) => {
@@ -54,6 +62,12 @@ export default function DeckDetailPage() {
   }
 
   const fetchDeckData = async () => {
+    // "create"の場合はリダイレクトされるため、ここでは処理しない
+    if (id === "create") {
+      setIsLoading(false)
+      return
+    }
+
     console.log("Starting fetchDeckData for deck ID:", id)
     setIsLoading(true)
     setError(null)
@@ -101,7 +115,8 @@ export default function DeckDetailPage() {
   }
 
   useEffect(() => {
-    if (!authLoading) {
+    // idが"create"でない場合にのみデータをフェッチ
+    if (!authLoading && id !== "create") {
       fetchDeckData()
     }
   }, [id, authLoading])
@@ -206,6 +221,11 @@ export default function DeckDetailPage() {
     } finally {
       setIsFavoriteLoading(false)
     }
+  }
+
+  // idが"create"の場合は、リダイレクト処理が完了するまで何も表示しない
+  if (id === "create") {
+    return null
   }
 
   if (isLoading) {
