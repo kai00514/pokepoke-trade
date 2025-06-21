@@ -87,7 +87,24 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
       "🔧 DeckCard useEffect triggered - user changed:",
       user ? `${user.id} (${user.email})` : "not logged in",
     )
-  }, [user])
+
+    // ユーザーがログインしている場合、お気に入り状態を確認
+    if (user && deck.id) {
+      // 簡易的な実装として、localStorageを使用してお気に入り状態を管理
+      const favoriteKey = `favorite_${user.id}_${deck.id}`
+      const likeKey = `like_${user.id}_${deck.id}`
+
+      const savedFavoriteState = localStorage.getItem(favoriteKey)
+      const savedLikeState = localStorage.getItem(likeKey)
+
+      if (savedFavoriteState !== null) {
+        setIsFavorited(savedFavoriteState === "true")
+      }
+      if (savedLikeState !== null) {
+        setIsLiked(savedLikeState === "true")
+      }
+    }
+  }, [user, deck.id])
 
   const deckName = deck.title || deck.name || deck.deck_name || "無題のデッキ"
   const updatedDate = deck.updated_at || deck.updatedAt || deck.created_at || new Date().toISOString()
@@ -192,6 +209,11 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
             console.log("❤️ Calling onCountUpdate callback")
             onCountUpdate(deck.id, newLikeCount, favoriteCount)
           }
+          // 成功した場合の処理内に以下を追加
+          if (user) {
+            const likeKey = `like_${user.id}_${deck.id}`
+            localStorage.setItem(likeKey, (!originalIsLiked).toString())
+          }
         }
       } catch (actionError) {
         console.error("❤️ Exception during action:", actionError)
@@ -281,6 +303,11 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
           if (onCountUpdate) {
             console.log("⭐ Calling onCountUpdate callback")
             onCountUpdate(deck.id, likeCount, newFavoriteCount)
+          }
+          // 成功した場合の処理内に以下を追加
+          if (user) {
+            const favoriteKey = `favorite_${user.id}_${deck.id}`
+            localStorage.setItem(favoriteKey, (!originalIsFavorited).toString())
           }
         }
       } catch (actionError) {
