@@ -9,50 +9,10 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Badge } from "@/components/ui/badge"
 import { Heart, Star, MessageCircle, CalendarDays, Loader2 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import { likeDeck, unlikeDeck, favoriteDeck, unfavoriteDeck } from "@/lib/services/deck-service"
+import { likeDeck, unlikeDeck, favoriteDeck, unfavoriteDeck } from "@/lib/services/deck-service" // 関数を直接インポート
 import { useToast } from "@/components/ui/use-toast"
 import LoginPromptModal from "@/components/ui/login-prompt-modal"
-
-export interface Deck {
-  id: string
-  user_id?: string
-  title?: string
-  name?: string // サンプルデータ用
-  description?: string
-  imageUrl?: string
-  cardName?: string // サンプルデータ用
-  updatedAt?: string // サンプルデータ用
-  updated_at?: string // データベース用
-  created_at?: string
-  likes?: number
-  favorites?: number
-  views?: number
-  comments?: number // コメント数を追加
-  is_public?: boolean
-  tags?: string[]
-  deck_cards?: Array<{
-    card_id: number
-    quantity: number
-  }>
-  thumbnail_card_id?: number
-  thumbnail_image?: {
-    id: number
-    name: string
-    image_url: string
-    thumb_url?: string
-  }
-  // deck_pagesテーブル用のプロパティ
-  deck_name?: string
-  thumbnail_image_url?: string
-  tier_rank?: number
-  view_count?: number
-  like_count?: number
-  comment_count?: number
-  favorite_count?: number
-  is_deck_page?: boolean // deck_pagesテーブルのデータかどうかを判定
-  category?: string // カテゴリを追加
-  source_tab?: string // どのタブから来たかを示すプロパティを追加
-}
+import type { Deck } from "@/types/deck"
 
 interface DeckCardProps {
   deck: Deck
@@ -203,7 +163,7 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
       console.log("❤️ UI updated:", { newIsLiked: !isLiked, newLikeCount })
 
       try {
-        const action = originalIsLiked ? unlikeDeck : likeDeck
+        const action = originalIsLiked ? unlikeDeck : likeDeck // 関数を直接呼び出す
         console.log("❤️ Calling action:", originalIsLiked ? "unlikeDeck" : "likeDeck")
         console.log("❤️ Action function:", action)
 
@@ -211,6 +171,7 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
         console.log("❤️ Action result:", result)
 
         if (result.error) {
+          // error プロパティを確認
           console.error("❤️ Action failed with error:", result.error)
           toast({ title: "エラー", description: result.error, variant: "destructive" })
           // エラー時はUIの状態を元に戻す
@@ -298,7 +259,7 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
       console.log("⭐ UI updated:", { newIsFavorited: !isFavorited, newFavoriteCount })
 
       try {
-        const action = originalIsFavorited ? unfavoriteDeck : favoriteDeck
+        const action = originalIsFavorited ? unfavoriteDeck : favoriteDeck // 関数を直接呼び出す
         console.log("⭐ Calling action:", originalIsFavorited ? "unfavoriteDeck" : "favoriteDeck")
         console.log("⭐ Action function:", action)
 
@@ -306,6 +267,7 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
         console.log("⭐ Action result:", result)
 
         if (result.error) {
+          // error プロパティを確認
           console.error("⭐ Action failed with error:", result.error)
           toast({ title: "エラー", description: result.error, variant: "destructive" })
           // エラー時はUIの状態を元に戻す
