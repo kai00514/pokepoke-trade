@@ -1,10 +1,18 @@
+"use client"
+
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import NotificationDropdown from "./notification-dropdown"
+import { useAuth } from "@/contexts/auth-context"
 
 export default function Header() {
+  const { user, loading } = useAuth()
+
+  // デバッグログ
+  console.log("🏠 Header render:", { user: !!user, loading })
+
   return (
     <header className="bg-violet-500 text-white shadow-md">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -22,7 +30,8 @@ export default function Header() {
             <span className="sr-only">新規投稿作成</span>
           </Button>
 
-          {/* 通知ドロップダウン */}
+          {/* 通知ドロップダウン - デバッグログ付き */}
+          {console.log("🔔 Rendering NotificationDropdown:", { shouldRender: !!user && !loading })}
           <NotificationDropdown />
 
           <Link href="/auth/signup">

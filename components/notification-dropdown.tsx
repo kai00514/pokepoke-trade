@@ -21,16 +21,23 @@ export default function NotificationDropdown() {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
-  // デバッグ用のログ出力
+  // コンポーネントがマウントされたことをログ出力
   useEffect(() => {
-    console.log("🔔 NotificationDropdown render:", {
-      user: user ? { id: user.id, email: user.email } : null,
-      authLoading,
-      isOpen,
-      unreadCount,
-      notificationsCount: notifications.length,
-    })
-  }, [user, authLoading, isOpen, unreadCount, notifications.length])
+    console.log("🔔 NotificationDropdown mounted")
+    return () => {
+      console.log("🔔 NotificationDropdown unmounted")
+    }
+  }, [])
+
+  // レンダリング時のデバッグログ
+  console.log("🔔 NotificationDropdown render:", {
+    user: user ? { id: user.id, email: user.email } : null,
+    authLoading,
+    isOpen,
+    unreadCount,
+    notificationsCount: notifications.length,
+    willRender: !authLoading && !!user,
+  })
 
   // 通知を取得
   const fetchNotifications = async () => {
@@ -71,6 +78,7 @@ export default function NotificationDropdown() {
       currentState: isOpen,
       user: !!user,
       authLoading,
+      timestamp: new Date().toISOString(),
     })
 
     if (!user && !authLoading) {
@@ -79,9 +87,11 @@ export default function NotificationDropdown() {
     }
 
     if (!isOpen && user) {
+      console.log("📡 Will fetch notifications...")
       fetchNotifications()
     }
     setIsOpen(!isOpen)
+    console.log("🔄 Dropdown state changed to:", !isOpen)
   }
 
   // 通知を既読にする
@@ -108,6 +118,7 @@ export default function NotificationDropdown() {
         buttonRef.current &&
         !buttonRef.current.contains(event.target as Node)
       ) {
+        console.log("🖱️ Outside click detected, closing dropdown")
         setIsOpen(false)
       }
     }
@@ -144,6 +155,7 @@ export default function NotificationDropdown() {
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === "Escape" && isOpen) {
+        console.log("⌨️ ESC key pressed, closing dropdown")
         setIsOpen(false)
         buttonRef.current?.focus()
       }
@@ -186,6 +198,8 @@ export default function NotificationDropdown() {
     return null
   }
 
+  console.log("✅ Rendering NotificationDropdown component")
+
   return (
     <div className="relative">
       {/* 通知ベルアイコン */}
@@ -194,7 +208,13 @@ export default function NotificationDropdown() {
         variant="ghost"
         size="icon"
         className="relative text-white hover:bg-white/20 rounded-full h-9 w-9 sm:h-10 sm:w-10 transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-violet-500"
-        onClick={toggleDropdown}
+        onClick={(e) => {
+          console.log("🖱️ Button clicked!", e)
+          toggleDropdown()
+        }}
+        onMouseDown={(e) => {
+          console.log("🖱️ Button mouse down!", e)
+        }}
         aria-label={`通知 ${unreadCount > 0 ? `(${unreadCount}件の未読)` : ""}`}
         aria-expanded={isOpen}
         aria-haspopup="true"
@@ -243,7 +263,10 @@ export default function NotificationDropdown() {
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6"
-                    onClick={() => setIsOpen(false)}
+                    onClick={() => {
+                      console.log("❌ Close button clicked")
+                      setIsOpen(false)
+                    }}
                     aria-label="通知を閉じる"
                   >
                     <X className="h-4 w-4" />
@@ -271,9 +294,7 @@ export default function NotificationDropdown() {
                 <div className="text-center py-8 px-4">
                   <Bell className="h-12 w-12 mx-auto text-gray-300 mb-2" />
                   <p className="text-sm text-gray-600">通知はありません</p>
-                  {process.env.NODE_ENV === "development" && (
-                    <p className="text-xs text-gray-400 mt-2">User ID: {user?.id}</p>
-                  )}
+                  <p className="text-xs text-gray-400 mt-2">User ID: {user?.id}</p>
                 </div>
               ) : (
                 <ScrollArea className="h-96">
