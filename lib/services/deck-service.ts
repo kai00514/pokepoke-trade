@@ -7,7 +7,7 @@ export interface DeckWithCards {
   title: string
   description?: string
   user_id: string
-  user_display_name?: string
+  user_display_name?: string // このプロパティはprofilesテーブルから取得されます
   is_public: boolean
   tags?: string[]
   thumbnail_card_id?: number
@@ -29,13 +29,29 @@ export async function getDeckById(deckId: string): Promise<{
 }> {
   console.log("🔍 getDeckById called with deckId:", deckId)
   try {
+    // decksテーブルから直接user_display_nameを取得するのではなく、profilesテーブルを結合して取得
     const { data, error } = await supabase
       .from("decks")
       .select(`
-        *,
+        id,
+        title,
+        description,
+        user_id,
+        is_public,
+        tags,
+        thumbnail_card_id,
+        created_at,
+        updated_at,
+        like_count,
+        favorite_count,
+        view_count,
+        comment_count,
         deck_cards (
           card_id,
           quantity
+        ),
+        profiles (
+          display_name // profilesテーブルからdisplay_nameを取得
         )
       `)
       .eq("id", deckId)
@@ -48,10 +64,16 @@ export async function getDeckById(deckId: string): Promise<{
       return { data: null, error: error.message }
     }
 
-    // コメント数が取得できていることをログ出力
-    console.log("🔍 getDeckById success, comment_count:", data.comment_count)
-    console.log("🔍 getDeckById success, returning data:", data)
-    return { data, error: null }
+    // 取得したデータからuser_display_nameをマッピング
+    const deckData: DeckWithCards = {
+      ...data,
+      user_display_name: data.profiles?.display_name || null,
+      profiles: undefined, // profilesオブジェクトは不要なので削除
+    } as DeckWithCards // 型アサーションで一時的に型エラーを回避
+
+    console.log("🔍 getDeckById success, comment_count:", deckData.comment_count)
+    console.log("🔍 getDeckById success, returning data:", deckData)
+    return { data: deckData, error: null }
   } catch (err) {
     console.error("🔍 getDeckById exception:", err)
     return { data: null, error: err instanceof Error ? err.message : "Unknown error" }
@@ -263,7 +285,6 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
           title,
           description,
           user_id,
-          user_display_name,
           is_public,
           tags,
           thumbnail_card_id,
@@ -276,6 +297,9 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
           deck_cards (
             card_id,
             quantity
+          ),
+          profiles (
+            display_name // profilesテーブルからdisplay_nameを取得
           ),
           thumbnail_image:cards!thumbnail_card_id (
             id,
@@ -301,7 +325,7 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
         title: item.decks.title,
         description: item.decks.description,
         user_id: item.decks.user_id,
-        user_display_name: item.decks.user_display_name,
+        user_display_name: item.decks.profiles?.display_name || null, // profilesから取得
         is_public: item.decks.is_public,
         tags: item.decks.tags,
         thumbnail_card_id: item.decks.thumbnail_card_id,
