@@ -358,9 +358,12 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
       console.error("🌟 Error fetching favorite entries:", fetchError)
       return { data: [], error: fetchError.message }
     }
+    console.log("🌟 Fetched favorite entries:", favoriteEntries) // デバッグログ
 
     const deckIds = favoriteEntries.map((entry) => entry.deck_id).filter(Boolean) as string[]
     const deckPageIds = favoriteEntries.map((entry) => entry.deck_page_id).filter(Boolean) as string[]
+    console.log("🌟 Extracted deckIds:", deckIds) // デバッグログ
+    console.log("🌟 Extracted deckPageIds:", deckPageIds) // デバッグログ
 
     let decksData: any[] = []
     let deckPagesData: any[] = []
@@ -398,6 +401,7 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
         .in("id", deckIds)
       if (decksError) console.error("🌟 Error fetching favorited decks:", decksError)
       else decksData = fetchedDecks
+      console.log("🌟 Fetched decksData:", decksData) // デバッグログ
     }
 
     if (deckPageIds.length > 0) {
@@ -421,6 +425,7 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
         .in("id", deckPageIds)
       if (deckPagesError) console.error("🌟 Error fetching favorited deck pages:", deckPagesError)
       else deckPagesData = fetchedDeckPages
+      console.log("🌟 Fetched deckPagesData:", fetchedDeckPages) // デバッグログ
     }
 
     const allDecksMap = new Map<string, any>()
@@ -466,6 +471,8 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
         category: dp.category, // deck_pagesのcategoryをそのまま使用
       }),
     )
+    console.log("🌟 allDecksMap size:", allDecksMap.size) // デバッグログ
+    console.log("🌟 allDecksMap content (first 5):", Array.from(allDecksMap.entries()).slice(0, 5)) // デバッグログ
 
     // Reconstruct the list in the original favorite order
     const formattedDecks: DeckWithCards[] = []
@@ -483,6 +490,8 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
         if (deck.user_id && !userIdsToFetch.includes(deck.user_id)) {
           userIdsToFetch.push(deck.user_id)
         }
+      } else {
+        console.warn("🌟 Deck not found in allDecksMap for favorite entry:", deckId, entry) // デバッグログ
       }
     }
 
