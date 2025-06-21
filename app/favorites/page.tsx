@@ -52,7 +52,7 @@ export default function FavoritesPage() {
       const deckPromises = favoriteIds.map(async (deckId) => {
         try {
           const { data, error } = await getDeckById(deckId) // 関数を直接呼び出す
-          console.log("data : ", data)
+          console.log(`data : ${data}`)
           if (error || !data) {
             console.error(`Failed to fetch deck ${deckId}:`, error)
             // エラーの場合は仮データを返す
