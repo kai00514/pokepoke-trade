@@ -193,7 +193,7 @@ export default function NotificationDropdown() {
         ref={buttonRef}
         variant="ghost"
         size="icon"
-        className="relative bg-white text-violet-600 hover:bg-violet-100 rounded-full h-9 w-9 sm:h-10 sm:w-10"
+        className="relative text-white hover:bg-white/20 rounded-full h-9 w-9 sm:h-10 sm:w-10 transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-violet-500"
         onClick={toggleDropdown}
         aria-label={`通知 ${unreadCount > 0 ? `(${unreadCount}件の未読)` : ""}`}
         aria-expanded={isOpen}
@@ -203,7 +203,7 @@ export default function NotificationDropdown() {
         {unreadCount > 0 && (
           <Badge
             variant="destructive"
-            className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold"
+            className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold border-2 border-violet-500"
           >
             {unreadCount > 99 ? "99+" : unreadCount}
           </Badge>
