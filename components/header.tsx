@@ -8,10 +8,10 @@ import { Plus, Bell, User } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useState, useEffect } from "react"
 import { getNotifications } from "@/lib/services/notification-service"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu" // DropdownMenuをインポート
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 export default function Header() {
-  const { user, userProfile, loading, signOut } = useAuth()
+  const { user, userProfile, loading, signOut } = useAuth() // loading ステートは引き続き使用しますが、表示ロジックからは削除します
   const [unreadCount, setUnreadCount] = useState(0)
 
   console.log("🔍 Header component - Auth state:", {
@@ -59,27 +59,7 @@ export default function Header() {
     window.location.href = "/notifications"
   }
 
-  if (loading) {
-    return (
-      <header className="bg-violet-500 text-white shadow-md">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center">
-            <Image
-              src="/pokelink-logo.png"
-              alt="PokeLink ロゴ"
-              width={160}
-              height={40}
-              className="object-contain h-10"
-            />
-          </Link>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="text-white text-sm">読み込み中...</div>
-          </div>
-        </div>
-      </header>
-    )
-  }
-
+  // loading ステートによる条件分岐を削除し、user の有無で直接表示を切り替えます
   return (
     <header className="bg-violet-500 text-white shadow-md">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
