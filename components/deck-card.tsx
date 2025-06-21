@@ -132,12 +132,12 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts", onRem
   const linkHref = deck.is_deck_page ? `/content/${deck.id}` : `/decks/${deck.id}`
 
   // ステータスバッジの表示内容を決定
-  // お気に入りページでのみ「お気に入り」バッジを表示する
   const getStatusBadge = () => {
-    if (deck.source_tab === "お気に入り") {
-      return { text: "お気に入り", variant: "outline" as const }
+    const allowedCategories = ["投稿", "Tier", "注目", "新パック"]
+    if (deck.category && allowedCategories.includes(deck.category)) {
+      return { text: deck.category, variant: "outline" as const }
     }
-    return null // お気に入りページ以外ではバッジを表示しない
+    return null // 許可されたカテゴリでない場合はバッジを表示しない
   }
 
   const statusBadge = getStatusBadge()
