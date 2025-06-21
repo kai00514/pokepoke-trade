@@ -7,7 +7,7 @@ export interface DeckWithCards {
   title: string
   description?: string
   user_id: string
-  user_display_name?: string // このプロパティはprofilesテーブルから取得されます
+  user_display_name?: string // このプロパティはauth.usersテーブルから取得されます
   is_public: boolean
   tags?: string[]
   thumbnail_card_id?: number
@@ -29,7 +29,6 @@ export async function getDeckById(deckId: string): Promise<{
 }> {
   console.log("🔍 getDeckById called with deckId:", deckId)
   try {
-    // decksテーブルから直接user_display_nameを取得するのではなく、profilesテーブルを結合して取得
     const { data, error } = await supabase
       .from("decks")
       .select(`
@@ -49,9 +48,6 @@ export async function getDeckById(deckId: string): Promise<{
         deck_cards (
           card_id,
           quantity
-        ),
-        profiles (
-          display_name // profilesテーブルからdisplay_nameを取得
         )
       `)
       .eq("id", deckId)
@@ -64,12 +60,25 @@ export async function getDeckById(deckId: string): Promise<{
       return { data: null, error: error.message }
     }
 
-    // 取得したデータからuser_display_nameをマッピング
+    let userDisplayName: string | null = null
+    if (data?.user_id) {
+      const { data: userData, error: userError } = await supabase
+        .from("users") // auth.usersテーブルを直接参照
+        .select("raw_user_meta_data")
+        .eq("id", data.user_id)
+        .single()
+
+      if (userError) {
+        console.error("🔍 Error fetching user data for deck:", userError)
+      } else if (userData?.raw_user_meta_data) {
+        userDisplayName = (userData.raw_user_meta_data as any).user_name || null
+      }
+    }
+
     const deckData: DeckWithCards = {
       ...data,
-      user_display_name: data.profiles?.display_name || null,
-      profiles: undefined, // profilesオブジェクトは不要なので削除
-    } as DeckWithCards // 型アサーションで一時的に型エラーを回避
+      user_display_name: userDisplayName,
+    } as DeckWithCards
 
     console.log("🔍 getDeckById success, comment_count:", deckData.comment_count)
     console.log("🔍 getDeckById success, returning data:", deckData)
@@ -298,9 +307,6 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
             card_id,
             quantity
           ),
-          profiles (
-            display_name // profilesテーブルからdisplay_nameを取得
-          ),
           thumbnail_image:cards!thumbnail_card_id (
             id,
             name,
@@ -318,6 +324,30 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
       return { data: [], error: error.message }
     }
 
+    // decksデータからuser_idsを収集
+    const userIds = data
+      .filter((item) => item.decks !== null)
+      .map((item) => item.decks.user_id)
+      .filter((id, index, self) => self.indexOf(id) === index) // 重複を排除
+
+    const userDisplayNames: { [key: string]: string } = {}
+    if (userIds.length > 0) {
+      const { data: usersData, error: usersError } = await supabase
+        .from("users") // auth.usersテーブルを直接参照
+        .select("id, raw_user_meta_data")
+        .in("id", userIds)
+
+      if (usersError) {
+        console.error("🌟 Error fetching user display names:", usersError)
+      } else {
+        usersData.forEach((u) => {
+          if (u.raw_user_meta_data) {
+            userDisplayNames[u.id] = (u.raw_user_meta_data as any).user_name || ""
+          }
+        })
+      }
+    }
+
     const formattedDecks: DeckWithCards[] = data
       .filter((item) => item.decks !== null)
       .map((item: any) => ({
@@ -325,7 +355,7 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
         title: item.decks.title,
         description: item.decks.description,
         user_id: item.decks.user_id,
-        user_display_name: item.decks.profiles?.display_name || null, // profilesから取得
+        user_display_name: userDisplayNames[item.decks.user_id] || null, // auth.usersから取得
         is_public: item.decks.is_public,
         tags: item.decks.tags,
         thumbnail_card_id: item.decks.thumbnail_card_id,
