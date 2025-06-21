@@ -1,52 +1,36 @@
-import { createServerClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/client" // クライアントサイドクライアントを使用
 
-export interface UserProfile {
+interface UserProfile {
   id: string
-  email: string
   user_name: string | null
   avatar_url: string | null
-  created_at: string
 }
 
-export async function getUserProfile(userId: string): Promise<UserProfile | null> {
-  try {
-    const supabase = createServerClient()
-
-    const { data, error } = await supabase
-      .from("users")
-      .select("id, email, user_name, avatar_url, created_at")
-      .eq("id", userId)
-      .single()
-
-    if (error) {
-      console.error("Error fetching user profile:", error)
-      return null
-    }
-
-    return data
-  } catch (error) {
-    console.error("Error in getUserProfile:", error)
-    return null
-  }
+interface GetUserProfileResult {
+  success: boolean
+  profile: UserProfile | null
+  error: string | null
 }
 
-export async function updateUserProfile(
-  userId: string,
-  updates: Partial<Pick<UserProfile, "user_name" | "avatar_url">>,
-) {
-  try {
-    const supabase = createServerClient()
+export async function getUserProfile(userId: string): Promise<GetUserUserProfileResult> {
+  const supabase = createClient() // クライアントサイドクライアントを使用
 
-    const { data, error } = await supabase.from("users").update(updates).eq("id", userId).select().single()
+  try {
+    const { data, error } = await supabase.from("users").select("id, user_name, avatar_url").eq("id", userId).single()
 
     if (error) {
-      console.error("Error updating user profile:", error)
-      return { success: false, error: error.message }
+      console.error("Error fetching user profile from DB:", error)
+      return { success: false, profile: null, error: error.message }
     }
 
-    return { success: true, data }
-  } catch (error) {
-    console.error("Error in updateUserProfile:", error)
-    return { success: false, error: "Failed to update profile" }
+    if (!data) {
+      console.warn(`User profile not found for ID: ${userId}`)
+      return { success: false, profile: null, error: "User profile not found" }
+    }
+
+    return { success: true, profile: data, error: null }
+  } catch (e) {
+    console.error("Unexpected error in getUserProfile:", e)
+    return { success: false, profile: null, error: (e as Error).message }
   }
 }
