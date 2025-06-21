@@ -57,12 +57,14 @@ export default function FavoritesPage() {
             // エラーの場合は仮データを返す
             return {
               id: deckId,
-              title: `デッキ ${deckId.slice(0, 8)}`,
+              title: `デッキ ${deckId.slice(0, 8)}`, // title を設定
               description: "デッキの詳細を取得できませんでした",
               like_count: 0,
               favorite_count: 0,
               comment_count: 0,
+              created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
+              view_count: 0,
               thumbnail_image_url: "/placeholder.svg?width=120&height=168",
               source_tab: sourceTabMap[deckId],
               is_deck_page: false,
@@ -79,12 +81,14 @@ export default function FavoritesPage() {
           // エラーの場合は仮データを返す
           return {
             id: deckId,
-            title: `デッキ ${deckId.slice(0, 8)}`,
+            title: `デッキ ${deckId.slice(0, 8)}`, // title を設定
             description: "デッキの詳細を取得できませんでした",
             like_count: 0,
             favorite_count: 0,
             comment_count: 0,
+            created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
+            view_count: 0,
             thumbnail_image_url: "/placeholder.svg?width=120&height=168",
             source_tab: sourceTabMap[deckId],
             is_deck_page: false,

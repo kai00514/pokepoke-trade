@@ -20,7 +20,7 @@ interface DeckCardProps {
 }
 
 export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
-  console.log("🔄 DeckCard component rendered for deck:", deck.id, deck.title || deck.name)
+  console.log("🔄 DeckCard component rendered for deck:", deck.id, deck.title)
 
   const { user } = useAuth()
   const { toast } = useToast()
@@ -28,8 +28,8 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
   // ローカル状態でいいね・お気に入りの状態とカウントを管理
   const [isLiked, setIsLiked] = useState(false)
   const [isFavorited, setIsFavorited] = useState(false)
-  const [likeCount, setLikeCount] = useState(deck.likes || deck.like_count || 0)
-  const [favoriteCount, setFavoriteCount] = useState(deck.favorites || deck.favorite_count || 0)
+  const [likeCount, setLikeCount] = useState(deck.like_count) // deck.like_count を直接使用
+  const [favoriteCount, setFavoriteCount] = useState(deck.favorite_count) // deck.favorite_count を直接使用
   const [isLikeLoading, setIsLikeLoading] = useState(false)
   const [isFavoriteLoading, setIsFavoriteLoading] = useState(false)
   const [showLoginModal, setShowLoginModal] = useState(false)
@@ -70,8 +70,9 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
     }
   }, [user, deck.id])
 
-  const deckName = deck.title || deck.name || deck.deck_name || "無題のデッキ"
-  const updatedDate = deck.updated_at || deck.updatedAt || deck.created_at || new Date().toISOString()
+  // デッキ名を適切に取得
+  const deckName = deck.title || "無題のデッキ"
+  const updatedDate = deck.updated_at || deck.created_at || new Date().toISOString()
 
   // リンク先を決定（deck_pagesテーブルのデータは/content/[id]、通常のデッキは/decks/[id]）
   const linkHref = deck.is_deck_page ? `/content/${deck.id}` : `/decks/${deck.id}`
@@ -105,11 +106,6 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
           deck.thumbnail_image.thumb_url || deck.thumbnail_image.image_url || "/placeholder.svg?width=120&height=168",
         name: deck.thumbnail_image.name,
       }
-    }
-
-    // フォールバック: 従来の単一画像
-    if (deck.imageUrl) {
-      return { url: deck.imageUrl, name: deckName }
     }
 
     // デフォルト画像
@@ -361,7 +357,7 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
               />
             </div>
             <p className="text-xs text-slate-700 font-medium truncate w-full text-center">
-              {deck.thumbnail_image?.name || deck.cardName || deckName}
+              {deck.thumbnail_image?.name || deckName}
             </p>
             <div className="flex items-center text-xs text-slate-500 mt-1">
               <CalendarDays className="h-3 w-3 mr-1 flex-shrink-0" />
@@ -411,7 +407,7 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
 
             <div className="flex items-center" title="コメント数">
               <MessageCircle className="h-3 w-3 mr-1 text-blue-500" />
-              <span className="text-xs">{deck.comments || deck.comment_count || 0}</span>
+              <span className="text-xs">{deck.comment_count}</span>
             </div>
           </CardFooter>
         </Card>
