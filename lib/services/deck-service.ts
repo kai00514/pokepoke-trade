@@ -48,6 +48,7 @@ export async function getDeckById(deckId: string): Promise<{
       return { data: null, error: error.message }
     }
 
+    // コメント数が取得できていることをログ出力
     console.log("🔍 getDeckById success, comment_count:", data.comment_count)
     console.log("🔍 getDeckById success, returning data:", data)
     return { data, error: null }
@@ -121,6 +122,7 @@ export async function favoriteDeck(deckId: string, category = "posts"): Promise<
       return { error: "ユーザーが認証されていません。" }
     }
 
+    // deck_favoritesテーブルに挿入
     const { error: insertError } = await supabase.from("deck_favorites").insert({
       user_id: user.id,
       deck_id: deckId,
@@ -130,12 +132,13 @@ export async function favoriteDeck(deckId: string, category = "posts"): Promise<
     if (insertError) {
       if (insertError.code === "23505") {
         console.warn("⭐ Deck already favorited by this user:", deckId)
-        return { error: null }
+        return { error: null } // 既に存在する場合はエラーとしない
       }
       console.error("⭐ Insert into deck_favorites error:", insertError)
       return { error: insertError.message }
     }
 
+    // RPCを呼び出してカウントを更新
     console.log("⭐ Calling supabase.rpc('increment_deck_favorites')")
     const { data, error: rpcError } = await supabase.rpc("increment_deck_favorites", {
       deck_id_input: deckId,
@@ -170,6 +173,7 @@ export async function unfavoriteDeck(deckId: string): Promise<{ error: string | 
       return { error: "ユーザーが認証されていません。" }
     }
 
+    // deck_favoritesテーブルから削除
     const { error: deleteError } = await supabase
       .from("deck_favorites")
       .delete()
@@ -181,6 +185,7 @@ export async function unfavoriteDeck(deckId: string): Promise<{ error: string | 
       return { error: deleteError.message }
     }
 
+    // RPCを呼び出してカウントを更新
     console.log("⭐❌ Calling supabase.rpc('decrement_deck_favorites')")
     const { data, error: rpcError } = await supabase.rpc("decrement_deck_favorites", {
       deck_id_input: deckId,
@@ -231,5 +236,93 @@ export async function isFavorited(deckId: string): Promise<boolean> {
   } catch (err) {
     console.error("❓ isFavorited exception:", err)
     return false
+  }
+}
+
+export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error: string | null }> {
+  console.log("🌟 getFavoriteDecks called")
+  try {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      console.error("🌟 User not authenticated:", userError?.message)
+      return { data: [], error: "ユーザーが認証されていません。" }
+    }
+
+    const { data, error } = await supabase
+      .from("deck_favorites")
+      .select(
+        `
+        deck_id,
+        category,
+        decks (
+          id,
+          title,
+          description,
+          user_id,
+          user_display_name,
+          is_public,
+          tags,
+          thumbnail_card_id,
+          created_at,
+          updated_at,
+          like_count,
+          favorite_count,
+          view_count,
+          comment_count,
+          deck_cards (
+            card_id,
+            quantity
+          ),
+          thumbnail_image:cards!thumbnail_card_id (
+            id,
+            name,
+            image_url,
+            thumb_url
+          )
+        )
+      `,
+      )
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false }) // 新しいお気に入りから表示
+
+    if (error) {
+      console.error("🌟 Error fetching favorite decks from DB:", error)
+      return { data: [], error: error.message }
+    }
+
+    const formattedDecks: DeckWithCards[] = data
+      .filter((item) => item.decks !== null)
+      .map((item: any) => ({
+        id: item.decks.id,
+        title: item.decks.title,
+        description: item.decks.description,
+        user_id: item.decks.user_id,
+        user_display_name: item.decks.user_display_name,
+        is_public: item.decks.is_public,
+        tags: item.decks.tags,
+        thumbnail_card_id: item.decks.thumbnail_card_id,
+        created_at: item.decks.created_at,
+        updated_at: item.decks.updated_at,
+        like_count: item.decks.like_count,
+        favorite_count: item.decks.favorite_count,
+        view_count: item.decks.view_count,
+        comment_count: item.decks.comment_count,
+        deck_cards: item.decks.deck_cards,
+        thumbnail_image: item.decks.thumbnail_image,
+        // お気に入りページでの表示用にsource_tabを追加
+        source_tab: "お気に入り",
+        // お気に入り登録時のカテゴリを保持
+        category: item.category,
+      }))
+
+    console.log("🌟 getFavoriteDecks successful, returning:", formattedDecks.length, "decks")
+    return { data: formattedDecks, error: null }
+  } catch (err) {
+    console.error("🌟 getFavoriteDecks exception:", err)
+    return { data: [], error: err instanceof Error ? err.message : "Unknown error" }
   }
 }

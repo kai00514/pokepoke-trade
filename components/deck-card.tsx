@@ -64,9 +64,10 @@ interface DeckCardProps {
   deck: Deck
   onCountUpdate?: (deckId: string, likeCount: number, favoriteCount: number) => void
   currentCategory?: string // 現在表示中のカテゴリを追加
+  onRemoveFavorite?: (deckId: string) => void // お気に入り解除時のコールバックを追加
 }
 
-export function DeckCard({ deck, onCountUpdate, currentCategory = "posts" }: DeckCardProps) {
+export function DeckCard({ deck, onCountUpdate, currentCategory = "posts", onRemoveFavorite }: DeckCardProps) {
   // 名前付きエクスポートに変更
   console.log("🔄 DeckCard component rendered for deck:", deck.id, deck.title || deck.name)
 
@@ -215,7 +216,7 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts" }: Dec
       console.log("❤️ UI updated:", { newIsLiked: !isLiked, newLikeCount })
 
       try {
-        const action = originalIsLiked ? unlikeDeck : likeDeck // 個々の関数を呼び出し
+        const action = originalIsLiked ? unlikeDeck : likeDeck
         console.log("❤️ Calling action:", originalIsLiked ? "unlikeDeck" : "likeDeck")
         console.log("❤️ Action function:", action)
 
@@ -310,7 +311,7 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts" }: Dec
       console.log("⭐ UI updated:", { newIsFavorited: !isFavorited, newFavoriteCount })
 
       try {
-        const action = originalIsFavorited ? unfavoriteDeck : favoriteDeck // 個々の関数を呼び出し
+        const action = originalIsFavorited ? unfavoriteDeck : favoriteDeck
         console.log("⭐ Calling action:", originalIsFavorited ? "unfavoriteDeck" : "favoriteDeck")
         console.log("⭐ Action function:", action)
 
@@ -332,11 +333,9 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts" }: Dec
             console.log("⭐ Calling onCountUpdate callback")
             onCountUpdate(deck.id, likeCount, newFavoriteCount)
           }
-          // 成功した場合の処理内に以下を追加
-          // localStorageのfavorite_sourceは不要になるため削除
-          if (user) {
-            const favoriteKey = `favorite_${user.id}_${deck.id}`
-            localStorage.setItem(favoriteKey, (!originalIsFavorited).toString()) // いいね状態はlocalStorageで管理を継続
+          // お気に入り解除時のコールバックを呼び出す
+          if (originalIsFavorited && onRemoveFavorite) {
+            onRemoveFavorite(deck.id)
           }
         }
       } catch (actionError) {
