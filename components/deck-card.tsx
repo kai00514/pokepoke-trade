@@ -112,7 +112,8 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts", onRem
 
       // お気に入り状態はデータベースから取得
       const fetchFavoriteStatus = async () => {
-        const favorited = await checkIsFavorited(deck.id) // 個々の関数を呼び出し
+        // Pass deck.is_deck_page to isFavorited
+        const favorited = await checkIsFavorited(deck.id, deck.is_deck_page || false)
         setIsFavorited(favorited)
       }
       fetchFavoriteStatus()
@@ -121,7 +122,7 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts", onRem
       setIsLiked(false)
       setIsFavorited(false)
     }
-  }, [user, deck.id])
+  }, [user, deck.id, deck.is_deck_page]) // Add deck.is_deck_page to dependency array
 
   const deckName = deck.title || deck.name || deck.deck_name || "無題のデッキ"
   const updatedDate = deck.updated_at || deck.updatedAt || deck.created_at || new Date().toISOString()
@@ -315,8 +316,10 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts", onRem
         console.log("⭐ Calling action:", originalIsFavorited ? "unfavoriteDeck" : "favoriteDeck")
         console.log("⭐ Action function:", action)
 
-        // favoriteDeckにcurrentCategoryを渡す
-        const result = originalIsFavorited ? await action(deck.id) : await action(deck.id, currentCategory)
+        // Pass deck.is_deck_page to favoriteDeck/unfavoriteDeck
+        const result = originalIsFavorited
+          ? await action(deck.id, deck.is_deck_page || false)
+          : await action(deck.id, currentCategory, deck.is_deck_page || false)
         console.log("⭐ Action result:", result)
 
         if (result.error) {
