@@ -94,21 +94,29 @@ export async function getDeckById(deckId: string): Promise<{
   }
 }
 
-export async function likeDeck(deckId: string): Promise<{ error: string | null }> {
-  console.log("👍 likeDeck called with deckId:", deckId)
+export async function likeDeck(id: string, isDeckPage = false): Promise<{ error: string | null }> {
+  console.log("👍 likeDeck called with id:", id, "isDeckPage:", isDeckPage)
   console.log("👍 Supabase client:", supabase)
 
   try {
-    console.log("👍 Calling supabase.rpc('increment_deck_likes')")
-    const { data, error: updateError } = await supabase.rpc("increment_deck_likes", {
-      deck_id_input: deckId,
-    })
+    let rpcError: any = null
+    if (isDeckPage) {
+      console.log("👍 Calling supabase.rpc('increment_deck_page_likes') for deck_page")
+      const { error } = await supabase.rpc("increment_deck_page_likes", {
+        deck_page_id_input: id,
+      })
+      rpcError = error
+    } else {
+      console.log("👍 Calling supabase.rpc('increment_deck_likes') for deck")
+      const { error } = await supabase.rpc("increment_deck_likes", {
+        deck_id_input: id,
+      })
+      rpcError = error
+    }
 
-    console.log("👍 RPC response:", { data, error: updateError })
-
-    if (updateError) {
-      console.error("👍 RPC increment_deck_likes error:", updateError)
-      return { error: updateError.message }
+    if (rpcError) {
+      console.error("👍 RPC increment_likes error:", rpcError)
+      return { error: rpcError.message }
     }
 
     console.log("👍 likeDeck successful")
@@ -119,21 +127,29 @@ export async function likeDeck(deckId: string): Promise<{ error: string | null }
   }
 }
 
-export async function unlikeDeck(deckId: string): Promise<{ error: string | null }> {
-  console.log("👎 unlikeDeck called with deckId:", deckId)
+export async function unlikeDeck(id: string, isDeckPage = false): Promise<{ error: string | null }> {
+  console.log("👎 unlikeDeck called with id:", id, "isDeckPage:", isDeckPage)
   console.log("👎 Supabase client:", supabase)
 
   try {
-    console.log("👎 Calling supabase.rpc('decrement_deck_likes')")
-    const { data, error: updateError } = await supabase.rpc("decrement_deck_likes", {
-      deck_id_input: deckId,
-    })
+    let rpcError: any = null
+    if (isDeckPage) {
+      console.log("👎 Calling supabase.rpc('decrement_deck_page_likes') for deck_page")
+      const { error } = await supabase.rpc("decrement_deck_page_likes", {
+        deck_page_id_input: id,
+      })
+      rpcError = error
+    } else {
+      console.log("👎 Calling supabase.rpc('decrement_deck_likes') for deck")
+      const { error } = await supabase.rpc("decrement_deck_likes", {
+        deck_id_input: id,
+      })
+      rpcError = error
+    }
 
-    console.log("👎 RPC response:", { data, error: updateError })
-
-    if (updateError) {
-      console.error("👎 RPC decrement_deck_likes error:", updateError)
-      return { error: updateError.message }
+    if (rpcError) {
+      console.error("👎 RPC decrement_likes error:", rpcError)
+      return { error: rpcError.message }
     }
 
     console.log("👎 unlikeDeck successful")

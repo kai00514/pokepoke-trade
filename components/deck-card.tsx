@@ -93,6 +93,7 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts", onRem
     favoriteCount,
     isLikeLoading,
     isFavoriteLoading,
+    isDeckPage: deck.is_deck_page,
   })
 
   useEffect(() => {
@@ -207,6 +208,7 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts", onRem
         originalIsLiked,
         originalLikeCount,
         deckId: deck.id,
+        isDeckPage: deck.is_deck_page,
       })
 
       // UIを即座に更新
@@ -221,7 +223,8 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts", onRem
         console.log("❤️ Calling action:", originalIsLiked ? "unlikeDeck" : "likeDeck")
         console.log("❤️ Action function:", action)
 
-        const result = await action(deck.id)
+        // Pass deck.is_deck_page to likeDeck/unlikeDeck
+        const result = await action(deck.id, deck.is_deck_page || false)
         console.log("❤️ Action result:", result)
 
         if (result.error) {
@@ -302,6 +305,7 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts", onRem
         originalIsFavorited,
         originalFavoriteCount,
         deckId: deck.id,
+        isDeckPage: deck.is_deck_page,
       })
 
       // UIを即座に更新
