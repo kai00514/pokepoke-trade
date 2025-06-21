@@ -44,7 +44,6 @@ export default function CreateDeckPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [thumbnailCard, setThumbnailCard] = useState<DeckCard | null>(null)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
-  const [guestName, setGuestName] = useState("")
 
   // Mobile layout state
   const [isDeckInfoExpanded, setIsDeckInfoExpanded] = useState(true)
@@ -201,17 +200,10 @@ export default function CreateDeckPage() {
     })
   }
 
-  // 投稿ボタンの活性化条件を修正
+  // 投稿ボタンの活性化条件を修正（ゲスト名の条件を削除）
   const canSave = useMemo(() => {
-    return (
-      !isLoadingAuth &&
-      !isSaving &&
-      deckName.trim() &&
-      deckCards.length > 0 &&
-      totalCardsInDeck === 20 &&
-      (user || guestName.trim())
-    )
-  }, [isLoadingAuth, isSaving, deckName, deckCards.length, totalCardsInDeck, user, guestName])
+    return !isLoadingAuth && !isSaving && deckName.trim() && deckCards.length > 0 && totalCardsInDeck === 20
+  }, [isLoadingAuth, isSaving, deckName, deckCards.length, totalCardsInDeck])
 
   const handleSaveClick = () => {
     if (totalCardsInDeck !== 20) {
@@ -252,7 +244,7 @@ export default function CreateDeckPage() {
       const deckInput: CreateDeckInput = {
         title: deckName.trim(),
         user_id: user?.id || null,
-        guestName: !user ? guestName.trim() : undefined,
+        guestName: !user ? "ゲスト" : undefined, // ゲスト名を固定
         description: deckDescription.trim() || undefined,
         is_public: isPublic,
         tags: selectedEnergyTypes.length > 0 ? selectedEnergyTypes : undefined,
@@ -281,7 +273,6 @@ export default function CreateDeckPage() {
         setSelectedEnergyTypes([])
         setDeckCards([])
         setThumbnailCard(null)
-        setGuestName("")
         setIsPublic(true)
 
         window.location.href = "/decks"
@@ -416,17 +407,10 @@ export default function CreateDeckPage() {
         />
       </div>
 
+      {/* ゲスト名入力欄を削除 */}
       {!user && (
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            ゲスト名 <span className="text-red-500">*</span>
-          </label>
-          <Input
-            value={guestName}
-            onChange={(e) => setGuestName(e.target.value)}
-            placeholder="表示名を入力してください"
-            className="w-full"
-          />
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <p className="text-sm text-blue-700">ゲストとして投稿されます。投稿者名は「ゲスト」と表示されます。</p>
         </div>
       )}
 

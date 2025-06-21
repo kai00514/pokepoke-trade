@@ -319,13 +319,13 @@ export async function createDeck(input: CreateDeckInput): Promise<{ success: boo
       thumbnail_card_id: input.thumbnail_card_id || null,
     }
 
-    // Only set user_id if user is authenticated
+    // ユーザー情報の設定
     if (input.is_authenticated && input.user_id) {
       insertData.user_id = input.user_id
       insertData.guest_name = null
     } else {
       insertData.user_id = null
-      insertData.guest_name = input.guestName || "ゲスト"
+      insertData.guest_name = "ゲスト" // ゲスト名を固定
     }
 
     console.log("[createDeck] Insert data:", insertData)
@@ -361,11 +361,11 @@ export async function createDeck(input: CreateDeckInput): Promise<{ success: boo
   }
 }
 
-// 型定義も追加
+// 型定義も更新（guestNameを削除）
 export type CreateDeckInput = {
   title: string
   user_id?: string | null
-  guestName?: string
+  guestName?: string // 内部的に「ゲスト」に固定されるため、オプショナルのまま
   description?: string
   is_public: boolean
   tags?: string[]
