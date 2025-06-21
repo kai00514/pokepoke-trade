@@ -52,12 +52,13 @@ export default function FavoritesPage() {
       const deckPromises = favoriteIds.map(async (deckId) => {
         try {
           const { data, error } = await getDeckById(deckId) // 関数を直接呼び出す
+          console.log("data : ", data)
           if (error || !data) {
             console.error(`Failed to fetch deck ${deckId}:`, error)
             // エラーの場合は仮データを返す
             return {
               id: deckId,
-              title: `デッキ ${deckId.slice(0, 8)}`, // title を設定
+              title: `${deckId.slice(0, 8)}`, // title を設定
               description: "デッキの詳細を取得できませんでした",
               like_count: 0,
               favorite_count: 0,
