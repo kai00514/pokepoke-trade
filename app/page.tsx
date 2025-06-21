@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import AuthHeader from "@/components/auth-header"
+import Header from "@/components/header" // AuthHeader から Header に変更
 import Footer from "@/components/footer"
 import TradePostCard from "@/components/trade-post-card"
 import AdPlaceholder from "@/components/ad-placeholder"
@@ -25,7 +25,7 @@ export default function TradeBoardPage() {
   const fetchTradePosts = useCallback(async () => {
     setIsLoading(true)
     try {
-      const result = await getTradePostsWithCards(20, 0) // Fetch 20 posts initially
+      const result = await getTradePostsWithCards(20, 0)
       if (result.success) {
         setTradePosts(result.posts)
       } else {
@@ -61,7 +61,6 @@ export default function TradeBoardPage() {
   const filteredPosts = tradePosts.filter((post) => {
     if (!searchKeyword.trim()) return true
     const keyword = searchKeyword.toLowerCase()
-    // Ensure post and its properties exist before calling toLowerCase
     const titleMatch = post.title?.toLowerCase().includes(keyword)
     const wantedCardNameMatch = post.wantedCard?.name?.toLowerCase().includes(keyword)
     const offeredCardNameMatch = post.offeredCard?.name?.toLowerCase().includes(keyword)
@@ -72,9 +71,11 @@ export default function TradeBoardPage() {
     router.push("/trades/create")
   }
 
+  console.log("📄 TradeBoardPage rendering with Header component")
+
   return (
     <div className="flex flex-col min-h-screen">
-      <AuthHeader />
+      <Header /> {/* AuthHeader から Header に変更 */}
       <main className="flex-grow container mx-auto px-2 sm:px-4 py-6">
         <div className="flex flex-col lg:flex-row gap-6">
           <aside className="w-full lg:w-1/5 space-y-6 hidden lg:block">
@@ -148,7 +149,6 @@ export default function TradeBoardPage() {
         </div>
       </main>
       <Footer />
-
       <DetailedSearchModal
         isOpen={isDetailedSearchOpen}
         onOpenChange={setIsDetailedSearchOpen}
