@@ -116,7 +116,6 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts", onRem
         // Pass deck.is_deck_page to isFavorited
         const favorited = await checkIsFavorited(deck.id, deck.is_deck_page || false)
         setIsFavorited(favorited)
-        console.log(`🔧 DeckCard useEffect - isFavorited for ${deck.id}: ${favorited}`) // デバッグログ
       }
       fetchFavoriteStatus()
     } else {
@@ -134,26 +133,23 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts", onRem
 
   // ステータスバッジの表示内容を決定
   const getStatusBadge = () => {
-    // お気に入りページでのみバッジを表示する
-    if (deck.source_tab === "お気に入り") {
-      if (deck.is_deck_page && deck.category) {
-        // deck_pagesの場合、categoryを日本語に変換
-        switch (deck.category) {
-          case "tier":
-            return { text: "Tier", variant: "outline" as const }
-          case "features":
-            return { text: "注目", variant: "outline" as const }
-          case "newpack":
-            return { text: "新パック", variant: "outline" as const }
-          default:
-            return null // 未知のカテゴリは表示しない
-        }
-      } else if (!deck.is_deck_page) {
-        // decksテーブルのデータの場合、常に「投稿」と表示
-        return { text: "投稿", variant: "outline" as const }
+    if (deck.is_deck_page && deck.category) {
+      // deck_pagesの場合、categoryを日本語に変換
+      switch (deck.category) {
+        case "tier":
+          return { text: "Tier", variant: "outline" as const }
+        case "features":
+          return { text: "注目", variant: "outline" as const }
+        case "newpack":
+          return { text: "新パック", variant: "outline" as const }
+        default:
+          return null // 未知のカテゴリは表示しない
       }
+    } else if (!deck.is_deck_page) {
+      // decksテーブルのデータの場合、常に「投稿」と表示
+      return { text: "投稿", variant: "outline" as const }
     }
-    return null // お気に入りページ以外、または条件に合わない場合はバッジを表示しない
+    return null // それ以外は表示しない
   }
 
   const statusBadge = getStatusBadge()
@@ -337,10 +333,9 @@ export function DeckCard({ deck, onCountUpdate, currentCategory = "posts", onRem
         console.log("⭐ Action function:", action)
 
         // Pass deck.is_deck_page to favoriteDeck/unfavoriteDeck
-        // favoriteDeckにはcategoryも渡す
         const result = originalIsFavorited
           ? await action(deck.id, deck.is_deck_page || false)
-          : await action(deck.id, deck.category || "posts", deck.is_deck_page || false) // deck.categoryを渡す
+          : await action(deck.id, currentCategory, deck.is_deck_page || false)
         console.log("⭐ Action result:", result)
 
         if (result.error) {
