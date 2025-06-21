@@ -4,9 +4,9 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Bell, MessageCircle, FileText } from "lucide-react"
+import { Bell, MessageCircle, FileText, ArrowRight } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import { markNotificationAsRead } from "@/lib/services/notification-service"
+import { markNotificationAsRead, markAllNotificationsAsRead } from "@/lib/services/notification-service"
 import type { Notification } from "@/types/notification"
 import Link from "next/link"
 
@@ -18,6 +18,7 @@ interface NotificationListProps {
 export default function NotificationList({ notifications, onNotificationRead }: NotificationListProps) {
   const { user } = useAuth()
   const [localNotifications, setLocalNotifications] = useState<Notification[]>(notifications)
+  const [isMarkingAllAsRead, setIsMarkingAllAsRead] = useState(false)
 
   useEffect(() => {
     setLocalNotifications(notifications)
@@ -26,10 +27,29 @@ export default function NotificationList({ notifications, onNotificationRead }: 
   const handleMarkAsRead = async (notification: Notification) => {
     if (notification.is_read) return
 
+    console.log("📝 Marking notification as read:", notification.id)
     const result = await markNotificationAsRead(notification.id, notification.source)
     if (result.success) {
       setLocalNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n)))
       onNotificationRead?.(notification.id)
+    }
+  }
+
+  const handleMarkAllAsRead = async () => {
+    if (!user || isMarkingAllAsRead) return
+
+    setIsMarkingAllAsRead(true)
+    try {
+      const result = await markAllNotificationsAsRead(user.id)
+      if (result.success) {
+        setLocalNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+        // 親コンポーネントに全ての通知IDを通知
+        localNotifications.filter((n) => !n.is_read).forEach((n) => onNotificationRead?.(n.id))
+      }
+    } catch (error) {
+      console.error("❌ Error marking all as read:", error)
+    } finally {
+      setIsMarkingAllAsRead(false)
     }
   }
 
@@ -47,6 +67,19 @@ export default function NotificationList({ notifications, onNotificationRead }: 
       return `/content/${notification.related_id}`
     }
   }
+
+  const formatTimeAgo = (dateString: string) => {
+    const now = new Date()
+    const date = new Date(dateString)
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+
+    if (diffInMinutes < 1) return "たった今"
+    if (diffInMinutes < 60) return `${diffInMinutes}分前`
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}時間前`
+    return `${Math.floor(diffInMinutes / 1440)}日前`
+  }
+
+  const unreadCount = localNotifications.filter((n) => !n.is_read).length
 
   if (!user) {
     return (
@@ -68,6 +101,21 @@ export default function NotificationList({ notifications, onNotificationRead }: 
 
   return (
     <div className="space-y-4">
+      {/* 一括既読ボタン */}
+      {unreadCount > 0 && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleMarkAllAsRead}
+            disabled={isMarkingAllAsRead}
+            className="text-sm"
+          >
+            {isMarkingAllAsRead ? "処理中..." : `すべて既読にする (${unreadCount}件)`}
+          </Button>
+        </div>
+      )}
+
       {localNotifications.map((notification) => (
         <Card
           key={notification.id}
@@ -102,21 +150,31 @@ export default function NotificationList({ notifications, onNotificationRead }: 
                       未読
                     </Badge>
                   )}
+                  <span className="text-xs text-gray-500 ml-auto">{formatTimeAgo(notification.created_at)}</span>
                 </div>
 
-                <p className="text-sm text-gray-800 mb-2">{notification.content}</p>
+                <p className="text-sm text-gray-800 mb-3 leading-relaxed">{notification.content}</p>
 
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-500">{new Date(notification.created_at).toLocaleString("ja-JP")}</p>
-
                   <div className="flex gap-2">
                     <Link href={getNotificationLink(notification)}>
-                      <Button variant="outline" size="sm" onClick={() => handleMarkAsRead(notification)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleMarkAsRead(notification)}
+                        className="flex items-center gap-1"
+                      >
                         確認する
+                        <ArrowRight className="h-3 w-3" />
                       </Button>
                     </Link>
                     {!notification.is_read && (
-                      <Button variant="ghost" size="sm" onClick={() => handleMarkAsRead(notification)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleMarkAsRead(notification)}
+                        className="text-gray-600 hover:text-gray-800"
+                      >
                         既読にする
                       </Button>
                     )}
