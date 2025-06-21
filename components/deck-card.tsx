@@ -6,6 +6,7 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Heart, Star, MessageCircle, CalendarDays, Loader2 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { likeDeck, unlikeDeck, favoriteDeck, unfavoriteDeck } from "@/lib/services/deck-service"
@@ -47,7 +48,10 @@ export interface Deck {
   view_count?: number
   like_count?: number
   comment_count?: number
+  favorite_count?: number
   is_deck_page?: boolean // deck_pagesテーブルのデータかどうかを判定
+  category?: string // カテゴリを追加
+  source_tab?: string // どのタブから来たかを示すプロパティを追加
 }
 
 interface DeckCardProps {
@@ -65,11 +69,11 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
   const [isLiked, setIsLiked] = useState(false)
   const [isFavorited, setIsFavorited] = useState(false)
   const [likeCount, setLikeCount] = useState(deck.likes || deck.like_count || 0)
-  const [favoriteCount, setFavoriteCount] = useState(deck.favorites || 0)
+  const [favoriteCount, setFavoriteCount] = useState(deck.favorites || deck.favorite_count || 0)
   const [isLikeLoading, setIsLikeLoading] = useState(false)
   const [isFavoriteLoading, setIsFavoriteLoading] = useState(false)
   const [showLoginModal, setShowLoginModal] = useState(false)
-  const [loginModalType, setLoginModalType] = useState<"like" | "favorite">("like") // 新しい状態を追加
+  const [loginModalType, setLoginModalType] = useState<"like" | "favorite">("like")
 
   console.log("📊 DeckCard initial state:", {
     deckId: deck.id,
@@ -111,6 +115,17 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
 
   // リンク先を決定（deck_pagesテーブルのデータは/content/[id]、通常のデッキは/decks/[id]）
   const linkHref = deck.is_deck_page ? `/content/${deck.id}` : `/decks/${deck.id}`
+
+  // ステータスバッジの表示内容を決定
+  // お気に入りページでのみ「お気に入り」バッジを表示する
+  const getStatusBadge = () => {
+    if (deck.source_tab === "お気に入り") {
+      return { text: "お気に入り", variant: "outline" as const }
+    }
+    return null // お気に入りページ以外ではバッジを表示しない
+  }
+
+  const statusBadge = getStatusBadge()
 
   // サムネイル画像を取得（WebP優先）
   const getThumbnailImage = () => {
@@ -307,7 +322,14 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
           // 成功した場合の処理内に以下を追加
           if (user) {
             const favoriteKey = `favorite_${user.id}_${deck.id}`
+            const sourceTabKey = `favorite_source_${user.id}_${deck.id}`
             localStorage.setItem(favoriteKey, (!originalIsFavorited).toString())
+            // お気に入りに追加する際に、現在のタブ情報も保存
+            if (!originalIsFavorited) {
+              const currentTab =
+                deck.source_tab || deck.category || (deck.is_deck_page ? "Tierランキング" : "みんなのデッキ")
+              localStorage.setItem(sourceTabKey, currentTab)
+            }
           }
         }
       } catch (actionError) {
@@ -354,9 +376,16 @@ export default function DeckCard({ deck, onCountUpdate }: DeckCardProps) {
       <Link href={linkHref} className="block group">
         <Card className="h-full overflow-hidden transition-all duration-200 ease-in-out group-hover:shadow-xl group-hover:-translate-y-1 bg-white">
           <CardHeader className="p-3">
-            <CardTitle className="text-purple-600 text-sm font-bold truncate group-hover:text-purple-700">
-              {deckName}
-            </CardTitle>
+            <div className="flex justify-between items-start mb-2">
+              <CardTitle className="text-purple-600 text-sm font-bold truncate group-hover:text-purple-700 flex-1">
+                {deckName}
+              </CardTitle>
+              {statusBadge && ( // statusBadgeが存在する場合のみ表示
+                <Badge variant={statusBadge.variant} className="ml-2 text-xs flex-shrink-0">
+                  {statusBadge.text}
+                </Badge>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="p-3 flex flex-col items-center">
             {/* サムネイル画像表示 - ポケモンカードの5:7比率に最適化 */}
