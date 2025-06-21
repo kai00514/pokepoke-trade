@@ -1,14 +1,58 @@
-export interface Deck {
+export interface DeckCard {
   id: string
-  title: string | null // タイトルをnull許容にする
+  name: string
+  imageUrl?: string
+  count: number
+  packName?: string
+}
+
+export interface DeckStats {
+  accessibility: number
+  speed: number
+  power: number
+  durability: number
+  stability: number
+}
+
+export interface TierInfo {
+  rank: string
+  tier: string
+  descriptions: string[]
+}
+
+export interface StrengthWeakness {
+  title: string
   description: string
-  thumbnail_image_url?: string | null
-  like_count: number
-  favorite_count: number
-  comment_count: number
-  created_at: string
-  updated_at: string
-  view_count: number
-  is_deck_page?: boolean // デッキページかどうか (任意)
-  source_tab?: string // お気に入り登録時のソースタブ (任意)
+  images?: string[]
+}
+
+export interface HowToPlayStep {
+  title: string
+  description: string
+  images?: string[]
+}
+
+export interface DeckData {
+  id: string
+  title: string
+  lastUpdated: string
+  commentCount: number
+  thumbnailImage?: string
+  thumbnailAlt: string
+  deckBadge: string
+  section1Title: string
+  section2Title: string
+  section3Title: string
+  deckName: string
+  energyType: string
+  energyImage?: string
+  cards: DeckCard[]
+  deckDescription: string
+  evaluationTitle: string
+  tierInfo: TierInfo
+  deckStats: DeckStats
+  strengthsWeaknessesList: string[]
+  strengthsWeaknessesDetails: StrengthWeakness[]
+  howToPlayList: string[]
+  howToPlaySteps: HowToPlayStep[]
 }
