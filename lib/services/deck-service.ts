@@ -26,6 +26,12 @@ export interface DeckWithCards {
   deck_name?: string
   thumbnail_image_url?: string
   tier_rank?: number
+  view_count?: number
+  like_count?: number
+  comment_count?: number
+  favorite_count?: number
+  category?: string // categoryプロパティを追加
+  source_tab?: string // どのタブから来たかを示すプロパティを追加
 }
 
 export async function getDeckById(deckId: string): Promise<{
@@ -408,7 +414,8 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
           view_count,
           like_count,
           comment_count,
-          favorite_count
+          favorite_count,
+          category // ここにcategoryカラムを追加
         `,
         )
         .in("id", deckPageIds)
@@ -425,6 +432,7 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
         deck_name: null,
         thumbnail_image_url: null,
         tier_rank: null,
+        category: "投稿", // decksテーブルのデータは「投稿」カテゴリとする
       }),
     )
     deckPagesData.forEach((dp) =>
@@ -455,6 +463,7 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
         deck_name: dp.deck_name,
         thumbnail_image_url: dp.thumbnail_image_url,
         tier_rank: dp.tier_rank,
+        category: dp.category, // deck_pagesのcategoryをそのまま使用
       }),
     )
 
@@ -469,7 +478,7 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
         formattedDecks.push({
           ...deck,
           source_tab: "お気に入り", // Ensure this is set for favorites page
-          category: entry.category, // Use category from favorite entry
+          category: deck.category, // allDecksMapから取得したcategoryを使用
         })
         if (deck.user_id && !userIdsToFetch.includes(deck.user_id)) {
           userIdsToFetch.push(deck.user_id)
