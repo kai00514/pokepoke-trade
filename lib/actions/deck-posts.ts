@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@supabase/supabase-js"
+import { fetchCardDetailsByIds, type CardData } from "@/lib/card-api" // CardData型もインポート
 
 // Supabaseクライアントを作成
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -196,12 +197,42 @@ export async function getDeckPageById(id: string): Promise<{ success: boolean; d
         }
       })
 
+    // cards_dataが存在し、配列である場合、カード詳細情報を取得して結合
+    if (Array.isArray(data.cards_data) && data.cards_data.length > 0) {
+      const cardIds = data.cards_data.map((card: any) => card.card_id.toString())
+      console.log("Fetching card details for IDs:", cardIds) // デバッグログ
+      const cardDetails = await fetchCardDetailsByIds(cardIds)
+      console.log("Fetched card details:", cardDetails) // デバッグログ
+
+      const cardDetailsMap = new Map<number, CardData>()
+      cardDetails.forEach((detail) => {
+        cardDetailsMap.set(detail.id, detail)
+      })
+
+      data.cards_data = data.cards_data.map((card: any) => {
+        const detail = cardDetailsMap.get(card.card_id)
+        const enrichedCard = {
+          card_id: card.card_id,
+          quantity: card.card_count, // card_countをquantityにマッピング
+          name: detail?.name || "不明なカード",
+          image_url: detail?.image_url || "/placeholder.svg?height=100&width=70", // フォールバック画像
+          thumb_url: detail?.thumb_url || detail?.image_url || "/placeholder.svg?height=100&width=70",
+        }
+        console.log(`Enriched card ${enrichedCard.card_id}:`, enrichedCard) // 個別のカードエンリッチ結果
+        return enrichedCard
+      })
+      console.log("Final enriched cards_data:", data.cards_data) // 最終的なcards_data
+    } else {
+      data.cards_data = [] // cards_dataがない場合は空の配列に設定
+      console.log("cards_data is empty or not an array.") // デバッグログ
+    }
+
     return { success: true, data, error: undefined }
   } catch (error) {
     console.error("Error in getDeckPageById:", error)
     return {
       success: false,
-      error: "デッキの取得に失敗しました",
+      error: error instanceof Error ? error.message : "デッキの取得に失敗しました",
       data: null,
     }
   }

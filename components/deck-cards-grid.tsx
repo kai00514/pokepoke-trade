@@ -1,76 +1,83 @@
 "use client"
-
-import { useEffect, useState } from "react"
+import { useEffect } from "react" // useState, useEffect, createBrowserClient, CardData を削除
 import Image from "next/image"
-import { createBrowserClient } from "@/lib/supabase/client"
-import type { DeckCard } from "@/types/deck"
+// import { createBrowserClient } from "@/lib/supabase/client" // 削除
+// import type { DeckCard } from "@/types/deck" // 削除
+
+interface DeckCardWithDetails {
+  card_id: number
+  quantity: number
+  name: string
+  image_url: string
+  thumb_url?: string
+  pack_name?: string // pack_nameも表示のために含める
+}
 
 interface DeckCardsGridProps {
   deckName: string
   energyType: string
   energyImage?: string
-  cards: DeckCard[]
-}
-
-interface CardData {
-  id: string
-  name: string
-  image_url: string
-  pack_name?: string
+  cards: DeckCardWithDetails[] // 型を更新
 }
 
 export function DeckCardsGrid({ deckName, energyType, energyImage, cards }: DeckCardsGridProps) {
-  const [cardImages, setCardImages] = useState<Record<string, CardData>>({})
-  const [isLoading, setIsLoading] = useState(true)
+  // クライアント側でのカード画像フェッチロジックはサーバーアクションに移動したため削除
+  // const [cardImages, setCardImages] = useState<Record<string, CardData>>({})
+  // const [isLoading, setIsLoading] = useState(true)
 
+  // useEffect(() => {
+  //   const fetchCardImages = async () => {
+  //     if (!cards || cards.length === 0) {
+  //       setIsLoading(false)
+  //       return
+  //     }
+
+  //     try {
+  //       const supabase = createBrowserClient()
+  //       const cardIds = cards.map((card) => card.id).filter(Boolean)
+
+  //       if (cardIds.length === 0) {
+  //         setIsLoading(false)
+  //         return
+  //       }
+
+  //       const { data, error } = await supabase.from("cards").select("id, name, image_url, pack_name").in("id", cardIds)
+
+  //       if (error) {
+  //         console.error("Error fetching card images:", error)
+  //       } else if (data) {
+  //         const cardMap = data.reduce(
+  //           (acc, card) => {
+  //             acc[card.id] = card
+  //             return acc
+  //           },
+  //           {} as Record<string, CardData>,
+  //         )
+  //         setCardImages(cardMap)
+  //       }
+  //     } catch (error) {
+  //       console.error("Error fetching card images:", error)
+  //     } finally {
+  //       setIsLoading(false)
+  //     }
+  //   }
+
+  //   fetchCardImages()
+  // }, [cards])
+
+  // if (isLoading) {
+  //   return (
+  //     <div className="text-center py-8">
+  //       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+  //       <p className="text-gray-500">カード情報を読み込み中...</p>
+  //     </div>
+  //   )
+  // }
+
+  // cardsプロップがどのような状態で渡されているかを確認するログ
   useEffect(() => {
-    const fetchCardImages = async () => {
-      if (!cards || cards.length === 0) {
-        setIsLoading(false)
-        return
-      }
-
-      try {
-        const supabase = createBrowserClient()
-        const cardIds = cards.map((card) => card.id).filter(Boolean)
-
-        if (cardIds.length === 0) {
-          setIsLoading(false)
-          return
-        }
-
-        const { data, error } = await supabase.from("cards").select("id, name, image_url, pack_name").in("id", cardIds)
-
-        if (error) {
-          console.error("Error fetching card images:", error)
-        } else if (data) {
-          const cardMap = data.reduce(
-            (acc, card) => {
-              acc[card.id] = card
-              return acc
-            },
-            {} as Record<string, CardData>,
-          )
-          setCardImages(cardMap)
-        }
-      } catch (error) {
-        console.error("Error fetching card images:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchCardImages()
+    console.log("DeckCardsGrid received cards prop:", cards)
   }, [cards])
-
-  if (isLoading) {
-    return (
-      <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-500">カード情報を読み込み中...</p>
-      </div>
-    )
-  }
 
   if (!cards || cards.length === 0) {
     return (
@@ -80,13 +87,21 @@ export function DeckCardsGrid({ deckName, energyType, energyImage, cards }: Deck
     )
   }
 
-  // カードを2行10列のグリッドに配置
-  const gridCards = Array(20).fill(null)
-  cards.forEach((card, index) => {
-    if (index < 20) {
-      gridCards[index] = card
+  // カードを20枚のグリッドに配置
+  const gridCards: (DeckCardWithDetails | null)[] = Array(20).fill(null)
+  let currentGridIndex = 0
+  cards.forEach((card) => {
+    for (let i = 0; i < card.quantity; i++) {
+      if (currentGridIndex < 20) {
+        gridCards[currentGridIndex] = card
+        currentGridIndex++
+      } else {
+        break // 20枚を超えたら終了
+      }
     }
   })
+
+  const totalCards = cards.reduce((sum, card) => sum + card.quantity, 0)
 
   return (
     <div>
@@ -108,25 +123,27 @@ export function DeckCardsGrid({ deckName, energyType, energyImage, cards }: Deck
         </div>
       </div>
 
-      {/* 2行10列のカードグリッド */}
+      {/* 20枚のカードグリッド */}
       <div className="grid grid-cols-10 gap-2 mb-4">
+        {" "}
+        {/* 2行10列なのでgrid-cols-10 */}
         {gridCards.map((card, index) => (
           <div key={index} className="aspect-[7/10] relative">
             {card ? (
               <div className="relative w-full h-full">
                 <Image
-                  src={
-                    cardImages[card.id]?.image_url ||
-                    card.imageUrl ||
-                    "/placeholder.svg?height=140&width=100&query=カード"
-                  }
-                  alt={cardImages[card.id]?.name || card.name || "カード"}
+                  src={card.image_url || "/placeholder.svg?height=140&width=100&query=カード"}
+                  alt={card.name || "カード"}
                   fill
                   className="object-cover rounded-lg shadow-sm"
+                  onError={(e) => {
+                    console.error(`Failed to load image for card ID ${card.card_id}: ${card.image_url}`, e)
+                    e.currentTarget.src = "/placeholder.svg?height=140&width=100"
+                  }}
                 />
-                {card.count > 1 && (
+                {card.quantity > 1 && (
                   <div className="absolute bottom-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                    {card.count}
+                    {card.quantity}
                   </div>
                 )}
               </div>
@@ -139,15 +156,13 @@ export function DeckCardsGrid({ deckName, energyType, energyImage, cards }: Deck
 
       {/* カード一覧 */}
       <div className="space-y-2">
-        <h5 className="font-medium text-sm text-gray-700">デッキ構成 ({cards.length}枚)</h5>
+        <h5 className="font-medium text-sm text-gray-700">デッキ構成 ({totalCards}枚)</h5>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
           {cards.map((card, index) => (
             <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-              <span className="font-medium">{cardImages[card.id]?.name || card.name}</span>
-              <span className="text-gray-500">×{card.count}</span>
-              {cardImages[card.id]?.pack_name && (
-                <span className="text-xs text-gray-400">({cardImages[card.id].pack_name})</span>
-              )}
+              <span className="font-medium">{card.name}</span>
+              <span className="text-gray-500">×{card.quantity}</span>
+              {card.pack_name && <span className="text-xs text-gray-400">({card.pack_name})</span>}
             </div>
           ))}
         </div>

@@ -22,24 +22,6 @@ export default function PokemonDeckPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // 安全なJSONパース関数
-  const safeJsonParse = (jsonString: string | null, fallback: any = null) => {
-    if (!jsonString) return fallback
-    try {
-      return JSON.parse(jsonString)
-    } catch (error) {
-      console.warn("JSON parse error:", error, "Input:", jsonString)
-      // カンマ区切りの文字列の場合は配列に変換
-      if (typeof jsonString === "string" && jsonString.includes(",")) {
-        return jsonString
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean)
-      }
-      return fallback
-    }
-  }
-
   useEffect(() => {
     const fetchDeck = async () => {
       if (!params.id || typeof params.id !== "string") {
@@ -57,6 +39,7 @@ export default function PokemonDeckPage() {
         }
 
         const data = result.data
+        console.log("Raw data from getDeckPageById (after enrichment):", data) // デバッグ用
 
         // データベースのデータを安全に変換
         const convertedData = {
@@ -73,28 +56,30 @@ export default function PokemonDeckPage() {
           deckName: data.deck_name || "デッキ",
           energyType: data.energy_type || "無色",
           energyImage: data.energy_image_url,
-          cards: safeJsonParse(data.cards_data, []),
+          // cards_dataはサーバーアクションで既に整形されているため、直接使用
+          cards: data.cards_data || [],
           deckDescription: data.deck_description || "",
           evaluationTitle: "デッキ評価",
-          tierInfo: safeJsonParse(data.tier_info, {
+          // JSONBカラムは直接オブジェクトとしてアクセス
+          tierInfo: data.tier_info || {
             rank: "B",
             tier: "Bランク",
             descriptions: ["バランスの取れたデッキ"],
-          }),
-          deckStats: safeJsonParse(data.deck_stats, {
+          },
+          deckStats: data.deck_stats || {
             accessibility: 3,
             speed: 3,
             power: 3,
             durability: 3,
             stability: 3,
-          }),
-          strengthsWeaknessesList: safeJsonParse(data.strengths_weaknesses_list, []),
-          strengthsWeaknessesDetails: safeJsonParse(data.strengths_weaknesses_details, []),
-          howToPlayList: safeJsonParse(data.how_to_play_list, []),
-          howToPlaySteps: safeJsonParse(data.how_to_play_steps, []),
+          },
+          strengthsWeaknessesList: data.strengths_weaknesses_list || [],
+          strengthsWeaknessesDetails: data.strengths_weaknesses_details || [],
+          howToPlayList: data.how_to_play_list || [],
+          howToPlaySteps: data.how_to_play_steps || [],
         }
 
-        console.log("Converted data:", convertedData) // デバッグ用
+        console.log("Converted data for UI:", convertedData) // デバッグ用
         setDeckData(convertedData)
       } catch (err) {
         console.error("Failed to fetch deck:", err)
@@ -229,12 +214,16 @@ export default function PokemonDeckPage() {
           <CardContent className="p-6">
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-4 text-blue-600 border-l-4 border-blue-500 pl-3">デッキレシピ</h3>
-              <DeckCardsGrid
-                deckName={deckData.deckName}
-                energyType={deckData.energyType}
-                energyImage={deckData.energyImage}
-                cards={deckData.cards}
-              />
+              {deckData.cards && deckData.cards.length > 0 ? (
+                <DeckCardsGrid
+                  deckName={deckData.deckName}
+                  energyType={deckData.energyType}
+                  energyImage={deckData.energyImage}
+                  cards={deckData.cards}
+                />
+              ) : (
+                <div className="text-center text-gray-500 py-8">デッキレシピ情報がありません。</div>
+              )}
               {deckData.deckDescription && <p className="text-sm text-gray-600 mt-4">{deckData.deckDescription}</p>}
             </div>
           </CardContent>
