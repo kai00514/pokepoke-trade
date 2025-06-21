@@ -19,7 +19,9 @@ export default function FavoritesPage() {
   const { toast } = useToast()
 
   useEffect(() => {
+    console.log("[FavoritesPage] useEffect triggered. User:", user?.id)
     if (!user) {
+      console.log("[FavoritesPage] User not logged in, redirecting to /auth/login")
       router.push("/auth/login")
       return
     }
@@ -28,12 +30,14 @@ export default function FavoritesPage() {
   }, [user, router])
 
   const loadFavoriteDecks = async () => {
+    console.log("[FavoritesPage] loadFavoriteDecks started.")
     try {
       setLoading(true)
 
       const favoriteIds: string[] = []
       const sourceTabMap: { [key: string]: string } = {}
 
+      console.log("[FavoritesPage] Checking localStorage for favorite deck IDs...")
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
         if (key && user?.id && key.startsWith(`favorite_${user.id}_`) && localStorage.getItem(key) === "true") {
@@ -43,18 +47,24 @@ export default function FavoritesPage() {
           const sourceTabKey = `favorite_source_${user.id}_${deckId}`
           const sourceTab = localStorage.getItem(sourceTabKey) || "みんなのデッキ"
           sourceTabMap[deckId] = sourceTab
+          console.log(`[FavoritesPage] Found favorite in localStorage: ID=${deckId}, SourceTab=${sourceTab}`)
         }
       }
+      console.log("[FavoritesPage] Favorite IDs from localStorage:", favoriteIds)
+      console.log("[FavoritesPage] Source Tab Map:", sourceTabMap)
 
       const deckPromises = favoriteIds.map(async (deckId) => {
+        console.log(`[FavoritesPage] Attempting to fetch deck details for ID: ${deckId}`)
         try {
           const { data, error } = await getDeckById(deckId)
+          console.log(`[FavoritesPage] getDeckById result for ${deckId}:`, { data, error })
+
           if (error || !data) {
-            console.error(`Failed to fetch deck ${deckId}:`, error)
+            console.error(`[FavoritesPage] Failed to fetch deck ${deckId}:`, error)
             // エラーの場合は仮データを返す
-            return {
+            const placeholderDeck: Deck = {
               id: deckId,
-              title: `デッキ ${deckId.slice(0, 8)}`,
+              title: `デッキ ${deckId.slice(0, 8)} (取得失敗)`,
               description: "デッキの詳細を取得できませんでした",
               like_count: 0,
               favorite_count: 0,
@@ -65,11 +75,13 @@ export default function FavoritesPage() {
               thumbnail_image_url: "/placeholder.svg?width=120&height=168",
               source_tab: sourceTabMap[deckId],
               is_deck_page: false,
-            } as Deck
+            }
+            console.log(`[FavoritesPage] Returning placeholder deck for ${deckId}:`, placeholderDeck)
+            return placeholderDeck
           }
 
           // 実際のデッキデータにソースタブ情報を追加し、プロパティの堅牢性を確保
-          return {
+          const fetchedDeck: Deck = {
             id: data.id,
             title: data.title || `デッキ ${data.id.slice(0, 8)}`, // nullの場合のフォールバック
             description: data.description || "詳細情報なし",
@@ -82,13 +94,15 @@ export default function FavoritesPage() {
             thumbnail_image_url: data.thumbnail_image_url || "/placeholder.svg?width=120&height=168",
             source_tab: sourceTabMap[deckId],
             is_deck_page: data.is_deck_page ?? false,
-          } as Deck
+          }
+          console.log(`[FavoritesPage] Successfully fetched and mapped deck ${deckId}:`, fetchedDeck)
+          return fetchedDeck
         } catch (err) {
-          console.error(`Exception fetching deck ${deckId}:`, err)
+          console.error(`[FavoritesPage] Exception fetching deck ${deckId}:`, err)
           // エラーの場合は仮データを返す
-          return {
+          const placeholderDeck: Deck = {
             id: deckId,
-            title: `デッキ ${deckId.slice(0, 8)}`,
+            title: `デッキ ${deckId.slice(0, 8)} (例外発生)`,
             description: "デッキの詳細を取得できませんでした",
             like_count: 0,
             favorite_count: 0,
@@ -99,27 +113,37 @@ export default function FavoritesPage() {
             thumbnail_image_url: "/placeholder.svg?width=120&height=168",
             source_tab: sourceTabMap[deckId],
             is_deck_page: false,
-          } as Deck
+          }
+          console.log(`[FavoritesPage] Returning placeholder deck due to exception for ${deckId}:`, placeholderDeck)
+          return placeholderDeck
         }
       })
 
       const decks = await Promise.all(deckPromises)
+      console.log("[FavoritesPage] All deck promises resolved. Raw decks:", decks)
       setFavoriteDecks(decks.filter(Boolean) as Deck[])
+      console.log("[FavoritesPage] Final favorite decks state:", decks.filter(Boolean))
     } catch (err) {
-      console.error("お気に入りデッキの読み込みに失敗しました:", err)
+      console.error("[FavoritesPage] Failed to load favorite decks:", err)
     } finally {
       setLoading(false)
+      console.log("[FavoritesPage] loadFavoriteDecks finished. Loading state set to false.")
     }
   }
 
   const handleRemoveFromFavorites = async (deckId: string) => {
-    if (!user) return
+    console.log(`[FavoritesPage] handleRemoveFromFavorites called for ID: ${deckId}`)
+    if (!user) {
+      console.log("[FavoritesPage] User not logged in, cannot unfavorite.")
+      return
+    }
 
     try {
       const { error } = await unfavoriteDeck(deckId)
+      console.log(`[FavoritesPage] unfavoriteDeck result for ${deckId}:`, { error })
 
       if (error) {
-        console.error("Failed to unfavorite deck:", error)
+        console.error(`[FavoritesPage] Failed to unfavorite deck ${deckId}:`, error)
         toast({ title: "エラー", description: error || "お気に入りの削除に失敗しました", variant: "destructive" })
         return
       }
@@ -129,11 +153,16 @@ export default function FavoritesPage() {
 
       localStorage.removeItem(favoriteKey)
       localStorage.removeItem(sourceTabKey)
+      console.log(`[FavoritesPage] Removed localStorage items for ${deckId}.`)
 
-      setFavoriteDecks((prev) => prev.filter((deck) => deck.id !== deckId))
+      setFavoriteDecks((prev) => {
+        const newDecks = prev.filter((deck) => deck.id !== deckId)
+        console.log(`[FavoritesPage] Updated favoriteDecks state. New count: ${newDecks.length}`)
+        return newDecks
+      })
       toast({ title: "成功", description: "お気に入りから削除しました", variant: "default" })
     } catch (err) {
-      console.error("お気に入りの削除に失敗しました:", err)
+      console.error(`[FavoritesPage] Exception during unfavorite operation for ID ${deckId}:`, err)
       toast({
         title: "エラー",
         description: "お気に入りの削除中に予期せぬエラーが発生しました",

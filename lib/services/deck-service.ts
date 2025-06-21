@@ -4,6 +4,7 @@ import type { Deck } from "@/types/deck" // types/deck.tsからDeckインター�
 const supabase = createBrowserClient()
 
 export async function getDeckById(deckId: string): Promise<{ data: Deck | null; error: string | null }> {
+  console.log(`[getDeckById] Fetching deck with ID: ${deckId}`)
   try {
     // 'decks'テーブル（ユーザー作成デッキ）から取得を試みる
     const { data: deckData, error: deckError } = await supabase
@@ -30,11 +31,14 @@ export async function getDeckById(deckId: string): Promise<{ data: Deck | null; 
       .eq("id", deckId)
       .single()
 
-    if (deckData) {
+    if (deckError && deckError.code !== "PGRST116") {
+      console.error(`[getDeckById] Error fetching from 'decks' table for ID ${deckId}:`, deckError)
+    } else if (deckData) {
+      console.log(`[getDeckById] Data found in 'decks' table for ID ${deckId}:`, deckData)
       const deck: Deck = {
         id: deckData.id,
         user_id: deckData.user_id || undefined,
-        title: deckData.title || "",
+        title: deckData.title || null, // null許容に対応
         description: deckData.description || "",
         created_at: deckData.created_at,
         updated_at: deckData.updated_at,
@@ -56,10 +60,11 @@ export async function getDeckById(deckId: string): Promise<{ data: Deck | null; 
         is_deck_page: false, // deck_pageではないことを明示的にマーク
         user_display_name: deckData.user_profiles?.display_name || undefined,
       }
+      console.log(`[getDeckById] Mapped Deck object from 'decks' for ID ${deckId}:`, deck)
       return { data: deck, error: null }
     }
 
-    // 'decks'で見つからなかった場合、'deck_pages'テーブル（公式/Tierデッキ）から取得を試みる
+    // 'decks' テーブルで見つからなかった場合、'deck_pages' テーブルから取得を試みる
     const { data: deckPageData, error: deckPageError } = await supabase
       .from("deck_pages")
       .select(
@@ -82,43 +87,50 @@ export async function getDeckById(deckId: string): Promise<{ data: Deck | null; 
       .eq("id", deckId)
       .single()
 
-    if (deckPageData) {
+    if (deckPageError && deckPageError.code !== "PGRST116") {
+      console.error(`[getDeckById] Error fetching from 'deck_pages' table for ID ${deckId}:`, deckPageError)
+    } else if (deckPageData) {
+      console.log(`[getDeckById] Data found in 'deck_pages' table for ID ${deckId}:`, deckPageData)
       const deck: Deck = {
         id: deckPageData.id,
-        deck_name: deckPageData.deck_name || undefined,
-        title: deckPageData.deck_name || "", // title も設定
-        description: deckPageData.deck_description || undefined,
+        title: deckPageData.deck_name || null, // null許容に対応
+        description: deckPageData.deck_description || "",
         updated_at: deckPageData.updated_at || deckPageData.created_at || "",
-        tier_rank: deckPageData.tier_rank || undefined,
-        view_count: deckPageData.view_count || 0,
         like_count: deckPageData.like_count || 0,
-        comment_count: deckPageData.comment_count || 0,
         favorite_count: deckPageData.favorite_count || 0,
-        thumbnail_image_url: deckPageData.thumbnail_image_url || undefined,
+        comment_count: deckPageData.comment_count || 0,
+        view_count: deckPageData.view_count || 0,
         is_deck_page: true, // deck_pageであることを明示的にマーク
+        thumbnail_image_url: deckPageData.thumbnail_image_url || undefined,
         category: deckPageData.category || undefined,
         user_display_name: deckPageData.user_profiles?.display_name || undefined,
+        created_at: deckPageData.created_at, // created_atを追加
       }
+      console.log(`[getDeckById] Mapped Deck object from 'deck_pages' for ID ${deckId}:`, deck)
       return { data: deck, error: null }
     }
 
-    return { data: null, error: deckError?.message || deckPageError?.message || "Deck not found" }
+    const errorMessage = deckError?.message || deckPageError?.message || "Deck not found"
+    console.log(`[getDeckById] Deck not found for ID ${deckId}. Error: ${errorMessage}`)
+    return { data: null, error: errorMessage }
   } catch (error) {
-    console.error("Unexpected error in getDeckById:", error)
+    console.error(`[getDeckById] Unexpected error for ID ${deckId}:`, error)
     return { data: null, error: error instanceof Error ? error.message : "Unknown error" }
   }
 }
 
 export async function likeDeck(deckId: string): Promise<{ error: string | null }> {
+  console.log(`[likeDeck] Liking deck ID: ${deckId}`)
   try {
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
     if (!user) {
-      // ゲストユーザーでもいいねは可能だが、DBには記録しない
+      console.log("[likeDeck] User not logged in. Not recording in DB.")
       return { error: null }
     }
+    console.log(`[likeDeck] User ${user.id} is liking deck ${deckId}`)
 
     const { error } = await supabase.from("deck_likes").insert({
       user_id: user.id,
@@ -127,74 +139,81 @@ export async function likeDeck(deckId: string): Promise<{ error: string | null }
 
     if (error) {
       if (error.code === "23505") {
-        // unique constraint violation
+        console.warn(`[likeDeck] User ${user.id} already liked deck ${deckId}.`)
         return { error: "既にいいねしています" }
       }
+      console.error(`[likeDeck] Error inserting into deck_likes for ID ${deckId}:`, error)
       throw error
     }
+    console.log(`[likeDeck] Successfully inserted like for deck ${deckId}. Calling RPC.`)
 
-    // RPC関数を直接呼び出す
     const { error: rpcError } = await supabase.rpc("increment_deck_likes", {
       deck_id_input: deckId,
     })
     if (rpcError) {
-      console.error("Error incrementing like count via RPC:", rpcError)
-      // RPCエラーが発生した場合、挿入したレコードを削除してロールバックする
+      console.error(`[likeDeck] Error incrementing like count via RPC for ID ${deckId}:`, rpcError)
       await supabase.from("deck_likes").delete().eq("user_id", user.id).eq("deck_id", deckId)
       return { error: rpcError.message }
     }
+    console.log(`[likeDeck] Successfully incremented like count for deck ${deckId}.`)
 
     return { error: null }
   } catch (error) {
-    console.error("Error liking deck:", error)
+    console.error(`[likeDeck] Unexpected error for ID ${deckId}:`, error)
     return { error: error instanceof Error ? error.message : "Unknown error" }
   }
 }
 
 export async function unlikeDeck(deckId: string): Promise<{ error: string | null }> {
+  console.log(`[unlikeDeck] Unliking deck ID: ${deckId}`)
   try {
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
     if (!user) {
-      // ゲストユーザーの場合、DB操作は不要
+      console.log("[unlikeDeck] User not logged in. No DB operation needed.")
       return { error: null }
     }
+    console.log(`[unlikeDeck] User ${user.id} is unliking deck ${deckId}`)
 
     const { error } = await supabase.from("deck_likes").delete().eq("user_id", user.id).eq("deck_id", deckId)
 
     if (error) {
+      console.error(`[unlikeDeck] Error deleting from deck_likes for ID ${deckId}:`, error)
       throw error
     }
+    console.log(`[unlikeDeck] Successfully deleted like for deck ${deckId}. Calling RPC.`)
 
-    // RPC関数を直接呼び出す
     const { error: rpcError } = await supabase.rpc("decrement_deck_likes", {
       deck_id_input: deckId,
     })
     if (rpcError) {
-      console.error("Error decrementing like count via RPC:", rpcError)
-      // RPCエラーが発生した場合、削除したレコードを再挿入してロールバックする
+      console.error(`[unlikeDeck] Error decrementing like count via RPC for ID ${deckId}:`, rpcError)
       await supabase.from("deck_likes").insert({ user_id: user.id, deck_id: deckId })
       return { error: rpcError.message }
     }
+    console.log(`[unlikeDeck] Successfully decremented like count for deck ${deckId}.`)
 
     return { error: null }
   } catch (error) {
-    console.error("Error unliking deck:", error)
+    console.error(`[unlikeDeck] Unexpected error for ID ${deckId}:`, error)
     return { error: error instanceof Error ? error.message : "Unknown error" }
   }
 }
 
 export async function favoriteDeck(deckId: string): Promise<{ error: string | null }> {
+  console.log(`[favoriteDeck] Favoriting deck ID: ${deckId}`)
   try {
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
     if (!user) {
+      console.log("[favoriteDeck] User not logged in. Returning error.")
       return { error: "ログインが必要です" }
     }
+    console.log(`[favoriteDeck] User ${user.id} is favoriting deck ${deckId}`)
 
     const { error } = await supabase.from("deck_favorites").insert({
       user_id: user.id,
@@ -203,58 +222,65 @@ export async function favoriteDeck(deckId: string): Promise<{ error: string | nu
 
     if (error) {
       if (error.code === "23505") {
-        // unique constraint violation
+        console.warn(`[favoriteDeck] User ${user.id} already favorited deck ${deckId}.`)
         return { error: "既にお気に入りに追加されています" }
       }
+      console.error(`[favoriteDeck] Error inserting into deck_favorites for ID ${deckId}:`, error)
       throw error
     }
+    console.log(`[favoriteDeck] Successfully inserted favorite for deck ${deckId}. Calling RPC.`)
 
-    // RPC関数を直接呼び出す
     const { error: rpcError } = await supabase.rpc("increment_deck_favorites", {
       deck_id_input: deckId,
     })
     if (rpcError) {
-      console.error("Error incrementing favorite count via RPC:", rpcError)
+      console.error(`[favoriteDeck] Error incrementing favorite count via RPC for ID ${deckId}:`, rpcError)
       await supabase.from("deck_favorites").delete().eq("user_id", user.id).eq("deck_id", deckId)
       return { error: rpcError.message }
     }
+    console.log(`[favoriteDeck] Successfully incremented favorite count for deck ${deckId}.`)
 
     return { error: null }
   } catch (error) {
-    console.error("Error favoriting deck:", error)
+    console.error(`[favoriteDeck] Unexpected error for ID ${deckId}:`, error)
     return { error: error instanceof Error ? error.message : "Unknown error" }
   }
 }
 
 export async function unfavoriteDeck(deckId: string): Promise<{ error: string | null }> {
+  console.log(`[unfavoriteDeck] Unfavoriting deck ID: ${deckId}`)
   try {
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
     if (!user) {
+      console.log("[unfavoriteDeck] User not logged in. Returning error.")
       return { error: "ログインが必要です" }
     }
+    console.log(`[unfavoriteDeck] User ${user.id} is unfavoriting deck ${deckId}`)
 
     const { error } = await supabase.from("deck_favorites").delete().eq("user_id", user.id).eq("deck_id", deckId)
 
     if (error) {
+      console.error(`[unfavoriteDeck] Error deleting from deck_favorites for ID ${deckId}:`, error)
       throw error
     }
+    console.log(`[unfavoriteDeck] Successfully deleted favorite for deck ${deckId}. Calling RPC.`)
 
-    // RPC関数を直接呼び出す
     const { error: rpcError } = await supabase.rpc("decrement_deck_favorites", {
       deck_id_input: deckId,
     })
     if (rpcError) {
-      console.error("Error decrementing favorite count via RPC:", rpcError)
+      console.error(`[unfavoriteDeck] Error decrementing favorite count via RPC for ID ${deckId}:`, rpcError)
       await supabase.from("deck_favorites").insert({ user_id: user.id, deck_id: deckId })
       return { error: rpcError.message }
     }
+    console.log(`[unfavoriteDeck] Successfully decremented favorite count for deck ${deckId}.`)
 
     return { error: null }
   } catch (error) {
-    console.error("Error unfavoriting deck:", error)
+    console.error(`[unfavoriteDeck] Unexpected error for ID ${deckId}:`, error)
     return { error: error instanceof Error ? error.message : "Unknown error" }
   }
 }
