@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Star, ArrowLeft } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import { getDeckById, unfavoriteDeck } from "@/lib/services/deck-service" // 関数を直接インポート
+import { getDeckById, unfavoriteDeck } from "@/lib/services/deck-service"
 import DeckCard from "@/components/deck-card"
 import type { Deck } from "@/types/deck"
 import { useToast } from "@/components/ui/use-toast"
@@ -31,7 +31,6 @@ export default function FavoritesPage() {
     try {
       setLoading(true)
 
-      // localStorageからお気に入りデッキのIDとソースタブ情報を取得
       const favoriteIds: string[] = []
       const sourceTabMap: { [key: string]: string } = {}
 
@@ -41,24 +40,21 @@ export default function FavoritesPage() {
           const deckId = key.replace(`favorite_${user.id}_`, "")
           favoriteIds.push(deckId)
 
-          // ソースタブ情報も取得
           const sourceTabKey = `favorite_source_${user.id}_${deckId}`
           const sourceTab = localStorage.getItem(sourceTabKey) || "みんなのデッキ"
           sourceTabMap[deckId] = sourceTab
         }
       }
 
-      // 実際のデッキデータを取得
       const deckPromises = favoriteIds.map(async (deckId) => {
         try {
-          const { data, error } = await getDeckById(deckId) // 関数を直接呼び出す
-          console.log(`data : ${data}`)
+          const { data, error } = await getDeckById(deckId)
           if (error || !data) {
             console.error(`Failed to fetch deck ${deckId}:`, error)
             // エラーの場合は仮データを返す
             return {
               id: deckId,
-              title: `${deckId.slice(0, 8)}`, // title を設定
+              title: `デッキ ${deckId.slice(0, 8)}`,
               description: "デッキの詳細を取得できませんでした",
               like_count: 0,
               favorite_count: 0,
@@ -72,17 +68,27 @@ export default function FavoritesPage() {
             } as Deck
           }
 
-          // 実際のデッキデータにソースタブ情報を追加
+          // 実際のデッキデータにソースタブ情報を追加し、プロパティの堅牢性を確保
           return {
-            ...data,
+            id: data.id,
+            title: data.title || `デッキ ${data.id.slice(0, 8)}`, // nullの場合のフォールバック
+            description: data.description || "詳細情報なし",
+            like_count: data.like_count ?? 0, // nullish coalescing operator
+            favorite_count: data.favorite_count ?? 0,
+            comment_count: data.comment_count ?? 0,
+            created_at: data.created_at || new Date().toISOString(),
+            updated_at: data.updated_at || new Date().toISOString(),
+            view_count: data.view_count ?? 0,
+            thumbnail_image_url: data.thumbnail_image_url || "/placeholder.svg?width=120&height=168",
             source_tab: sourceTabMap[deckId],
+            is_deck_page: data.is_deck_page ?? false,
           } as Deck
         } catch (err) {
           console.error(`Exception fetching deck ${deckId}:`, err)
           // エラーの場合は仮データを返す
           return {
             id: deckId,
-            title: `デッキ ${deckId.slice(0, 8)}`, // title を設定
+            title: `デッキ ${deckId.slice(0, 8)}`,
             description: "デッキの詳細を取得できませんでした",
             like_count: 0,
             favorite_count: 0,
@@ -110,8 +116,7 @@ export default function FavoritesPage() {
     if (!user) return
 
     try {
-      // Supabaseからお気に入り状態を削除
-      const { error } = await unfavoriteDeck(deckId) // 関数を直接呼び出す
+      const { error } = await unfavoriteDeck(deckId)
 
       if (error) {
         console.error("Failed to unfavorite deck:", error)
@@ -119,14 +124,12 @@ export default function FavoritesPage() {
         return
       }
 
-      // localStorageからお気に入り状態を削除
       const favoriteKey = `favorite_${user.id}_${deckId}`
       const sourceTabKey = `favorite_source_${user.id}_${deckId}`
 
       localStorage.removeItem(favoriteKey)
       localStorage.removeItem(sourceTabKey)
 
-      // UIからデッキを削除
       setFavoriteDecks((prev) => prev.filter((deck) => deck.id !== deckId))
       toast({ title: "成功", description: "お気に入りから削除しました", variant: "default" })
     } catch (err) {
@@ -175,7 +178,6 @@ export default function FavoritesPage() {
           {favoriteDecks.map((deck) => (
             <div key={deck.id} className="relative">
               <DeckCard deck={deck} />
-              {/* お気に入りから削除ボタン */}
               <Button
                 variant="ghost"
                 size="sm"
