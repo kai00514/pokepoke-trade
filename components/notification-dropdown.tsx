@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Bell, X, Loader2, ExternalLink } from "lucide-react"
+import { Bell, X, Loader2, ExternalLink, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,22 +17,54 @@ export default function NotificationDropdown() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const [debugInfo, setDebugInfo] = useState<any>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
+  // デバッグ情報を更新
+  const updateDebugInfo = (info: any) => {
+    console.log("🔍 Debug Info:", info)
+    setDebugInfo(info)
+  }
+
   // 通知を取得
   const fetchNotifications = async () => {
-    if (!user) return
+    if (!user) {
+      updateDebugInfo({ step: "fetchNotifications", error: "User not found", user })
+      return
+    }
 
+    console.log("📡 Fetching notifications for user:", user.id)
     setIsLoading(true)
+    setError(null)
+
     try {
+      updateDebugInfo({ step: "calling getNotifications", userId: user.id })
       const result = await getNotifications(user.id)
+
+      console.log("📨 Notifications result:", result)
+      updateDebugInfo({ step: "getNotifications result", result })
+
       if (result.success && result.notifications) {
         setNotifications(result.notifications)
-        setUnreadCount(result.notifications.filter((n) => !n.is_read).length)
+        const unread = result.notifications.filter((n) => !n.is_read).length
+        setUnreadCount(unread)
+        console.log(`✅ Loaded ${result.notifications.length} notifications, ${unread} unread`)
+        updateDebugInfo({
+          step: "notifications loaded",
+          total: result.notifications.length,
+          unread,
+          notifications: result.notifications,
+        })
+      } else {
+        setError(result.error || "通知の取得に失敗しました")
+        updateDebugInfo({ step: "getNotifications failed", error: result.error })
       }
     } catch (error) {
-      console.error("Error fetching notifications:", error)
+      console.error("❌ Error fetching notifications:", error)
+      setError("通知の取得中にエラーが発生しました")
+      updateDebugInfo({ step: "catch error", error: error.message })
     } finally {
       setIsLoading(false)
     }
@@ -40,6 +72,9 @@ export default function NotificationDropdown() {
 
   // ドロップダウンを開く/閉じる
   const toggleDropdown = () => {
+    console.log("🔄 Toggle dropdown, current state:", isOpen)
+    updateDebugInfo({ step: "toggleDropdown", isOpen, user: !!user })
+
     if (!isOpen && user) {
       fetchNotifications()
     }
@@ -50,10 +85,14 @@ export default function NotificationDropdown() {
   const handleMarkAsRead = async (notification: Notification) => {
     if (notification.is_read) return
 
-    const result = await markNotificationAsRead(notification.id, notification.source)
-    if (result.success) {
-      setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n)))
-      setUnreadCount((prev) => Math.max(0, prev - 1))
+    try {
+      const result = await markNotificationAsRead(notification.id, notification.source)
+      if (result.success) {
+        setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n)))
+        setUnreadCount((prev) => Math.max(0, prev - 1))
+      }
+    } catch (error) {
+      console.error("Error marking notification as read:", error)
     }
   }
 
@@ -76,11 +115,25 @@ export default function NotificationDropdown() {
     }
   }, [isOpen])
 
+  // 初期化時に未読数を取得
+  useEffect(() => {
+    if (user) {
+      console.log("🚀 Initial load for user:", user.id)
+      updateDebugInfo({ step: "initial load", userId: user.id })
+      fetchNotifications()
+    } else {
+      console.log("👤 No user found")
+      updateDebugInfo({ step: "no user" })
+    }
+  }, [user])
+
   // リアルタイム通知の購読
   useEffect(() => {
     if (!user) return
 
+    console.log("🔔 Setting up real-time subscription for user:", user.id)
     const unsubscribe = subscribeToNotifications(user.id, (newNotification) => {
+      console.log("🆕 New notification received:", newNotification)
       setNotifications((prev) => [newNotification, ...prev])
       setUnreadCount((prev) => prev + 1)
     })
@@ -122,6 +175,15 @@ export default function NotificationDropdown() {
     return `${Math.floor(diffInMinutes / 1440)}日前`
   }
 
+  console.log("🎨 Render state:", {
+    user: !!user,
+    isOpen,
+    unreadCount,
+    notifications: notifications.length,
+    isLoading,
+    error,
+  })
+
   if (!user) {
     return null
   }
@@ -157,11 +219,12 @@ export default function NotificationDropdown() {
           className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
           role="dialog"
           aria-label="通知リスト"
+          style={{ maxHeight: "500px" }} // 強制的に高さを設定
         >
           <Card className="border-0 shadow-none">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold">通知</CardTitle>
+                <CardTitle className="text-lg font-semibold text-gray-900">通知</CardTitle>
                 <div className="flex items-center gap-2">
                   {notifications.length > 0 && (
                     <Link href="/notifications">
@@ -185,6 +248,25 @@ export default function NotificationDropdown() {
             </CardHeader>
 
             <CardContent className="p-0">
+              {/* デバッグ情報 (開発時のみ表示) */}
+              {process.env.NODE_ENV === "development" && debugInfo && (
+                <div className="p-3 bg-yellow-50 border-b border-yellow-200">
+                  <details>
+                    <summary className="text-xs font-mono cursor-pointer">🐛 Debug Info</summary>
+                    <pre className="text-xs mt-2 overflow-auto">{JSON.stringify(debugInfo, null, 2)}</pre>
+                  </details>
+                </div>
+              )}
+
+              {error && (
+                <div className="p-4 bg-red-50 border-b border-red-200">
+                  <div className="flex items-center gap-2 text-red-700">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="text-sm">{error}</span>
+                  </div>
+                </div>
+              )}
+
               {isLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -194,6 +276,9 @@ export default function NotificationDropdown() {
                 <div className="text-center py-8 px-4">
                   <Bell className="h-12 w-12 mx-auto text-gray-300 mb-2" />
                   <p className="text-sm text-gray-600">通知はありません</p>
+                  {process.env.NODE_ENV === "development" && (
+                    <p className="text-xs text-gray-400 mt-2">User ID: {user?.id}</p>
+                  )}
                 </div>
               ) : (
                 <ScrollArea className="h-96">
