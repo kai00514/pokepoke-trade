@@ -8,6 +8,7 @@ import { Plus, Bell, User } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useState, useEffect } from "react"
 import { getNotifications } from "@/lib/services/notification-service"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu" // DropdownMenuをインポート
 
 export default function Header() {
   const { user, userProfile, loading, signOut } = useAuth()
@@ -117,36 +118,40 @@ export default function Header() {
           )}
 
           {user ? (
-            // ログイン済みユーザー - ユーザー名とアバターを表示
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5">
-                <div className="relative w-6 h-6 sm:w-8 sm:h-8">
-                  {userProfile?.avatar_url ? (
-                    <Image
-                      src={userProfile.avatar_url || "/placeholder.svg"}
-                      alt="ユーザーアバター"
-                      width={32}
-                      height={32}
-                      className="rounded-full object-cover w-full h-full"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-white/20 rounded-full flex items-center justify-center">
-                      <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                    </div>
-                  )}
-                </div>
-                <span className="text-white text-sm font-medium hidden sm:inline">
-                  {userProfile?.user_name || user.email?.split("@")[0] || "ユーザー"}
-                </span>
-              </div>
-              <Button
-                variant="outline"
-                className="bg-white text-violet-600 border-violet-600 hover:bg-violet-100 hover:text-violet-700 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2"
-                onClick={handleSignOut}
-              >
-                ログアウト
-              </Button>
-            </div>
+            // ログイン済みユーザー - ユーザー名とアバター、ログアウトドロップダウン
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5 hover:bg-white/20 transition-colors duration-200 cursor-pointer"
+                  aria-label="ユーザーメニューを開く"
+                >
+                  <div className="relative w-6 h-6 sm:w-8 sm:h-8">
+                    {userProfile?.avatar_url ? (
+                      <Image
+                        src={userProfile.avatar_url || "/placeholder.svg"}
+                        alt="ユーザーアバター"
+                        width={32}
+                        height={32}
+                        className="rounded-full object-cover w-full h-full"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-white/20 rounded-full flex items-center justify-center">
+                        <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-white text-sm font-medium hidden sm:inline">
+                    {userProfile?.user_name || user.email?.split("@")[0] || "ユーザー"}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+                  ログアウト
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             // 未ログインユーザー
             <>
