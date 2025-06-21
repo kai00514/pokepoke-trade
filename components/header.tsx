@@ -2,20 +2,14 @@ import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
+import NotificationDropdown from "./notification-dropdown"
 
 export default function Header() {
   return (
     <header className="bg-violet-500 text-white shadow-md">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-center">
-          {/* Ensuring the correct logo path and dimensions */}
-          <Image
-            src="/pokelink-logo.png"
-            alt="PokeLink ロゴ"
-            width={160} // Adjusted width for better visual balance
-            height={40}
-            className="object-contain h-10" // Ensure height consistency
-          />
+          <Image src="/pokelink-logo.png" alt="PokeLink ロゴ" width={160} height={40} className="object-contain h-10" />
         </Link>
         <div className="flex items-center gap-2 sm:gap-3">
           <Button
@@ -27,6 +21,10 @@ export default function Header() {
             <Plus className="h-5 w-5 sm:h-6 sm:w-6" />
             <span className="sr-only">新規投稿作成</span>
           </Button>
+
+          {/* 通知ドロップダウン */}
+          <NotificationDropdown />
+
           <Link href="/auth/signup">
             <Button
               variant="default"
