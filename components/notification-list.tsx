@@ -26,7 +26,7 @@ export default function NotificationList({ notifications, onNotificationRead }: 
   const handleMarkAsRead = async (notification: Notification) => {
     if (notification.is_read) return
 
-    const result = await markNotificationAsRead(notification.id, notification.category)
+    const result = await markNotificationAsRead(notification.id, notification.source)
     if (result.success) {
       setLocalNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n)))
       onNotificationRead?.(notification.id)
@@ -41,7 +41,7 @@ export default function NotificationList({ notifications, onNotificationRead }: 
   }
 
   const getNotificationLink = (notification: Notification) => {
-    if (notification.category === "trade") {
+    if (notification.source === "trade") {
       return `/trades/${notification.related_id}`
     } else {
       return `/content/${notification.related_id}`
@@ -79,7 +79,7 @@ export default function NotificationList({ notifications, onNotificationRead }: 
             <div className="flex items-start gap-3">
               <div
                 className={`p-2 rounded-full ${
-                  notification.category === "trade" ? "bg-green-100 text-green-600" : "bg-purple-100 text-purple-600"
+                  notification.source === "trade" ? "bg-green-100 text-green-600" : "bg-purple-100 text-purple-600"
                 }`}
               >
                 {getNotificationIcon(notification.type)}
@@ -88,14 +88,14 @@ export default function NotificationList({ notifications, onNotificationRead }: 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <Badge
-                    variant={notification.category === "trade" ? "default" : "secondary"}
+                    variant={notification.source === "trade" ? "default" : "secondary"}
                     className={
-                      notification.category === "trade"
+                      notification.source === "trade"
                         ? "bg-green-100 text-green-800 hover:bg-green-200"
                         : "bg-purple-100 text-purple-800 hover:bg-purple-200"
                     }
                   >
-                    {notification.category === "trade" ? "トレード" : "デッキ"}
+                    {notification.source === "trade" ? "トレード" : "デッキ"}
                   </Badge>
                   {!notification.is_read && (
                     <Badge variant="destructive" className="text-xs">
