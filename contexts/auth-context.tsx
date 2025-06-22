@@ -1,17 +1,22 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useEffect, useState, useCallback } from "react"
-import { createClient } from "@/lib/supabase/client"
+import { createContext, useContext, useEffect, useState, useCallback } from "react" // useCallback をインポート
 import type { User } from "@supabase/supabase-js"
-import { getUserProfile, type UserProfile, getDisplayName } from "@/lib/services/user-service"
+import { createClient } from "@/lib/supabase/client"
+import { getUserProfile } from "@/lib/services/user-service"
+
+interface UserProfile {
+  id: string
+  user_name: string | null
+  avatar_url: string | null
+}
 
 interface AuthContextType {
   user: User | null
   userProfile: UserProfile | null
   loading: boolean
-  displayName: string
-  refreshUserProfile: () => Promise<void>
+  signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -20,87 +25,113 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [displayName, setDisplayName] = useState<string>("ゲスト")
-
   const supabase = createClient()
 
-  const fetchUserProfile = useCallback(
-    async (userId: string) => {
-      const { success, profile } = await getUserProfile(userId)
-      if (success) {
-        setUserProfile(profile)
-        setDisplayName(getDisplayName(user, profile)) // userProfileが更新されたらdisplayNameも更新
-      } else {
-        setUserProfile(null)
-        setDisplayName(getDisplayName(user, null))
-      }
-    },
-    [user],
-  ) // userが変更されたらfetchUserProfileも再生成
-
-  const refreshUserProfile = useCallback(async () => {
-    if (user?.id) {
-      await fetchUserProfile(user.id)
-    }
-  }, [user, fetchUserProfile])
-
-  useEffect(() => {
-    const getSession = async () => {
-      console.log("🚀 Getting initial auth session...")
+  // ユーザーとプロフィールをフェッチする共通関数
+  const fetchUserAndProfile = useCallback(async () => {
+    console.log("🔄 fetchUserAndProfile called...")
+    setLoading(true)
+    try {
       const {
         data: { session },
-        error,
+        error: sessionError,
       } = await supabase.auth.getSession()
 
-      if (error) {
-        console.error("Error getting session:", error)
-      }
-
-      setUser(session?.user || null)
-      if (session?.user) {
-        console.log("🔄 Auth state change: SIGNED_IN logged in")
-        await fetchUserProfile(session.user.id)
-      } else {
-        console.log("🔄 Auth state change: SIGNED_OUT logged out")
+      if (sessionError) {
+        console.error("❌ Error getting session in fetchUserAndProfile:", sessionError)
+        setUser(null)
         setUserProfile(null)
-        setDisplayName("ゲスト")
+      } else {
+        const currentUser = session?.user ?? null
+        setUser(currentUser)
+        console.log("✅ User set:", currentUser ? currentUser.id : "null")
+
+        if (currentUser) {
+          const profileResult = await getUserProfile(currentUser.id)
+          if (profileResult.success && profileResult.profile) {
+            setUserProfile(profileResult.profile)
+            console.log("✅ User profile set:", profileResult.profile.user_name)
+          } else {
+            console.warn("⚠️ User profile not found or error in fetchUserAndProfile:", profileResult.error)
+            setUserProfile(null)
+          }
+        } else {
+          setUserProfile(null)
+          console.log("ℹ️ No current user, userProfile cleared.")
+        }
       }
+    } catch (err) {
+      console.error("❌ Unexpected error in fetchUserAndProfile:", err)
+      setUser(null)
+      setUserProfile(null)
+    } finally {
       setLoading(false)
-      console.log("✅ Initial session loaded:", session?.user ? "logged in" : "logged out")
+      console.log("✅ fetchUserAndProfile finished. Loading:", false)
     }
+  }, [supabase]) // supabase を依存配列に追加
 
-    getSession()
+  useEffect(() => {
+    // 初期セッションの取得
+    fetchUserAndProfile()
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("🔄 Auth state change:", event, session?.user ? "logged in" : "logged out")
-      setUser(session?.user || null)
-      if (session?.user) {
-        await fetchUserProfile(session.user.id)
-      } else {
+    // 認証状態の変更を監視
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("🔄 Auth state change detected:", event, session?.user ? "logged in" : "logged out")
+      // SIGNED_OUT イベントの場合、即座に状態をクリアし、リダイレクト
+      if (event === "SIGNED_OUT") {
+        console.log("👋 SIGNED_OUT event received. Clearing user state and redirecting.")
+        setUser(null)
         setUserProfile(null)
-        setDisplayName("ゲスト")
+        setLoading(false) // ローディングを解除
+        window.location.href = "/" // トップページにリダイレクト
+        return // 以降の処理は不要
       }
-      setLoading(false)
+      // その他のイベント（SIGNED_IN, USER_UPDATEDなど）の場合は再フェッチ
+      fetchUserAndProfile()
     })
 
     return () => {
-      authListener?.unsubscribe()
+      console.log("🧹 Cleaning up auth subscription")
+      subscription.unsubscribe()
     }
-  }, [supabase, fetchUserProfile, user]) // userを依存配列に追加
+  }, [supabase.auth, fetchUserAndProfile]) // fetchUserAndProfile を依存配列に追加
 
-  // userまたはuserProfileが変更されたらdisplayNameを再計算
+  const signOut = useCallback(async () => {
+    console.log("👋 Attempting to sign out...")
+    setLoading(true)
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.error("❌ Supabase signOut error:", error)
+        throw error
+      }
+      console.log("✅ Supabase signOut successful. Forcing state refresh and redirect.")
+      // SupabaseのsignOutが成功したら、明示的に状態をリフレッシュし、リダイレクト
+      setUser(null)
+      setUserProfile(null)
+      setLoading(false)
+      window.location.href = "/" // トップページにリダイレクト
+    } catch (error) {
+      console.error("❌ Error during signOut process:", error)
+      setLoading(false) // エラー時もローディングを解除
+    }
+  }, [supabase]) // supabase を依存配列に追加
+
+  // デバッグ情報をコンソールに出力
   useEffect(() => {
-    setDisplayName(getDisplayName(user, userProfile))
-  }, [user, userProfile])
+    console.log("🔍 Auth Context State (Render):", {
+      user: user ? { id: user.id, email: user.email } : null,
+      userProfile,
+      loading,
+    })
+  }, [user, userProfile, loading])
 
-  return (
-    <AuthContext.Provider value={{ user, userProfile, loading, displayName, refreshUserProfile }}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={{ user, userProfile, loading, signOut }}>{children}</AuthContext.Provider>
 }
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider")
