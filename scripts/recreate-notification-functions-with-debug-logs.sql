@@ -1,6 +1,10 @@
+-- 既存の関数を削除
+DROP FUNCTION IF EXISTS create_trade_comment_notification(UUID, TEXT, TEXT);
+DROP FUNCTION IF EXISTS create_deck_comment_notification(UUID, TEXT, TEXT);
+
 -- トレード投稿のコメント通知を作成する関数 (デバッグログ追加版)
 CREATE OR REPLACE FUNCTION create_trade_comment_notification(
-  p_post_id UUID,
+  p_post_id UUID, -- 引数名を元の p_post_id に戻します
   p_commenter_user_id TEXT,
   p_commenter_name TEXT
 )
@@ -62,7 +66,7 @@ $$;
 -- デッキ投稿のコメント通知を作成する関数 (デバッグログ追加版)
 CREATE OR REPLACE FUNCTION create_deck_comment_notification(
   p_deck_id UUID,
-  p_commenter_user_id TEXT,
+  p_commenter_user_id TEXT, -- deck_comments.user_id が TEXT 型のため、ここも TEXT に合わせます
   p_commenter_name TEXT
 )
 RETURNS void

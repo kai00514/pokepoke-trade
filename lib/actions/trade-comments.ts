@@ -16,6 +16,10 @@ export async function addComment(
 ) {
   try {
     console.log("[addComment] Starting with params:", { postId, content, userId, userName, isGuest })
+    console.log("[addComment] Received userId:", userId)
+    console.log("[addComment] Received userName:", userName)
+    console.log("[addComment] Received isGuest:", isGuest)
+    console.log("[addComment] Received guestId:", guestId)
 
     const commentData = {
       trade_id: postId,
@@ -37,8 +41,12 @@ export async function addComment(
 
     if (insertError) {
       console.error("[addComment] Insert error:", insertError)
+      console.error("[addComment] Insert error details:", insertError.details)
+      console.error("[addComment] Insert error hint:", insertError.hint)
+      console.error("[addComment] Insert error code:", insertError.code)
       return { success: false, error: insertError.message }
     }
+    console.log("[addComment] Comment inserted successfully. Data:", comment)
 
     console.log("[addComment] Comment inserted successfully:", comment)
 
