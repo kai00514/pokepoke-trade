@@ -1,7 +1,7 @@
 -- deck_comments テーブルを作成（is_deletedカラムを削除）
 CREATE TABLE IF NOT EXISTS deck_comments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  deck_id UUID NOT NULL,
+  deck_id UUID NOT NULL REFERENCES deck_pages(id), -- ここを修正しました！
   user_id UUID REFERENCES auth.users(id),
   user_name TEXT,
   content TEXT NOT NULL,

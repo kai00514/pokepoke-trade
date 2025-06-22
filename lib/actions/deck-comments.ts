@@ -6,6 +6,7 @@ export async function addDeckComment(
   userId?: string,
   userName?: string,
   isGuest?: boolean,
+  commentType: "deck" | "deck_page" = "deck",
 ) {
   try {
     console.log("🗄️ [addDeckComment] Starting with params:", {
@@ -14,6 +15,7 @@ export async function addDeckComment(
       userId,
       userName,
       isGuest,
+      commentType,
     })
 
     const supabase = await createServerClient()
@@ -24,12 +26,10 @@ export async function addDeckComment(
     let finalUserId = null
 
     if (isGuest || !userId) {
-      // ゲストユーザーの場合
       finalUserName = "ゲスト"
       finalUserId = null
       console.log("🗄️ [addDeckComment] Guest user detected")
     } else {
-      // 認証済みユーザーの場合
       finalUserName = userName && userName.trim() ? userName.trim() : "匿名ユーザー"
       finalUserId = userId
       console.log("🗄️ [addDeckComment] Authenticated user detected")
@@ -39,13 +39,26 @@ export async function addDeckComment(
       finalUserName,
       finalUserId,
       isGuest: isGuest || !userId,
+      commentType,
     })
+
+    // コメントタイプに基づいてデッキの存在確認
+    const validationResult = await validateDeckExists(supabase, deckId, commentType)
+    if (!validationResult.exists) {
+      console.error("❌ [addDeckComment] Deck validation failed:", {
+        deckId,
+        commentType,
+        error: validationResult.error,
+      })
+      return { success: false, error: `指定されたデッキが見つかりません: ${validationResult.error}` }
+    }
 
     const insertData = {
       deck_id: deckId,
       content: content.trim(),
       user_id: finalUserId,
       user_name: finalUserName,
+      comment_type: commentType,
     }
 
     console.log("🗄️ [addDeckComment] Insert data prepared:", {
@@ -53,6 +66,7 @@ export async function addDeckComment(
       content: insertData.content.substring(0, 50) + "...",
       user_id: insertData.user_id,
       user_name: insertData.user_name,
+      comment_type: insertData.comment_type,
     })
 
     const { data, error } = await supabase.from("deck_comments").insert(insertData).select().single()
@@ -72,20 +86,9 @@ export async function addDeckComment(
       deck_id: data.deck_id,
       user_id: data.user_id,
       user_name: data.user_name,
+      comment_type: data.comment_type,
       content_length: data.content?.length,
     })
-
-    // コメント数 (comment_count) をインクリメント
-    const { error: countError } = await supabase.rpc("increment_deck_comments_count", {
-      deck_id_input: deckId,
-    })
-
-    if (countError) {
-      console.error("❌ [addDeckComment] Failed to increment comment count:", countError)
-      // コメント自体は成功しているので、エラーを返さずにログに記録する
-    } else {
-      console.log("✅ [addDeckComment] Comment count incremented successfully for deck:", deckId)
-    }
 
     return { success: true, comment: data }
   } catch (error) {
@@ -94,18 +97,55 @@ export async function addDeckComment(
   }
 }
 
-export async function getDeckComments(deckId: string) {
+// デッキの存在確認関数
+async function validateDeckExists(supabase: any, deckId: string, commentType: "deck" | "deck_page") {
   try {
-    console.log("🗄️ [getDeckComments] Starting with deckId:", deckId)
+    if (commentType === "deck") {
+      console.log("🔍 [validateDeckExists] Checking decks table for ID:", deckId)
+      const { data, error } = await supabase.from("decks").select("id").eq("id", deckId).single()
+
+      if (error || !data) {
+        console.log("❌ [validateDeckExists] decks validation failed:", { deckId, error })
+        return { exists: false, error: `decks テーブルにID ${deckId} が見つかりません` }
+      }
+      console.log("✅ [validateDeckExists] decks validation successful:", deckId)
+    } else if (commentType === "deck_page") {
+      console.log("🔍 [validateDeckExists] Checking deck_pages table for ID:", deckId)
+      const { data, error } = await supabase.from("deck_pages").select("id").eq("id", deckId).single()
+
+      if (error || !data) {
+        console.log("❌ [validateDeckExists] deck_pages validation failed:", { deckId, error })
+        return { exists: false, error: `deck_pages テーブルにID ${deckId} が見つかりません` }
+      }
+      console.log("✅ [validateDeckExists] deck_pages validation successful:", deckId)
+    }
+
+    return { exists: true }
+  } catch (error) {
+    console.error("❌ [validateDeckExists] Validation error:", error)
+    return { exists: false, error: `検証エラー: ${error}` }
+  }
+}
+
+export async function getDeckComments(deckId: string, commentType?: "deck" | "deck_page") {
+  try {
+    console.log("🗄️ [getDeckComments] Starting with deckId:", deckId, "commentType:", commentType)
 
     const supabase = await createServerClient()
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("deck_comments")
       .select("*")
       .eq("deck_id", deckId)
       .is("parent_id", null)
       .order("created_at", { ascending: true })
+
+    // コメントタイプが指定されている場合はフィルタリング
+    if (commentType) {
+      query = query.eq("comment_type", commentType)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       console.error("❌ [getDeckComments] Database error:", {
@@ -118,10 +158,12 @@ export async function getDeckComments(deckId: string) {
 
     console.log("✅ [getDeckComments] Comments fetched successfully:", {
       count: data?.length || 0,
+      commentType,
       sample: data?.slice(0, 2).map((comment) => ({
         id: comment.id,
         user_id: comment.user_id,
         user_name: comment.user_name,
+        comment_type: comment.comment_type,
         content_preview: comment.content?.substring(0, 30) + "...",
       })),
     })

@@ -473,7 +473,7 @@ export default function PokemonDeckPage() {
 
         {/* Comments Section - DeckCommentsコンポーネントに置き換え */}
         <Card className="mb-8" id="comments">
-          <DeckComments deckId={deckData.id} deckTitle={deckData.title} />
+          <DeckComments deckId={deckData.id} deckTitle={deckData.title} commentType="deck_page" />
         </Card>
       </div>
 

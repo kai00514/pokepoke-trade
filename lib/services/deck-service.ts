@@ -7,7 +7,7 @@ export interface DeckWithCards {
   title: string
   description?: string
   user_id: string
-  user_display_name?: string // このプロパティはauth.usersテーブルから取得されます
+  user_display_name?: string
   is_public: boolean
   tags?: string[]
   thumbnail_card_id?: number
@@ -33,8 +33,11 @@ export async function getDeckById(deckId: string): Promise<{
   error: string | null
 }> {
   console.log("🔍 getDeckById called with deckId:", deckId)
+
   try {
-    const { data, error } = await supabase
+    // まず decks テーブルを確認
+    console.log("🔍 Checking decks table first...")
+    const { data: deckData, error: deckError } = await supabase
       .from("decks")
       .select(`
         id,
@@ -58,36 +61,84 @@ export async function getDeckById(deckId: string): Promise<{
       .eq("id", deckId)
       .single()
 
-    console.log("🔍 getDeckById supabase response:", { data, error })
+    if (deckData && !deckError) {
+      console.log("✅ Found in decks table")
 
-    if (error) {
-      console.error("🔍 getDeckById error:", error)
-      return { data: null, error: error.message }
-    }
+      // ユーザー表示名を取得
+      let userDisplayName: string | null = null
+      if (deckData.user_id) {
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("raw_user_meta_data")
+          .eq("id", deckData.user_id)
+          .single()
 
-    let userDisplayName: string | null = null
-    if (data?.user_id) {
-      const { data: userData, error: userError } = await supabase
-        .from("users") // auth.usersテーブルを直接参照
-        .select("raw_user_meta_data")
-        .eq("id", data.user_id)
-        .single()
-
-      if (userError) {
-        console.error("🔍 Error fetching user data for deck:", userError)
-      } else if (userData?.raw_user_meta_data) {
-        userDisplayName = (userData.raw_user_meta_data as any).user_name || null
+        if (!userError && userData?.raw_user_meta_data) {
+          userDisplayName = (userData.raw_user_meta_data as any).user_name || null
+        }
       }
+
+      const result: DeckWithCards = {
+        ...deckData,
+        user_display_name: userDisplayName,
+        is_deck_page: false,
+      } as DeckWithCards
+
+      console.log("🔍 getDeckById success from decks table, comment_count:", result.comment_count)
+      return { data: result, error: null }
     }
 
-    const deckData: DeckWithCards = {
-      ...data,
-      user_display_name: userDisplayName,
-    } as DeckWithCards
+    // decks テーブルにない場合は deck_pages テーブルを確認
+    console.log("🔍 Not found in decks table, checking deck_pages table...")
+    const { data: deckPageData, error: deckPageError } = await supabase
+      .from("deck_pages")
+      .select(`
+        id,
+        title,
+        deck_name,
+        thumbnail_image_url,
+        updated_at,
+        tier_rank,
+        view_count,
+        like_count,
+        comment_count,
+        favorite_count
+      `)
+      .eq("id", deckId)
+      .single()
 
-    console.log("🔍 getDeckById success, comment_count:", deckData.comment_count)
-    console.log("🔍 getDeckById success, returning data:", deckData)
-    return { data: deckData, error: null }
+    if (deckPageData && !deckPageError) {
+      console.log("✅ Found in deck_pages table")
+
+      const result: DeckWithCards = {
+        id: deckPageData.id,
+        title: deckPageData.title || deckPageData.deck_name || "無題のデッキ",
+        description: null,
+        user_id: "", // deck_pagesにはuser_idがない
+        user_display_name: null,
+        is_public: true,
+        tags: [],
+        thumbnail_card_id: null,
+        created_at: deckPageData.updated_at,
+        updated_at: deckPageData.updated_at,
+        like_count: deckPageData.like_count || 0,
+        favorite_count: deckPageData.favorite_count || 0,
+        view_count: deckPageData.view_count || 0,
+        comment_count: deckPageData.comment_count || 0,
+        deck_cards: [],
+        is_deck_page: true,
+        deck_name: deckPageData.deck_name,
+        thumbnail_image_url: deckPageData.thumbnail_image_url,
+        tier_rank: deckPageData.tier_rank,
+      }
+
+      console.log("🔍 getDeckById success from deck_pages table, comment_count:", result.comment_count)
+      return { data: result, error: null }
+    }
+
+    // どちらのテーブルにも見つからない場合
+    console.log("❌ Deck not found in either table")
+    return { data: null, error: "デッキが見つかりません" }
   } catch (err) {
     console.error("🔍 getDeckById exception:", err)
     return { data: null, error: err instanceof Error ? err.message : "Unknown error" }
@@ -96,7 +147,6 @@ export async function getDeckById(deckId: string): Promise<{
 
 export async function likeDeck(id: string, isDeckPage = false): Promise<{ error: string | null }> {
   console.log("👍 likeDeck called with id:", id, "isDeckPage:", isDeckPage)
-  console.log("👍 Supabase client:", supabase)
 
   try {
     let rpcError: any = null
@@ -129,7 +179,6 @@ export async function likeDeck(id: string, isDeckPage = false): Promise<{ error:
 
 export async function unlikeDeck(id: string, isDeckPage = false): Promise<{ error: string | null }> {
   console.log("👎 unlikeDeck called with id:", id, "isDeckPage:", isDeckPage)
-  console.log("👎 Supabase client:", supabase)
 
   try {
     let rpcError: any = null
@@ -166,7 +215,6 @@ export async function favoriteDeck(
   isDeckPage: boolean,
 ): Promise<{ error: string | null }> {
   console.log("⭐ favoriteDeck called with id:", id, "category:", category, "isDeckPage:", isDeckPage)
-  console.log("⭐ Supabase client:", supabase)
 
   try {
     const {
@@ -180,7 +228,6 @@ export async function favoriteDeck(
 
     let insertError: any = null
     if (isDeckPage) {
-      // deck_favoritesテーブルにdeck_page_idで挿入
       const { error } = await supabase.from("deck_favorites").insert({
         user_id: user.id,
         deck_page_id: id,
@@ -188,7 +235,6 @@ export async function favoriteDeck(
       })
       insertError = error
     } else {
-      // deck_favoritesテーブルにdeck_idで挿入
       const { error } = await supabase.from("deck_favorites").insert({
         user_id: user.id,
         deck_id: id,
@@ -200,13 +246,12 @@ export async function favoriteDeck(
     if (insertError) {
       if (insertError.code === "23505") {
         console.warn("⭐ Deck already favorited by this user:", id)
-        return { error: null } // 既に存在する場合はエラーとしない
+        return { error: null }
       }
       console.error("⭐ Insert into deck_favorites error:", insertError)
       return { error: insertError.message }
     }
 
-    // RPCを呼び出してカウントを更新
     let rpcError: any = null
     if (isDeckPage) {
       console.log("⭐ Calling supabase.rpc('increment_deck_page_favorites') for deck_page")
@@ -237,7 +282,6 @@ export async function favoriteDeck(
 
 export async function unfavoriteDeck(id: string, isDeckPage: boolean): Promise<{ error: string | null }> {
   console.log("⭐❌ unfavoriteDeck called with id:", id, "isDeckPage:", isDeckPage)
-  console.log("⭐❌ Supabase client:", supabase)
 
   try {
     const {
@@ -251,11 +295,9 @@ export async function unfavoriteDeck(id: string, isDeckPage: boolean): Promise<{
 
     let deleteError: any = null
     if (isDeckPage) {
-      // deck_favoritesテーブルからdeck_page_idで削除
       const { error } = await supabase.from("deck_favorites").delete().eq("user_id", user.id).eq("deck_page_id", id)
       deleteError = error
     } else {
-      // deck_favoritesテーブルからdeck_idで削除
       const { error } = await supabase.from("deck_favorites").delete().eq("user_id", user.id).eq("deck_id", id)
       deleteError = error
     }
@@ -265,7 +307,6 @@ export async function unfavoriteDeck(id: string, isDeckPage: boolean): Promise<{
       return { error: deleteError.message }
     }
 
-    // RPCを呼び出してカウントを更新
     let rpcError: any = null
     if (isDeckPage) {
       console.log("⭐❌ Calling supabase.rpc('decrement_deck_page_favorites') for deck_page")
@@ -421,7 +462,6 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
       allDecksMap.set(d.id, {
         ...d,
         is_deck_page: false,
-        // deck_pagesにないプロパティをnullで初期化
         deck_name: null,
         thumbnail_image_url: null,
         tier_rank: null,
@@ -429,23 +469,23 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
     )
     deckPagesData.forEach((dp) =>
       allDecksMap.set(dp.id, {
-        id: dp.id, // UUIDのまま
+        id: dp.id,
         title: dp.title || dp.deck_name || "無題のデッキ",
-        description: null, // deck_pagesにはdescriptionがないため
-        user_id: null, // deck_pagesにはuser_idがないため
-        is_public: true, // deck_pagesは公開を前提
-        tags: [], // deck_pagesにはtagsがないため
-        thumbnail_card_id: null, // deck_pagesにはthumbnail_card_idがないため
-        created_at: dp.updated_at, // deck_pagesにはcreated_atがないためupdated_atを使用
+        description: null,
+        user_id: null,
+        is_public: true,
+        tags: [],
+        thumbnail_card_id: null,
+        created_at: dp.updated_at,
         updated_at: dp.updated_at,
         like_count: dp.like_count || 0,
         favorite_count: dp.favorite_count || 0,
         view_count: dp.view_count || 0,
         comment_count: dp.comment_count || 0,
-        deck_cards: [], // deck_pagesにはdeck_cardsがないため
+        deck_cards: [],
         thumbnail_image: dp.thumbnail_image_url
           ? {
-              id: 0, // ダミーID
+              id: 0,
               name: dp.deck_name || dp.title || "無題のデッキ",
               image_url: dp.thumbnail_image_url,
               thumb_url: dp.thumbnail_image_url,
@@ -458,7 +498,6 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
       }),
     )
 
-    // Reconstruct the list in the original favorite order
     const formattedDecks: DeckWithCards[] = []
     const userIdsToFetch: string[] = []
 
@@ -468,8 +507,8 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
         const deck = allDecksMap.get(deckId)
         formattedDecks.push({
           ...deck,
-          source_tab: "お気に入り", // Ensure this is set for favorites page
-          category: entry.category, // Use category from favorite entry
+          source_tab: "お気に入り",
+          category: entry.category,
         })
         if (deck.user_id && !userIdsToFetch.includes(deck.user_id)) {
           userIdsToFetch.push(deck.user_id)
@@ -477,7 +516,6 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
       }
     }
 
-    // Fetch user display names
     const userDisplayNames: { [key: string]: string } = {}
     if (userIdsToFetch.length > 0) {
       const { data: usersData, error: usersError } = await supabase
@@ -496,7 +534,6 @@ export async function getFavoriteDecks(): Promise<{ data: DeckWithCards[]; error
       }
     }
 
-    // Add user_display_name to formattedDecks
     const finalFormattedDecks = formattedDecks.map((deck) => ({
       ...deck,
       user_display_name: deck.user_id ? userDisplayNames[deck.user_id] : null,

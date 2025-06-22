@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
-import { Heart, StarIcon, ArrowLeft, User, Calendar, MessageCircle, Loader2 } from "lucide-react"
+import { Heart, StarIcon, ArrowLeft, User, Calendar, MessageCircle, Loader2 } from 'lucide-react'
 import { useAuth } from "@/contexts/auth-context"
 import { getDeckById, likeDeck, unlikeDeck, favoriteDeck, unfavoriteDeck } from "@/lib/services/deck-service"
 import { fetchCardDetailsByIds } from "@/lib/card-api"
@@ -434,7 +434,7 @@ export default function DeckDetailPage() {
             </div>
 
             <div className="mt-6">
-              <DeckComments deckId={id} deckTitle={deck.title} />
+              <DeckComments deckId={id} deckTitle={deck.title} commentType="deck" />
             </div>
           </main>
           <div className="fixed bottom-0 left-0 right-0 z-50">

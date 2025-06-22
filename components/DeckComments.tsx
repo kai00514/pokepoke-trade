@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Send, UserCircle } from "lucide-react"
+import { Send, UserCircle } from 'lucide-react'
 import { useToast } from "@/components/ui/use-toast"
 import { createBrowserClient } from "@/lib/supabase/client"
 import LoginPromptModal from "@/components/ui/login-prompt-modal"
@@ -22,9 +22,10 @@ interface Comment {
 interface DeckCommentsProps {
   deckId: string
   deckTitle: string
+  commentType?: "deck" | "deck_page" // オプショナルに変更
 }
 
-export default function DeckComments({ deckId, deckTitle }: DeckCommentsProps) {
+export default function DeckComments({ deckId, deckTitle, commentType = "deck" }: DeckCommentsProps) {
   const { user, loading } = useAuth()
   const { toast } = useToast()
   const [comments, setComments] = useState<Comment[]>([])
@@ -89,10 +90,10 @@ export default function DeckComments({ deckId, deckTitle }: DeckCommentsProps) {
 
   const fetchComments = useCallback(async () => {
     if (!deckId) return
-    console.log("📥 [DeckComments] Fetching comments for deckId:", deckId)
+    console.log("📥 [DeckComments] Fetching comments for deckId:", deckId, "commentType:", commentType)
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/deck-comments?deckId=${deckId}`)
+      const response = await fetch(`/api/deck-comments?deckId=${deckId}&commentType=${commentType}`)
       const data = await response.json()
 
       console.log("📥 [DeckComments] Fetch response:", {
@@ -131,7 +132,7 @@ export default function DeckComments({ deckId, deckTitle }: DeckCommentsProps) {
     } finally {
       setIsLoading(false)
     }
-  }, [deckId, toast])
+  }, [deckId, commentType, toast])
 
   useEffect(() => {
     fetchComments()
@@ -164,6 +165,7 @@ export default function DeckComments({ deckId, deckTitle }: DeckCommentsProps) {
         isActualGuestUser,
         userEmail: currentUser?.email,
         displayName: currentUser?.user_metadata?.display_name,
+        commentType,
       })
 
       // user_nameの決定
@@ -198,6 +200,7 @@ export default function DeckComments({ deckId, deckTitle }: DeckCommentsProps) {
           userId: isActualGuestUser ? null : currentUser?.id, // ゲストの場合はnull
           userName: userName,
           isGuest: isActualGuestUser,
+          commentType: commentType || "deck", // デフォルト値を明示的に設定
         }
 
         console.log("📤 [DeckComments] Sending payload:", {
@@ -206,6 +209,7 @@ export default function DeckComments({ deckId, deckTitle }: DeckCommentsProps) {
           userId: payload.userId,
           userName: payload.userName,
           isGuest: payload.isGuest,
+          commentType: payload.commentType,
         })
 
         const response = await fetch("/api/deck-comments", {
@@ -263,7 +267,7 @@ export default function DeckComments({ deckId, deckTitle }: DeckCommentsProps) {
         })
       }
     },
-    [newComment, deckId, toast, supabase.auth],
+    [newComment, deckId, commentType, toast, supabase.auth],
   )
 
   const handleCommentSubmitClick = useCallback(async () => {
@@ -352,8 +356,7 @@ export default function DeckComments({ deckId, deckTitle }: DeckCommentsProps) {
       <div className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50 rounded-b-lg">
         {/* ユーザー状態の表示 */}
         <div className="mb-3 text-sm text-gray-600">
-          {isAuthenticated ? <span>ログイン中: {user?.user_metadata?.display_name || user?.email}</span> : null}{" "}
-          {/* 修正箇所: else部分を追加 */}
+          {isAuthenticated ? <span>ログイン中: {user?.user_metadata?.display_name || user?.email}</span> : null}
         </div>
         <div className="flex items-center space-x-2">
           <Input
@@ -387,9 +390,9 @@ export default function DeckComments({ deckId, deckTitle }: DeckCommentsProps) {
             <div>認証状態: {isAuthenticated ? "ログイン済み" : "ゲスト"}</div>
             <div>useAuth user: {user ? "あり" : "なし"}</div>
             <div>useAuth loading: {loading ? "読み込み中" : "完了"}</div>
+            <div>コメントタイプ: {commentType}</div>
           </div>
-        )}{" "}
-        {/* 修正箇所: 閉じタグを修正 */}
+        )}
       </div>
       {/* Login Prompt Modal */}
       {showLoginPrompt && (
