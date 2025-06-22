@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import AuthHeader from "@/components/auth-header"
+import Header from "@/components/layout/header"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -565,7 +565,7 @@ export default function CreateDeckPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-purple-50 to-purple-100">
-      <AuthHeader />
+      <Header />
 
       {/* Desktop Layout */}
       <div className="hidden lg:block">

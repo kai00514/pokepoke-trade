@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import AuthHeader from "@/components/auth-header"
+import Header from "@/components/layout/header"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -205,18 +205,21 @@ export default function TradeDetailPage() {
     fetchPostDetails()
   }, [fetchPostDetails])
 
-  const generateOptimisticComment = useCallback((user: any, isAuthenticated: boolean, commentText: string) => {
-    const displayName = user?.user_metadata?.display_name || user?.email || "ユーザー"
-    const avatarUrl = user?.user_metadata?.avatar_url
+  const generateOptimisticComment = useCallback(
+    (user: any, isAuthenticated: boolean) => {
+      const displayName = user?.user_metadata?.display_name || user?.email || "ユーザー"
+      const avatarUrl = user?.user_metadata?.avatar_url
 
-    return {
-      id: `temp-${Date.now()}`,
-      author: isAuthenticated ? displayName : "ゲスト",
-      avatar: isAuthenticated ? avatarUrl : null,
-      text: commentText,
-      timestamp: "たった今",
-    }
-  }, [])
+      return (commentText: string) => ({
+        id: `temp-${Date.now()}`,
+        author: isAuthenticated ? displayName : "ゲスト",
+        avatar: isAuthenticated ? avatarUrl : null,
+        text: commentText,
+        timestamp: "たった今",
+      })
+    },
+    [user],
+  )
 
   const handleCommentSubmit = useCallback(async () => {
     if (!newComment.trim()) {
@@ -231,7 +234,8 @@ export default function TradeDetailPage() {
     const commentText = newComment.trim()
 
     // 楽観的UI更新 - 即座にコメントを表示
-    const optimisticComment: Comment = generateOptimisticComment(user, isAuthenticated, commentText)
+    const optimisticCommentGenerator = generateOptimisticComment(user, isAuthenticated)
+    const optimisticComment: Comment = optimisticCommentGenerator(commentText)
 
     // 即座にコメントを画面に追加
     setPost((prev) =>
@@ -315,7 +319,7 @@ export default function TradeDetailPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col min-h-screen">
-        <AuthHeader />
+        <Header />
         <main className="flex-grow container mx-auto px-4 py-8 flex justify-center items-center">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-600"></div>
         </main>
@@ -327,7 +331,7 @@ export default function TradeDetailPage() {
   if (!post) {
     return (
       <div className="flex flex-col min-h-screen">
-        <AuthHeader />
+        <Header />
         <main className="flex-grow container mx-auto px-4 py-8 text-center">
           <h1 className="text-2xl font-bold mb-4">投稿が見つかりません</h1>
           <Button onClick={() => router.push("/")}>タイムラインに戻る</Button>
@@ -363,7 +367,7 @@ export default function TradeDetailPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <AuthHeader />
+      <Header />
       <main className="flex-grow container mx-auto px-4 py-8">
         <Link href="/" className="inline-flex items-center text-sm text-purple-600 hover:text-purple-700 mb-6 group">
           <ArrowLeft className="h-4 w-4 mr-1 transition-transform group-hover:-translate-x-1" />

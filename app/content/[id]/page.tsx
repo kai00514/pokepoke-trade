@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MessageCircle, ChevronRight, ArrowLeft } from "lucide-react"
 import Link from "next/link"
-import AuthHeader from "@/components/auth-header"
+import Header from "@/components/layout/header"
 import Footer from "@/components/footer"
 import { getDeckPageById } from "@/lib/actions/deck-posts"
 import { DeckEvaluation } from "@/components/deck-evaluation"
@@ -221,7 +221,7 @@ export default function PokemonDeckPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-purple-100">
-        <AuthHeader />
+        <Header />
         <div className="flex justify-center items-center py-20">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
@@ -236,7 +236,7 @@ export default function PokemonDeckPage() {
   if (error || !deckData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-purple-100">
-        <AuthHeader />
+        <Header />
         <div className="text-center py-20">
           <p className="text-red-500 mb-4">{error}</p>
           <Button asChild variant="outline">
@@ -269,7 +269,7 @@ export default function PokemonDeckPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <AuthHeader />
+      <Header />
 
       {/* Header */}
       <div className="bg-white shadow-sm">

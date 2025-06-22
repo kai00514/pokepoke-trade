@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useCallback, useEffect } from "react"
-import AuthHeader from "@/components/auth-header"
+import Header from "@/components/layout/header"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { PlusCircle, Users, ListChecks, BarChartBig, Zap, Star } from "lucide-react"
@@ -226,7 +226,7 @@ export default function DecksPage() {
 
   return (
     <div className="p-0 py-0">
-      <AuthHeader />
+      <Header />
       <main className="flex-grow container mx-auto px-4 pb-8">
         {/* デッキを投稿するボタンとお気に入りボタン */}
         <div className="my-6 flex justify-center items-center gap-4">
