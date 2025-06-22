@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Bell, MessageCircle, FileText, ArrowRight } from "lucide-react"
+import { Bell, MessageCircle, FileText } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { markNotificationAsRead, markAllNotificationsAsRead } from "@/lib/services/notification-service"
 import type { Notification } from "@/types/notification"
@@ -117,62 +117,62 @@ export default function NotificationList({ notifications, onNotificationRead }: 
       )}
 
       {localNotifications.map((notification) => (
-        <Card
+        <Link
           key={notification.id}
-          className={`transition-all hover:shadow-md ${
-            !notification.is_read ? "border-l-4 border-l-blue-500 bg-blue-50" : ""
-          }`}
+          href={getNotificationLink(notification)}
+          onClick={() => handleMarkAsRead(notification)}
+          className="block"
         >
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div
-                className={`p-2 rounded-full ${
-                  notification.source === "trade" ? "bg-green-100 text-green-600" : "bg-purple-100 text-purple-600"
-                }`}
-              >
-                {getNotificationIcon(notification.type)}
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <Badge
-                    variant={notification.source === "trade" ? "default" : "secondary"}
-                    className={
-                      notification.source === "trade"
-                        ? "bg-green-100 text-green-800 hover:bg-green-200"
-                        : "bg-purple-100 text-purple-800 hover:bg-purple-200"
-                    }
-                  >
-                    {notification.source === "trade" ? "トレード" : "デッキ"}
-                  </Badge>
-                  {!notification.is_read && (
-                    <Badge variant="destructive" className="text-xs">
-                      未読
-                    </Badge>
-                  )}
-                  <span className="text-xs text-gray-500 ml-auto">{formatTimeAgo(notification.created_at)}</span>
+          <Card
+            className={`transition-all hover:shadow-lg cursor-pointer border-l-4 ${
+              !notification.is_read
+                ? "border-l-blue-500 bg-blue-50 hover:bg-blue-100"
+                : "border-l-gray-300 hover:bg-gray-50"
+            }`}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div
+                  className={`p-3 rounded-full ${
+                    notification.source === "trade" ? "bg-green-100 text-green-600" : "bg-purple-100 text-purple-600"
+                  }`}
+                >
+                  {getNotificationIcon(notification.type)}
                 </div>
 
-                <p className="text-sm text-gray-800 mb-3 leading-relaxed">{notification.content}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Badge
+                      variant={notification.source === "trade" ? "default" : "secondary"}
+                      className={
+                        notification.source === "trade"
+                          ? "bg-green-100 text-green-800 hover:bg-green-200"
+                          : "bg-purple-100 text-purple-800 hover:bg-purple-200"
+                      }
+                    >
+                      {notification.source === "trade" ? "トレード" : "デッキ"}
+                    </Badge>
+                    {!notification.is_read && (
+                      <Badge variant="destructive" className="text-xs">
+                        未読
+                      </Badge>
+                    )}
+                    <span className="text-sm text-gray-500 ml-auto">{formatTimeAgo(notification.created_at)}</span>
+                  </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex gap-2">
-                    <Link href={getNotificationLink(notification)}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleMarkAsRead(notification)}
-                        className="flex items-center gap-1"
-                      >
-                        確認する
-                        <ArrowRight className="h-3 w-3" />
-                      </Button>
-                    </Link>
+                  <p className="text-base text-gray-800 leading-relaxed mb-3">{notification.content}</p>
+
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-600">クリックして詳細を確認</div>
                     {!notification.is_read && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleMarkAsRead(notification)}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleMarkAsRead(notification)
+                        }}
                         className="text-gray-600 hover:text-gray-800"
                       >
                         既読にする
@@ -181,9 +181,9 @@ export default function NotificationList({ notifications, onNotificationRead }: 
                   </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
       ))}
     </div>
   )
