@@ -6,7 +6,8 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Mail, Lock, Eye, EyeOff } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Mail, Lock, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react"
 import { GoogleIcon } from "@/components/icons/google-icon"
 import { LineIcon } from "@/components/icons/line-icon"
 import { createBrowserClient } from "@/lib/supabase/client"
@@ -22,6 +23,7 @@ export default function LoginPage() {
   const [isResettingPassword, setIsResettingPassword] = useState(false)
   const [resetEmail, setResetEmail] = useState("")
   const [showResetForm, setShowResetForm] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -94,32 +96,32 @@ export default function LoginPage() {
 
     try {
       setIsResettingPassword(true)
+
+      // 現在のドメインを取得
+      const currentDomain = window.location.origin
+      const redirectUrl = `${currentDomain}/auth/reset`
+
+      console.log("DEBUG: Sending password reset email with redirectTo:", redirectUrl) // ここにログを追加
+
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/auth/reset`,
+        redirectTo: redirectUrl,
       })
 
       if (error) {
+        console.error("DEBUG: Password reset error:", error)
         toast({
           title: "エラー",
           description: error.message,
           variant: "destructive",
         })
       } else {
-        // ポップアップ表示を追加
-        toast({
-          title: "メール送信完了",
-          description: "パスワードリセット用のリンクをメールに送信しました。メールをご確認ください。",
-          duration: 5000, // 5秒間表示
-        })
+        console.log("DEBUG: Password reset email sent successfully")
         setShowResetForm(false)
+        setShowSuccessModal(true)
         setResetEmail("")
-
-        // 追加のポップアップアラート
-        alert(
-          "パスワードリセット用のメールを送信しました。\n\nメールボックスをご確認いただき、リンクをクリックしてパスワードをリセットしてください。\n\n※メールが届かない場合は、迷惑メールフォルダもご確認ください。",
-        )
       }
     } catch (error) {
+      console.error("DEBUG: Password reset exception:", error)
       toast({
         title: "エラー",
         description: "予期しないエラーが発生しました。",
@@ -202,6 +204,7 @@ export default function LoginPage() {
         </Button>
       </form>
 
+      {/* パスワードリセットフォーム */}
       {showResetForm && (
         <div className="mt-6 p-4 border rounded-lg bg-purple-50">
           <h3 className="text-lg font-semibold text-slate-800 mb-4">パスワードリセット</h3>
@@ -243,6 +246,51 @@ export default function LoginPage() {
           </form>
         </div>
       )}
+
+      {/* 成功モーダル */}
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-green-100 rounded-full">
+              <CheckCircle className="w-6 h-6 text-green-600" />
+            </div>
+            <DialogTitle className="text-center text-xl font-semibold text-slate-800">メール送信完了</DialogTitle>
+          </DialogHeader>
+          <div className="text-center space-y-4">
+            <p className="text-slate-600">
+              パスワードリセット用のリンクを
+              <br />
+              <span className="font-semibold text-purple-600">{resetEmail}</span>
+              <br />
+              に送信しました。
+            </p>
+            <div className="bg-blue-50 p-4 rounded-lg text-left">
+              <div className="flex items-start space-x-2">
+                <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-semibold mb-1">次の手順:</p>
+                  <ol className="list-decimal list-inside space-y-1">
+                    <li>メールボックスを確認してください</li>
+                    <li>「パスワードをリセットする」ボタンをクリック</li>
+                    <li>新しいパスワードを設定してください</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500">
+              ※メールが届かない場合は、迷惑メールフォルダもご確認ください。
+              <br />
+              ※リンクの有効期限は24時間です。
+            </p>
+            <Button
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full bg-purple-500 hover:bg-purple-600 text-white"
+            >
+              確認しました
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="relative my-6">
         <div className="absolute inset-0 flex items-center">
