@@ -97,14 +97,14 @@ export default function LoginPage() {
     try {
       setIsResettingPassword(true)
 
-      // 現在のドメインを取得
       const currentDomain = window.location.origin
-      const redirectUrl = `${currentDomain}/auth/reset`
+      // URLをエンコードして確実に渡す
+      const redirectUrl = encodeURIComponent(`${currentDomain}/auth/reset`)
 
-      console.log("DEBUG: Sending password reset email with redirectTo:", redirectUrl) // ここにログを追加
+      console.log("DEBUG: Sending password reset email with redirectTo (encoded):", redirectUrl)
 
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: redirectUrl,
+        redirectTo: `${currentDomain}/auth/reset`, // ここはエンコードしない生のURLを渡す
       })
 
       if (error) {
