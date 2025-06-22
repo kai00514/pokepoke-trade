@@ -1,8 +1,8 @@
-import { createClient } from "@/lib/supabase/client" // クライアントサイドクライアントを使用
+import { createClient } from "@/lib/supabase/client"
 
 interface UserProfile {
   id: string
-  user_name: string | null
+  user_name: string | null // 計算プロパティとして維持
   avatar_url: string | null
 }
 
@@ -12,11 +12,16 @@ interface GetUserProfileResult {
   error: string | null
 }
 
-export async function getUserProfile(userId: string): Promise<GetUserUserProfileResult> {
-  const supabase = createClient() // クライアントサイドクライアントを使用
+export async function getUserProfile(userId: string): Promise<GetUserProfileResult> {
+  const supabase = createClient()
 
   try {
-    const { data, error } = await supabase.from("users").select("id, user_name, avatar_url").eq("id", userId).single()
+    // auth.users テーブルから raw_user_meta_data を取得
+    const { data, error } = await supabase
+      .from("users") // これは auth.users テーブルを指す
+      .select("id, raw_user_meta_data, avatar_url")
+      .eq("id", userId)
+      .single()
 
     if (error) {
       console.error("Error fetching user profile from DB:", error)
@@ -28,7 +33,18 @@ export async function getUserProfile(userId: string): Promise<GetUserUserProfile
       return { success: false, profile: null, error: "User profile not found" }
     }
 
-    return { success: true, profile: data, error: null }
+    // raw_user_meta_data からユーザー名を抽出
+    const rawMetaData = data.raw_user_meta_data as any
+    const user_name = rawMetaData?.display_name || rawMetaData?.full_name || rawMetaData?.name || null
+
+    // 既存のインターフェースに合わせてデータを構築
+    const profile: UserProfile = {
+      id: data.id,
+      user_name,
+      avatar_url: data.avatar_url,
+    }
+
+    return { success: true, profile, error: null }
   } catch (e) {
     console.error("Unexpected error in getUserProfile:", e)
     return { success: false, profile: null, error: (e as Error).message }
