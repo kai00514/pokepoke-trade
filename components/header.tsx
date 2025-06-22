@@ -1,160 +1,119 @@
 "use client"
 
+import type React from "react"
+
 import Link from "next/link"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Plus, Bell, User } from "lucide-react"
+import { DropdownMenuTrigger, DropdownMenuContent, DropdownMenu } from "@/components/ui/dropdown-menu"
+import {
+  BellIcon,
+  HomeIcon,
+  UserIcon,
+  LogOutIcon,
+  SettingsIcon,
+  MessageSquareIcon,
+  HeartIcon,
+  BarChartIcon,
+} from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import { useState, useEffect } from "react"
-import { getNotifications } from "@/lib/services/notification-service"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import NotificationDropdown from "./notification-dropdown"
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { LoginPrompt } from "./login-prompt" // LoginPromptをインポート
 
 export default function Header() {
-  const { user, userProfile, loading, signOut } = useAuth() // loading ステートは引き続き使用しますが、表示ロジックからは削除します
-  const [unreadCount, setUnreadCount] = useState(0)
+  const { user, displayName, loading } = useAuth()
+  const router = useRouter()
+  const supabase = createClient()
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
 
-  console.log("🔍 Header component - Auth state:", {
-    user: user ? { id: user.id, email: user.email } : null,
-    userProfile,
-    loading,
-  })
-
-  // 未読通知数を取得
-  useEffect(() => {
-    const fetchUnreadCount = async () => {
-      if (!user) {
-        setUnreadCount(0)
-        return
-      }
-
-      try {
-        console.log("📡 Fetching notifications for unread count:", user.id)
-        const result = await getNotifications(user.id)
-        if (result.success && result.notifications) {
-          const unread = result.notifications.filter((n) => !n.is_read).length
-          setUnreadCount(unread)
-          console.log(`📊 Unread notifications count: ${unread}`)
-        }
-      } catch (error) {
-        console.error("❌ Error fetching unread count:", error)
-        setUnreadCount(0)
-      }
-    }
-
-    fetchUnreadCount()
-  }, [user])
-
-  const handleSignOut = async () => {
-    try {
-      await signOut()
-      console.log("✅ Signed out successfully from Header")
-    } catch (error) {
-      console.error("❌ Sign out error:", error)
-    }
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push("/auth/login")
   }
 
-  const handleNotificationClick = () => {
-    console.log("🔔 Notification icon clicked - redirecting to /notifications")
-    window.location.href = "/notifications"
+  const handleNotificationClick = (e: React.MouseEvent) => {
+    if (!user) {
+      e.preventDefault() // デフォルトのリンク遷移を防止
+      setShowLoginPrompt(true) // ログインプロンプトを表示
+    }
+    // ログインしている場合はNotificationDropdownが内部で処理するため何もしない
   }
 
-  // loading ステートによる条件分岐を削除し、user の有無で直接表示を切り替えます
   return (
-    <header className="bg-violet-500 text-white shadow-md">
-      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="flex items-center">
-          <Image src="/pokelink-logo.png" alt="PokeLink ロゴ" width={160} height={40} className="object-contain h-10" />
+    <header className="flex h-16 w-full items-center justify-between px-4 md:px-6 border-b bg-white">
+      <Link className="flex items-center gap-2" href="/">
+        <img src="/pokelink-logo.png" alt="Pokelink Logo" className="h-8 w-auto" />
+        <span className="sr-only">Pokelink</span>
+      </Link>
+      <nav className="hidden md:flex items-center gap-4">
+        <Link className="flex items-center gap-2 text-sm font-medium hover:underline" href="/">
+          <HomeIcon className="h-4 w-4" />
+          ホーム
         </Link>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="bg-white text-violet-600 hover:bg-violet-100 rounded-full h-9 w-9 sm:h-10 sm:w-10"
-            aria-label="新規投稿作成"
-          >
-            <Plus className="h-5 w-5 sm:h-6 sm:w-6" />
-            <span className="sr-only">新規投稿作成</span>
+        <Link className="flex items-center gap-2 text-sm font-medium hover:underline" href="/trades">
+          <MessageSquareIcon className="h-4 w-4" />
+          トレード
+        </Link>
+        <Link className="flex items-center gap-2 text-sm font-medium hover:underline" href="/decks">
+          <BarChartIcon className="h-4 w-4" />
+          デッキ
+        </Link>
+        <Link className="flex items-center gap-2 text-sm font-medium hover:underline" href="/favorites">
+          <HeartIcon className="h-4 w-4" />
+          お気に入り
+        </Link>
+      </nav>
+      <div className="flex items-center gap-4">
+        <Button asChild variant="ghost" size="icon" className="relative" onClick={handleNotificationClick}>
+          <Link href={user ? "#" : "/auth/login"}>
+            {" "}
+            {/* ログインしていればモーダル、そうでなければログインページ */}
+            <BellIcon className="h-5 w-5" />
+            <span className="sr-only">通知</span>
+            {/* 未読通知のバッジなどをここに追加 */}
+          </Link>
+        </Button>
+        {user ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="rounded-full" size="icon" variant="ghost">
+                <UserIcon className="h-5 w-5" />
+                <span className="sr-only">ユーザーメニュー</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <div className="flex items-center gap-2 p-2">
+                <UserIcon className="h-4 w-4" />
+                <span className="font-medium">{displayName}</span>
+              </div>
+              <Link href="/profile">
+                <Button variant="ghost" className="w-full justify-start">
+                  <UserIcon className="mr-2 h-4 w-4" />
+                  プロフィール
+                </Button>
+              </Link>
+              <Link href="/settings">
+                <Button variant="ghost" className="w-full justify-start">
+                  <SettingsIcon className="mr-2 h-4 w-4" />
+                  設定
+                </Button>
+              </Link>
+              <Button onClick={handleLogout} variant="ghost" className="w-full justify-start text-red-500">
+                <LogOutIcon className="mr-2 h-4 w-4" />
+                ログアウト
+              </Button>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button asChild>
+            <Link href="/auth/login">ログイン</Link>
           </Button>
-
-          {user && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative text-white hover:bg-white/20 rounded-full h-9 w-9 sm:h-10 sm:w-10 transition-all duration-200"
-              onClick={handleNotificationClick}
-              aria-label={`通知 ${unreadCount > 0 ? `(${unreadCount}件の未読)` : ""}`}
-            >
-              <Bell className="h-5 w-5 sm:h-6 sm:w-6" />
-              {unreadCount > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold border-2 border-violet-500"
-                >
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </Badge>
-              )}
-            </Button>
-          )}
-
-          {user ? (
-            // ログイン済みユーザー - ユーザー名とアバター、ログアウトドロップダウン
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5 hover:bg-white/20 transition-colors duration-200 cursor-pointer"
-                  aria-label="ユーザーメニューを開く"
-                >
-                  <div className="relative w-6 h-6 sm:w-8 sm:h-8">
-                    {userProfile?.avatar_url ? (
-                      <Image
-                        src={userProfile.avatar_url || "/placeholder.svg"}
-                        alt="ユーザーアバター"
-                        width={32}
-                        height={32}
-                        className="rounded-full object-cover w-full h-full"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-white/20 rounded-full flex items-center justify-center">
-                        <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                      </div>
-                    )}
-                  </div>
-                  <span className="text-white text-sm font-medium hidden sm:inline">
-                    {userProfile?.user_name || user.email?.split("@")[0] || "ユーザー"}
-                  </span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
-                  ログアウト
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            // 未ログインユーザー
-            <>
-              <Link href="/auth/signup">
-                <Button
-                  variant="default"
-                  className="bg-white text-violet-600 hover:bg-violet-100 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2"
-                >
-                  新規登録
-                </Button>
-              </Link>
-              <Link href="/auth/login">
-                <Button
-                  variant="outline"
-                  className="bg-white text-violet-600 border-violet-600 hover:bg-violet-100 hover:text-violet-700 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2"
-                >
-                  ログイン
-                </Button>
-              </Link>
-            </>
-          )}
-        </div>
+        )}
       </div>
+      <LoginPrompt open={showLoginPrompt} setOpen={setShowLoginPrompt} />
+      {user && <NotificationDropdown />} {/* ログインしている場合のみNotificationDropdownを表示 */}
     </header>
   )
 }
