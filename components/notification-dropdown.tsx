@@ -1,7 +1,9 @@
 "use client"
 
+import Link from "next/link"
+
 import { useState, useEffect, useRef } from "react"
-import { Bell, Loader2, ExternalLink, AlertCircle, ArrowLeft, MessageCircle, FileText } from "lucide-react"
+import { Bell, Loader2, AlertCircle, ArrowLeft, MessageCircle, FileText } from "lucide-react" // ExternalLink は不要になったため削除
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -13,8 +15,9 @@ import {
   markAllNotificationsAsRead,
 } from "@/lib/services/notification-service"
 import type { Notification } from "@/types/notification"
-import Link from "next/link" // Linkは詳細ページへの遷移用として残す
+// import Link from "next/link" // ページ遷移を完全に防ぐため、Linkはここでは使用しない
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ExternalLink } from "lucide-react"
 
 export default function NotificationDropdown() {
   const { user, loading: authLoading } = useAuth()
@@ -25,7 +28,7 @@ export default function NotificationDropdown() {
   const [error, setError] = useState<string | null>(null)
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null)
   const [showDetail, setShowDetail] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null) // モーダル外クリック検出用
+  const dropdownRef = useRef<HTMLDivElement>(null) // モーダル外クリック検出用 (Dialogが処理するため、主にデバッグ用)
   const buttonRef = useRef<HTMLButtonElement>(null) // 通知ベルボタン
 
   // コンポーネントがマウントされたことをログ出力
@@ -79,7 +82,7 @@ export default function NotificationDropdown() {
     }
   }
 
-  // モーダルを開く/閉じる
+  // モーダルを開く
   const handleOpenModal = () => {
     console.log("🔄 Opening modal:", {
       user: !!user,
@@ -102,6 +105,7 @@ export default function NotificationDropdown() {
     console.log("🔄 Modal state changed to: true")
   }
 
+  // モーダルを閉じる
   const handleCloseModal = () => {
     console.log("🔄 Closing modal")
     setIsOpen(false)
@@ -137,7 +141,7 @@ export default function NotificationDropdown() {
     setSelectedNotification(null)
   }
 
-  // 外側クリックでモーダルを閉じる (Dialogコンポーネントが内部で処理するため、ここでは不要だが念のため残す)
+  // 外側クリックでモーダルを閉じる (Dialogコンポーネントが内部で処理するため、ここでは主にデバッグ用)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -197,8 +201,9 @@ export default function NotificationDropdown() {
       document.addEventListener("keydown", handleEscKey)
       return () => document.removeEventListener("keydown", handleEscKey)
     }
-  }, [isOpen, showDetail, handleCloseModal])
+  }, [isOpen, showDetail])
 
+  // 通知のリンク先を生成 (モーダル内の「詳細ページを開く」ボタン用)
   const getNotificationLink = (notification: Notification) => {
     if (notification.source === "trade") {
       return `/trades/${notification.related_id}`
@@ -207,6 +212,7 @@ export default function NotificationDropdown() {
     }
   }
 
+  // 通知タイプに応じたアイコン
   const getNotificationIcon = (type: string) => {
     if (type.includes("comment")) {
       return <MessageCircle className="h-4 w-4" />
@@ -214,6 +220,7 @@ export default function NotificationDropdown() {
     return <FileText className="h-4 w-4" />
   }
 
+  // 時間のフォーマット
   const formatTimeAgo = (dateString: string) => {
     const now = new Date()
     const date = new Date(dateString)
@@ -358,26 +365,24 @@ export default function NotificationDropdown() {
                 )}
 
                 {notifications.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <div className="flex justify-end items-center">
-                      {unreadCount > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            if (!user) return
-                            const result = await markAllNotificationsAsRead(user.id)
-                            if (result.success) {
-                              setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
-                              setUnreadCount(0)
-                            }
-                          }}
-                          className="text-sm"
-                        >
-                          すべて既読
-                        </Button>
-                      )}
-                    </div>
+                  <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end">
+                    {unreadCount > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          if (!user) return
+                          const result = await markAllNotificationsAsRead(user.id)
+                          if (result.success) {
+                            setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+                            setUnreadCount(0)
+                          }
+                        }}
+                        className="text-sm"
+                      >
+                        すべて既読
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -433,9 +438,10 @@ export default function NotificationDropdown() {
                     </div>
 
                     <div className="flex gap-3">
+                      {/* 詳細ページへのリンクは残す（ユーザーが明示的にクリックした場合のみ遷移） */}
                       <Link
                         href={getNotificationLink(selectedNotification)}
-                        onClick={() => setIsOpen(false)}
+                        onClick={() => setIsOpen(false)} // ページ遷移時にモーダルを閉じる
                         className="flex-1"
                       >
                         <Button className="w-full">
