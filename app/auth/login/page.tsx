@@ -105,12 +105,19 @@ export default function LoginPage() {
           variant: "destructive",
         })
       } else {
+        // ポップアップ表示を追加
         toast({
           title: "メール送信完了",
-          description: "パスワードリセット用のリンクをメールに送信しました。",
+          description: "パスワードリセット用のリンクをメールに送信しました。メールをご確認ください。",
+          duration: 5000, // 5秒間表示
         })
         setShowResetForm(false)
         setResetEmail("")
+
+        // 追加のポップアップアラート
+        alert(
+          "パスワードリセット用のメールを送信しました。\n\nメールボックスをご確認いただき、リンクをクリックしてパスワードをリセットしてください。\n\n※メールが届かない場合は、迷惑メールフォルダもご確認ください。",
+        )
       }
     } catch (error) {
       toast({
