@@ -11,13 +11,15 @@ export async function addDeckComment(
   try {
     console.log("🗄️ [addDeckComment] Starting with params:", {
       deckId,
+      deckIdType: typeof deckId,
       content: content?.substring(0, 50) + "...",
       userId,
+      userIdType: typeof userId,
       userName,
+      userNameType: typeof userName,
       isGuest,
       commentType,
-      userIdType: typeof userId,
-      userIdLength: userId?.length,
+      commentTypeType: typeof commentType,
     })
 
     const supabase = await createServerClient()
@@ -39,7 +41,7 @@ export async function addDeckComment(
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
       if (uuidRegex.test(userId)) {
         finalUserId = userId
-        console.log("🗄️ [addDeckComment] Valid UUID user ID detected")
+        console.log("🗄️ [addDeckComment] Valid UUID user ID detected:", userId)
       } else {
         console.log("🗄️ [addDeckComment] Invalid UUID format for user_id:", userId)
         // UUID形式でない場合はゲストとして扱う
@@ -51,6 +53,7 @@ export async function addDeckComment(
     console.log("🗄️ [addDeckComment] Final user info determined:", {
       finalUserName,
       finalUserId,
+      finalUserIdType: typeof finalUserId,
       isGuest: isGuest || !finalUserId,
       commentType,
       originalUserName: userName,
@@ -76,24 +79,45 @@ export async function addDeckComment(
       comment_type: commentType,
     }
 
-    console.log("🗄️ [addDeckComment] Insert data prepared:", {
+    console.log("🗄️ [addDeckComment] Insert data prepared (detailed):", {
       deck_id: insertData.deck_id,
+      deck_id_type: typeof insertData.deck_id,
       content: insertData.content.substring(0, 50) + "...",
+      content_type: typeof insertData.content,
       user_id: insertData.user_id,
+      user_id_type: typeof insertData.user_id,
       user_name: insertData.user_name,
+      user_name_type: typeof insertData.user_name,
       comment_type: insertData.comment_type,
+      comment_type_type: typeof insertData.comment_type,
     })
 
+    // データベースへの挿入を実行
+    console.log("🗄️ [addDeckComment] Executing database insert...")
     const { data, error } = await supabase.from("deck_comments").insert(insertData).select().single()
 
     if (error) {
-      console.error("❌ [addDeckComment] Database error:", {
+      console.error("❌ [addDeckComment] Database error (detailed):", {
         code: error.code,
         message: error.message,
         details: error.details,
         hint: error.hint,
         insertData: insertData,
+        errorName: error.name,
       })
+
+      // 特定のエラーコードに対する詳細な情報
+      if (error.code === "42703") {
+        console.error("❌ [addDeckComment] Column does not exist error - checking table structure...")
+        // テーブル構造を確認するクエリを実行
+        try {
+          const { data: tableInfo } = await supabase.rpc("get_table_columns", { table_name: "deck_comments" })
+          console.log("🗄️ [addDeckComment] Table structure:", tableInfo)
+        } catch (structureError) {
+          console.error("❌ [addDeckComment] Failed to get table structure:", structureError)
+        }
+      }
+
       return { success: false, error: `データベースエラー: ${error.message}` }
     }
 
@@ -108,7 +132,11 @@ export async function addDeckComment(
 
     return { success: true, comment: data }
   } catch (error) {
-    console.error("❌ [addDeckComment] Unexpected error:", error)
+    console.error("❌ [addDeckComment] Unexpected error (detailed):", {
+      error,
+      errorMessage: error instanceof Error ? error.message : "Unknown error",
+      errorStack: error instanceof Error ? error.stack : "No stack trace",
+    })
     return { success: false, error: "予期しないエラーが発生しました" }
   }
 }
