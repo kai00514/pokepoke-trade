@@ -16,6 +16,8 @@ export async function addDeckComment(
       userName,
       isGuest,
       commentType,
+      userIdType: typeof userId,
+      userIdLength: userId?.length,
     })
 
     const supabase = await createServerClient()
@@ -30,18 +32,29 @@ export async function addDeckComment(
       finalUserId = null
       console.log("🗄️ [addDeckComment] Guest user detected")
     } else {
-      // 認証済みユーザーの場合、userNameが提供されていればそれを使用、そうでなければデフォルト
+      // 認証済みユーザーの場合
       finalUserName = userName && userName.trim() && userName !== "undefined" ? userName.trim() : "匿名ユーザー"
-      finalUserId = userId
-      console.log("🗄️ [addDeckComment] Authenticated user detected")
+
+      // userIdがUUID形式かどうかを確認
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      if (uuidRegex.test(userId)) {
+        finalUserId = userId
+        console.log("🗄️ [addDeckComment] Valid UUID user ID detected")
+      } else {
+        console.log("🗄️ [addDeckComment] Invalid UUID format for user_id:", userId)
+        // UUID形式でない場合はゲストとして扱う
+        finalUserName = userName && userName.trim() ? userName.trim() + " (外部認証)" : "外部認証ユーザー"
+        finalUserId = null
+      }
     }
 
     console.log("🗄️ [addDeckComment] Final user info determined:", {
       finalUserName,
       finalUserId,
-      isGuest: isGuest || !userId,
+      isGuest: isGuest || !finalUserId,
       commentType,
       originalUserName: userName,
+      originalUserId: userId,
     })
 
     // コメントタイプに基づいてデッキの存在確認
@@ -58,7 +71,7 @@ export async function addDeckComment(
     const insertData = {
       deck_id: deckId,
       content: content.trim(),
-      user_id: finalUserId,
+      user_id: finalUserId, // nullまたは有効なUUID
       user_name: finalUserName,
       comment_type: commentType,
     }
@@ -79,6 +92,7 @@ export async function addDeckComment(
         message: error.message,
         details: error.details,
         hint: error.hint,
+        insertData: insertData,
       })
       return { success: false, error: `データベースエラー: ${error.message}` }
     }

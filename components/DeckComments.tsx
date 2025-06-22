@@ -163,6 +163,8 @@ export default function DeckComments({ deckId, deckTitle, commentType = "deck" }
       console.log("📤 [DeckComments] User info for submission:", {
         hasCurrentUser: !!currentUser,
         currentUserId: currentUser?.id,
+        userIdType: typeof currentUser?.id,
+        userIdLength: currentUser?.id?.length,
         isActualGuestUser,
         userEmail: currentUser?.email,
         displayName: currentUser?.user_metadata?.display_name,
@@ -170,6 +172,10 @@ export default function DeckComments({ deckId, deckTitle, commentType = "deck" }
         userName: currentUser?.user_metadata?.user_name,
         commentType,
         isGuestSubmission,
+        // UUID形式かどうかの確認
+        isValidUUID: currentUser?.id
+          ? /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(currentUser.id)
+          : false,
       })
 
       // user_nameの決定 - より多くのフィールドをチェック
