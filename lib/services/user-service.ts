@@ -21,7 +21,7 @@ export async function getUserProfile(userId: string): Promise<GetUserUserProfile
     // raw_user_meta_data は user.user_metadata としてAuthContextで利用可能
     const { data, error } = await supabase
       .from("users") // これは auth.users テーブルを指す
-      .select("id, avatar_url") // ここを修正: raw_user_meta_data を直接クエリしない
+      .select("id, avatar_url") // ここが重要: user_name や raw_user_meta_data を直接クエリしない
       .eq("id", userId)
       .single()
 
