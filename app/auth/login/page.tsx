@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,6 +18,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [passwordVisible, setPasswordVisible] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+
+  const [isResettingPassword, setIsResettingPassword] = useState(false)
+  const [resetEmail, setResetEmail] = useState("")
+  const [showResetForm, setShowResetForm] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -85,6 +89,50 @@ export default function LoginPage() {
     }
   }
 
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    try {
+      setIsResettingPassword(true)
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/auth/reset`,
+      })
+
+      if (error) {
+        toast({
+          title: "エラー",
+          description: error.message,
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "メール送信完了",
+          description: "パスワードリセット用のリンクをメールに送信しました。",
+        })
+        setShowResetForm(false)
+        setResetEmail("")
+      }
+    } catch (error) {
+      toast({
+        title: "エラー",
+        description: "予期しないエラーが発生しました。",
+        variant: "destructive",
+      })
+    } finally {
+      setIsResettingPassword(false)
+    }
+  }
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.get("reset") === "success") {
+      toast({
+        title: "パスワード更新完了",
+        description: "パスワードが正常に更新されました。新しいパスワードでログインしてください。",
+      })
+    }
+  }, [toast])
+
   return (
     <div className="text-center">
       <h1 className="text-2xl font-bold text-slate-800 mb-8">ログイン</h1>
@@ -107,7 +155,14 @@ export default function LoginPage() {
         <div>
           <div className="flex justify-between items-baseline">
             <label className="text-sm font-medium text-slate-700">パスワード</label>
-            <Link href="#" className="text-xs text-purple-600 hover:underline">
+            <Link
+              href="#"
+              className="text-xs text-purple-600 hover:underline"
+              onClick={(e) => {
+                e.preventDefault()
+                setShowResetForm(true)
+              }}
+            >
               パスワードを忘れた方はこちら
             </Link>
           </div>
@@ -139,6 +194,48 @@ export default function LoginPage() {
           {isLoading ? "ログイン中..." : "ログインする"}
         </Button>
       </form>
+
+      {showResetForm && (
+        <div className="mt-6 p-4 border rounded-lg bg-purple-50">
+          <h3 className="text-lg font-semibold text-slate-800 mb-4">パスワードリセット</h3>
+          <form onSubmit={handlePasswordReset} className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-slate-700">メールアドレス</label>
+              <div className="relative mt-1">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <Input
+                  type="email"
+                  placeholder="登録済みのメールアドレス"
+                  className="pl-10 h-12"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="submit"
+                className="flex-1 bg-purple-500 hover:bg-purple-600 text-white h-12"
+                disabled={isResettingPassword}
+              >
+                {isResettingPassword ? "送信中..." : "リセットリンクを送信"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 h-12"
+                onClick={() => {
+                  setShowResetForm(false)
+                  setResetEmail("")
+                }}
+              >
+                キャンセル
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <div className="relative my-6">
         <div className="absolute inset-0 flex items-center">
