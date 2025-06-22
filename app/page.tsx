@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation"
 
 export default function TradeBoardPage() {
   const [isDetailedSearchOpen, setIsDetailedSearchOpen] = useState(false)
-  const [tradePosts, setTradePosts] = useState<any[]>([])
+  const [tradePosts, setTradePosts] = useState<any[] | null>(null) // null で初期化
   const [searchKeyword, setSearchKeyword] = useState("")
   const { toast } = useToast()
   const router = useRouter()
@@ -25,7 +25,7 @@ export default function TradeBoardPage() {
     try {
       const result = await getTradePostsWithCards(20, 0)
       if (result.success) {
-        setTradePosts(result.posts)
+        setTradePosts(result.posts || [])
       } else {
         toast({
           title: "データ取得エラー",
@@ -54,14 +54,17 @@ export default function TradeBoardPage() {
     setIsDetailedSearchOpen(false)
   }
 
-  const filteredPosts = tradePosts.filter((post) => {
-    if (!searchKeyword.trim()) return true
-    const keyword = searchKeyword.toLowerCase()
-    const titleMatch = post.title?.toLowerCase().includes(keyword)
-    const wantedCardNameMatch = post.wantedCard?.name?.toLowerCase().includes(keyword)
-    const offeredCardNameMatch = post.offeredCard?.name?.toLowerCase().includes(keyword)
-    return titleMatch || wantedCardNameMatch || offeredCardNameMatch
-  })
+  // tradePosts が null の場合は何も表示しない（データ取得中）
+  const filteredPosts = tradePosts
+    ? tradePosts.filter((post) => {
+        if (!searchKeyword.trim()) return true
+        const keyword = searchKeyword.toLowerCase()
+        const titleMatch = post.title?.toLowerCase().includes(keyword)
+        const wantedCardNameMatch = post.wantedCard?.name?.toLowerCase().includes(keyword)
+        const offeredCardNameMatch = post.offeredCard?.name?.toLowerCase().includes(keyword)
+        return titleMatch || wantedCardNameMatch || offeredCardNameMatch
+      })
+    : []
 
   const handleCreatePostClick = () => {
     router.push("/trades/create")
@@ -121,7 +124,10 @@ export default function TradeBoardPage() {
               </div>
             </div>
 
-            {filteredPosts.length > 0 ? (
+            {/* tradePosts が null の場合は何も表示しない（初期読み込み中） */}
+            {tradePosts === null ? (
+              <div className="min-h-[200px]" /> // 空のスペースを確保してレイアウトシフトを防ぐ
+            ) : filteredPosts.length > 0 ? (
               <div className="space-y-6">
                 {filteredPosts.map((post) => (
                   <TradePostCard key={post.id} post={post} />
