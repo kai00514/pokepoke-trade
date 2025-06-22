@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import Header from "@/components/header" // AuthHeader から Header に変更
+import Header from "@/components/layout/header" // AuthHeader から Header に変更
 import Footer from "@/components/footer"
 import TradePostCard from "@/components/trade-post-card"
 import AdPlaceholder from "@/components/ad-placeholder"
