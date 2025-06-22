@@ -54,9 +54,10 @@ export default function Header() {
     }
   }
 
+  // 通知クリック時は何もしない（一時的に無効化）
   const handleNotificationClick = () => {
-    console.log("🔔 Notification icon clicked - redirecting to /notifications")
-    window.location.href = "/notifications"
+    console.log("🔔 Notification icon clicked - temporarily disabled")
+    // 何もしない
   }
 
   return (
