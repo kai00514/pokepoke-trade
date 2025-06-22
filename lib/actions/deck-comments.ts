@@ -30,7 +30,8 @@ export async function addDeckComment(
       finalUserId = null
       console.log("🗄️ [addDeckComment] Guest user detected")
     } else {
-      finalUserName = userName && userName.trim() ? userName.trim() : "匿名ユーザー"
+      // 認証済みユーザーの場合、userNameが提供されていればそれを使用、そうでなければデフォルト
+      finalUserName = userName && userName.trim() && userName !== "undefined" ? userName.trim() : "匿名ユーザー"
       finalUserId = userId
       console.log("🗄️ [addDeckComment] Authenticated user detected")
     }
@@ -40,6 +41,7 @@ export async function addDeckComment(
       finalUserId,
       isGuest: isGuest || !userId,
       commentType,
+      originalUserName: userName,
     })
 
     // コメントタイプに基づいてデッキの存在確認

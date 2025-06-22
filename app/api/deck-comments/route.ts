@@ -55,6 +55,13 @@ export async function POST(request: NextRequest) {
     const finalCommentType = commentType || "deck"
 
     console.log("🌐 [API POST] Using commentType:", finalCommentType)
+    console.log("🌐 [API POST] User details:", {
+      userId,
+      userName,
+      isGuest,
+      hasUserId: !!userId,
+      userNameType: typeof userName,
+    })
 
     const result = await addDeckComment(deckId, content, userId, userName, isGuest, finalCommentType)
     console.log("🌐 [API POST] addDeckComment result:", {

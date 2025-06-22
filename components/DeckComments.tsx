@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Send, UserCircle } from 'lucide-react'
+import { Send, UserCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { createBrowserClient } from "@/lib/supabase/client"
 import LoginPromptModal from "@/components/ui/login-prompt-modal"
@@ -141,6 +141,7 @@ export default function DeckComments({ deckId, deckTitle, commentType = "deck" }
   const handleCommentSubmit = useCallback(
     async (isGuestSubmission = false) => {
       console.log("📤 [DeckComments] Starting comment submission")
+      console.log("📤 [DeckComments] isGuestSubmission:", isGuestSubmission)
 
       if (!newComment.trim()) {
         console.log("❌ [DeckComments] Empty comment")
@@ -157,7 +158,7 @@ export default function DeckComments({ deckId, deckTitle, commentType = "deck" }
       // 認証状態を確認
       const { data: sessionData } = await supabase.auth.getSession()
       const currentUser = sessionData.session?.user
-      const isActualGuestUser = !currentUser || isGuestSubmission // isGuestSubmissionがtrueなら強制的にゲスト扱い
+      const isActualGuestUser = !currentUser || isGuestSubmission
 
       console.log("📤 [DeckComments] User info for submission:", {
         hasCurrentUser: !!currentUser,
@@ -165,13 +166,21 @@ export default function DeckComments({ deckId, deckTitle, commentType = "deck" }
         isActualGuestUser,
         userEmail: currentUser?.email,
         displayName: currentUser?.user_metadata?.display_name,
+        fullName: currentUser?.user_metadata?.full_name,
+        userName: currentUser?.user_metadata?.user_name,
         commentType,
+        isGuestSubmission,
       })
 
-      // user_nameの決定
+      // user_nameの決定 - より多くのフィールドをチェック
       let userName = "ゲスト"
       if (!isActualGuestUser && currentUser) {
-        userName = currentUser.user_metadata?.display_name || currentUser.email || "匿名ユーザー"
+        userName =
+          currentUser.user_metadata?.display_name ||
+          currentUser.user_metadata?.full_name ||
+          currentUser.user_metadata?.user_name ||
+          currentUser.email?.split("@")[0] ||
+          "匿名ユーザー"
       }
 
       console.log("📤 [DeckComments] Determined userName:", userName)
@@ -197,10 +206,10 @@ export default function DeckComments({ deckId, deckTitle, commentType = "deck" }
         const payload = {
           deckId: deckId,
           content: commentText,
-          userId: isActualGuestUser ? null : currentUser?.id, // ゲストの場合はnull
+          userId: isActualGuestUser ? null : currentUser?.id,
           userName: userName,
           isGuest: isActualGuestUser,
-          commentType: commentType || "deck", // デフォルト値を明示的に設定
+          commentType: commentType || "deck",
         }
 
         console.log("📤 [DeckComments] Sending payload:", {
@@ -218,16 +227,22 @@ export default function DeckComments({ deckId, deckTitle, commentType = "deck" }
           body: JSON.stringify(payload),
         })
 
+        console.log("📤 [DeckComments] Response status:", response.status)
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error("❌ [DeckComments] HTTP error:", response.status, errorText)
+          throw new Error(`HTTP ${response.status}: ${errorText}`)
+        }
+
         const data = await response.json()
-        console.log("📤 [DeckComments] Response:", {
-          status: response.status,
+        console.log("📤 [DeckComments] Response data:", {
           success: data.success,
           commentId: data.comment?.id,
           error: data.error,
         })
 
         if (data.success) {
-          // 成功時は楽観的コメントを実際のコメントデータで置き換え
           console.log("✅ [DeckComments] Comment submitted successfully")
 
           const actualComment: Comment = {
@@ -247,8 +262,6 @@ export default function DeckComments({ deckId, deckTitle, commentType = "deck" }
             description: isActualGuestUser ? "ゲストとしてコメントを投稿しました" : "コメントを投稿しました",
             duration: 2000,
           })
-
-          // fetchComments()の呼び出しを削除
         } else {
           throw new Error(data.error || "コメントの投稿に失敗しました")
         }
@@ -262,7 +275,8 @@ export default function DeckComments({ deckId, deckTitle, commentType = "deck" }
 
         toast({
           title: "コメント投稿エラー",
-          description: "コメントの投稿に失敗しました。もう一度お試しください。",
+          description:
+            error instanceof Error ? error.message : "コメントの投稿に失敗しました。もう一度お試しください。",
           variant: "destructive",
         })
       }
