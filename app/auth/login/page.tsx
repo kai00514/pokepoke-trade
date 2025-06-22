@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Mail, Lock, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react"
 import { GoogleIcon } from "@/components/icons/google-icon"
 import { LineIcon } from "@/components/icons/line-icon"
+import { XIcon } from "@/components/icons/twitter-icon" // TwitterIconをインポート
 import { createBrowserClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
@@ -29,11 +30,11 @@ export default function LoginPage() {
   const router = useRouter()
   const supabase = createBrowserClient()
 
-  const handleGoogleLogin = async () => {
+  const handleSocialLogin = async (provider: "google" | "twitter") => {
     try {
       setIsLoading(true)
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
+        provider: provider,
         options: {
           redirectTo: `${window.location.origin}/auth/callback?next=/`,
         },
@@ -98,13 +99,12 @@ export default function LoginPage() {
       setIsResettingPassword(true)
 
       const currentDomain = window.location.origin
-      // URLをエンコードして確実に渡す
-      const redirectUrl = encodeURIComponent(`${currentDomain}/auth/reset`)
+      const redirectUrl = `${currentDomain}/auth/reset`
 
-      console.log("DEBUG: Sending password reset email with redirectTo (encoded):", redirectUrl)
+      console.log("DEBUG: Sending password reset email with redirectTo:", redirectUrl)
 
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${currentDomain}/auth/reset`, // ここはエンコードしない生のURLを渡す
+        redirectTo: redirectUrl,
       })
 
       if (error) {
@@ -305,11 +305,20 @@ export default function LoginPage() {
         <Button
           variant="outline"
           className="w-full justify-center items-center p-6 bg-white"
-          onClick={handleGoogleLogin}
+          onClick={() => handleSocialLogin("google")}
           disabled={isLoading}
         >
           <GoogleIcon className="h-5 w-5 mr-3" />
           <span className="font-semibold text-slate-700">Googleでログイン</span>
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full justify-center items-center p-6 bg-white"
+          onClick={() => handleSocialLogin("twitter")}
+          disabled={isLoading}
+        >
+          <XIcon className="h-5 w-5 mr-3" />
+          <span className="font-semibold text-slate-700">Xでログイン</span>
         </Button>
         <Button variant="outline" className="w-full justify-center items-center p-6 bg-white" disabled>
           <LineIcon className="h-5 w-5 mr-3" />
