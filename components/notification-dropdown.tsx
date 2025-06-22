@@ -79,7 +79,7 @@ export default function NotificationDropdown() {
 
   // ドロップダウンを開く/閉じる
   const toggleDropdown = () => {
-    console.log("🔄 Toggle dropdown clicked:", {
+    console.log("🔄 Toggle modal clicked:", {
       currentState: isOpen,
       user: !!user,
       authLoading,
@@ -87,7 +87,7 @@ export default function NotificationDropdown() {
     })
 
     if (!user && !authLoading) {
-      console.log("❌ Cannot toggle dropdown: user not authenticated")
+      console.log("❌ Cannot toggle modal: user not authenticated")
       return
     }
 
@@ -96,7 +96,7 @@ export default function NotificationDropdown() {
       fetchNotifications()
     }
     setIsOpen(!isOpen)
-    console.log("🔄 Dropdown state changed to:", !isOpen)
+    console.log("🔄 Modal state changed to:", !isOpen)
   }
 
   // 通知を既読にする

@@ -163,7 +163,6 @@ export default function NotificationList({ notifications, onNotificationRead }: 
                   <p className="text-base text-gray-800 leading-relaxed mb-3">{notification.content}</p>
 
                   <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-600">クリックして詳細を確認</div>
                     {!notification.is_read && (
                       <Button
                         variant="ghost"
@@ -173,7 +172,7 @@ export default function NotificationList({ notifications, onNotificationRead }: 
                           e.stopPropagation()
                           handleMarkAsRead(notification)
                         }}
-                        className="text-gray-600 hover:text-gray-800"
+                        className="text-gray-600 hover:text-gray-800 ml-auto"
                       >
                         既読にする
                       </Button>
