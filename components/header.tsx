@@ -11,13 +11,14 @@ import { getNotifications } from "@/lib/services/notification-service"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 export default function Header() {
-  const { user, userProfile, loading, signOut } = useAuth() // loading ステートは引き続き使用しますが、表示ロジックからは削除します
+  const { user, userProfile, loading, signOut, displayName } = useAuth() // displayName を取得
   const [unreadCount, setUnreadCount] = useState(0)
 
   console.log("🔍 Header component - Auth state:", {
     user: user ? { id: user.id, email: user.email } : null,
     userProfile,
     loading,
+    displayName, // displayNameもログに出力
   })
 
   // 未読通知数を取得
@@ -59,7 +60,6 @@ export default function Header() {
     window.location.href = "/notifications"
   }
 
-  // loading ステートによる条件分岐を削除し、user の有無で直接表示を切り替えます
   return (
     <header className="bg-violet-500 text-white shadow-md">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -98,7 +98,6 @@ export default function Header() {
           )}
 
           {user ? (
-            // ログイン済みユーザー - ユーザー名とアバター、ログアウトドロップダウン
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -122,7 +121,7 @@ export default function Header() {
                     )}
                   </div>
                   <span className="text-white text-sm font-medium hidden sm:inline">
-                    {userProfile?.user_name || user.email?.split("@")[0] || "ユーザー"}
+                    {displayName} {/* displayName を使用 */}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
@@ -133,7 +132,6 @@ export default function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            // 未ログインユーザー
             <>
               <Link href="/auth/signup">
                 <Button

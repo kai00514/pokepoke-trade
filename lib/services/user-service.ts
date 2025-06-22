@@ -1,25 +1,27 @@
 import { createClient } from "@/lib/supabase/client"
+import type { User } from "@supabase/supabase-js" // User型をインポート
 
-interface UserProfile {
+export interface UserProfile {
   id: string
-  user_name: string | null // 計算プロパティとして維持
   avatar_url: string | null
+  // user_name はこのサービスでは直接取得せず、AuthContextでuser.user_metadataから派生させる
 }
 
-interface GetUserProfileResult {
+export interface GetUserProfileResult {
   success: boolean
   profile: UserProfile | null
   error: string | null
 }
 
-export async function getUserProfile(userId: string): Promise<GetUserProfileResult> {
+export async function getUserProfile(userId: string): Promise<GetUserUserProfileResult> {
   const supabase = createClient()
 
   try {
-    // auth.users テーブルから raw_user_meta_data を取得
+    // auth.users テーブルから id と avatar_url のみを取得
+    // raw_user_meta_data は user.user_metadata としてAuthContextで利用可能
     const { data, error } = await supabase
       .from("users") // これは auth.users テーブルを指す
-      .select("id, raw_user_meta_data, avatar_url")
+      .select("id, avatar_url") // ここを修正: raw_user_meta_data を直接クエリしない
       .eq("id", userId)
       .single()
 
@@ -33,14 +35,9 @@ export async function getUserProfile(userId: string): Promise<GetUserProfileResu
       return { success: false, profile: null, error: "User profile not found" }
     }
 
-    // raw_user_meta_data からユーザー名を抽出
-    const rawMetaData = data.raw_user_meta_data as any
-    const user_name = rawMetaData?.display_name || rawMetaData?.full_name || rawMetaData?.name || null
-
-    // 既存のインターフェースに合わせてデータを構築
+    // 取得したデータでUserProfileを構築
     const profile: UserProfile = {
       id: data.id,
-      user_name,
       avatar_url: data.avatar_url,
     }
 
@@ -49,4 +46,25 @@ export async function getUserProfile(userId: string): Promise<GetUserProfileResu
     console.error("Unexpected error in getUserProfile:", e)
     return { success: false, profile: null, error: (e as Error).message }
   }
+}
+
+// ユーザーの表示名を取得するヘルパー関数
+// この関数はAuthContext内で使用され、user.user_metadataから名前を抽出します
+export function getDisplayName(user: User | null, userProfile: UserProfile | null): string {
+  if (!user) return "ゲスト"
+
+  // user.user_metadata (raw_user_meta_dataに相当) からdisplay_nameまたはfull_nameを優先
+  if (user.user_metadata?.display_name) {
+    return user.user_metadata.display_name as string
+  }
+  if (user.user_metadata?.full_name) {
+    return user.user_metadata.full_name as string
+  }
+  if (user.user_metadata?.name) {
+    // Googleプロバイダーの場合 'name' がある
+    return user.user_metadata.name as string
+  }
+
+  // メールアドレスの@より前をフォールバック
+  return user.email?.split("@")[0] || "匿名ユーザー"
 }
