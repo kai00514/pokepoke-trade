@@ -13,7 +13,7 @@ import {
   markAllNotificationsAsRead,
 } from "@/lib/services/notification-service"
 import type { Notification } from "@/types/notification"
-import Link from "next/link"
+import Link from "next/link" // Linkは詳細ページへの遷移用として残す
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export default function NotificationDropdown() {
@@ -25,8 +25,8 @@ export default function NotificationDropdown() {
   const [error, setError] = useState<string | null>(null)
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null)
   const [showDetail, setShowDetail] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const buttonRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null) // モーダル外クリック検出用
+  const buttonRef = useRef<HTMLButtonElement>(null) // 通知ベルボタン
 
   // コンポーネントがマウントされたことをログ出力
   useEffect(() => {
@@ -79,28 +79,34 @@ export default function NotificationDropdown() {
     }
   }
 
-  // ドロップダウンを開く/閉じる
-  const toggleDropdown = () => {
-    console.log("🔄 Toggle modal clicked:", {
-      currentState: isOpen,
+  // モーダルを開く/閉じる
+  const handleOpenModal = () => {
+    console.log("🔄 Opening modal:", {
       user: !!user,
       authLoading,
       timestamp: new Date().toISOString(),
     })
 
     if (!user && !authLoading) {
-      console.log("❌ Cannot toggle modal: user not authenticated")
+      console.log("❌ Cannot open modal: user not authenticated")
       return
     }
 
-    if (!isOpen && user) {
+    if (user) {
       console.log("📡 Will fetch notifications...")
       fetchNotifications()
     }
-    setIsOpen(!isOpen)
+    setIsOpen(true)
+    setShowDetail(false) // モーダルを開くときは常にリスト表示から開始
+    setSelectedNotification(null)
+    console.log("🔄 Modal state changed to: true")
+  }
+
+  const handleCloseModal = () => {
+    console.log("🔄 Closing modal")
+    setIsOpen(false)
     setShowDetail(false)
     setSelectedNotification(null)
-    console.log("🔄 Modal state changed to:", !isOpen)
   }
 
   // 通知を既読にする
@@ -131,7 +137,7 @@ export default function NotificationDropdown() {
     setSelectedNotification(null)
   }
 
-  // 外側クリックでドロップダウンを閉じる
+  // 外側クリックでモーダルを閉じる (Dialogコンポーネントが内部で処理するため、ここでは不要だが念のため残す)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -140,8 +146,8 @@ export default function NotificationDropdown() {
         buttonRef.current &&
         !buttonRef.current.contains(event.target as Node)
       ) {
-        console.log("🖱️ Outside click detected, closing dropdown")
-        setIsOpen(false)
+        console.log("🖱️ Outside click detected, closing modal")
+        // setIsOpen(false); // DialogのonOpenChangeで処理される
       }
     }
 
@@ -173,15 +179,15 @@ export default function NotificationDropdown() {
     return unsubscribe
   }, [user])
 
-  // ESCキーでドロップダウンを閉じる
+  // ESCキーでモーダルを閉じる
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === "Escape" && isOpen) {
         if (showDetail) {
           handleBackToList()
         } else {
-          console.log("⌨️ ESC key pressed, closing dropdown")
-          setIsOpen(false)
+          console.log("⌨️ ESC key pressed, closing modal")
+          handleCloseModal()
           buttonRef.current?.focus()
         }
       }
@@ -191,7 +197,7 @@ export default function NotificationDropdown() {
       document.addEventListener("keydown", handleEscKey)
       return () => document.removeEventListener("keydown", handleEscKey)
     }
-  }, [isOpen, showDetail])
+  }, [isOpen, showDetail, handleCloseModal])
 
   const getNotificationLink = (notification: Notification) => {
     if (notification.source === "trade") {
@@ -241,13 +247,7 @@ export default function NotificationDropdown() {
         variant="ghost"
         size="icon"
         className="relative text-white hover:bg-white/20 rounded-full h-9 w-9 sm:h-10 sm:w-10 transition-all duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-violet-500"
-        onClick={(e) => {
-          console.log("🖱️ Button clicked!", e)
-          toggleDropdown()
-        }}
-        onMouseDown={(e) => {
-          console.log("🖱️ Button mouse down!", e)
-        }}
+        onClick={handleOpenModal} // ここでモーダルを開く関数を呼び出す
         aria-label={`通知 ${unreadCount > 0 ? `(${unreadCount}件の未読)` : ""}`}
         aria-expanded={isOpen}
         aria-haspopup="true"
@@ -359,13 +359,7 @@ export default function NotificationDropdown() {
 
                 {notifications.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-gray-200">
-                    <div className="flex justify-between items-center">
-                      <Link href="/notifications" onClick={() => setIsOpen(false)}>
-                        <Button variant="ghost" size="sm" className="text-sm">
-                          すべて表示
-                          <ExternalLink className="h-3 w-3 ml-1" />
-                        </Button>
-                      </Link>
+                    <div className="flex justify-end items-center">
                       {unreadCount > 0 && (
                         <Button
                           variant="outline"
