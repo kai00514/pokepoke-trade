@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Bell, Loader2, ExternalLink, AlertCircle } from "lucide-react"
+import { Bell, Loader2, ExternalLink, AlertCircle, ArrowLeft, MessageCircle, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -23,6 +23,8 @@ export default function NotificationDropdown() {
   const [isLoading, setIsLoading] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null)
+  const [showDetail, setShowDetail] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
@@ -96,6 +98,8 @@ export default function NotificationDropdown() {
       fetchNotifications()
     }
     setIsOpen(!isOpen)
+    setShowDetail(false)
+    setSelectedNotification(null)
     console.log("🔄 Modal state changed to:", !isOpen)
   }
 
@@ -112,6 +116,19 @@ export default function NotificationDropdown() {
     } catch (error) {
       console.error("Error marking notification as read:", error)
     }
+  }
+
+  // 通知詳細を表示
+  const handleNotificationClick = (notification: Notification) => {
+    setSelectedNotification(notification)
+    setShowDetail(true)
+    handleMarkAsRead(notification)
+  }
+
+  // 詳細画面から戻る
+  const handleBackToList = () => {
+    setShowDetail(false)
+    setSelectedNotification(null)
   }
 
   // 外側クリックでドロップダウンを閉じる
@@ -160,9 +177,13 @@ export default function NotificationDropdown() {
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === "Escape" && isOpen) {
-        console.log("⌨️ ESC key pressed, closing dropdown")
-        setIsOpen(false)
-        buttonRef.current?.focus()
+        if (showDetail) {
+          handleBackToList()
+        } else {
+          console.log("⌨️ ESC key pressed, closing dropdown")
+          setIsOpen(false)
+          buttonRef.current?.focus()
+        }
       }
     }
 
@@ -170,7 +191,7 @@ export default function NotificationDropdown() {
       document.addEventListener("keydown", handleEscKey)
       return () => document.removeEventListener("keydown", handleEscKey)
     }
-  }, [isOpen])
+  }, [isOpen, showDetail])
 
   const getNotificationLink = (notification: Notification) => {
     if (notification.source === "trade") {
@@ -178,6 +199,13 @@ export default function NotificationDropdown() {
     } else {
       return `/content/${notification.related_id}`
     }
+  }
+
+  const getNotificationIcon = (type: string) => {
+    if (type.includes("comment")) {
+      return <MessageCircle className="h-4 w-4" />
+    }
+    return <FileText className="h-4 w-4" />
   }
 
   const formatTimeAgo = (dateString: string) => {
@@ -235,133 +263,201 @@ export default function NotificationDropdown() {
         )}
       </Button>
 
-      {/* 通知ドロップダウン */}
+      {/* 通知モーダル */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-md max-h-[80vh] p-0">
-          <DialogHeader className="p-6 pb-4">
-            <DialogTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              通知
-              {unreadCount > 0 && (
-                <Badge variant="destructive" className="ml-2">
-                  {unreadCount}
-                </Badge>
-              )}
-            </DialogTitle>
-          </DialogHeader>
+          {!showDetail ? (
+            // 通知リスト表示
+            <>
+              <DialogHeader className="p-6 pb-4">
+                <DialogTitle className="flex items-center gap-2">
+                  <Bell className="h-5 w-5" />
+                  通知
+                  {unreadCount > 0 && (
+                    <Badge variant="destructive" className="ml-2">
+                      {unreadCount}
+                    </Badge>
+                  )}
+                </DialogTitle>
+              </DialogHeader>
 
-          <div className="px-6 pb-6">
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-center gap-2 text-red-700">
-                  <AlertCircle className="h-4 w-4" />
-                  <span className="text-sm">{error}</span>
-                </div>
-              </div>
-            )}
+              <div className="px-6 pb-6">
+                {error && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-red-700">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="text-sm">{error}</span>
+                    </div>
+                  </div>
+                )}
 
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                <span className="ml-2 text-sm text-gray-600">読み込み中...</span>
-              </div>
-            ) : notifications.length === 0 ? (
-              <div className="text-center py-12">
-                <Bell className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                <p className="text-sm text-gray-600 mb-1">通知はありません</p>
-                <p className="text-xs text-gray-400">新しい通知があるとここに表示されます</p>
-              </div>
-            ) : (
-              <ScrollArea className="h-96">
-                <div className="space-y-2">
-                  {notifications.slice(0, 15).map((notification, index) => (
-                    <Link
-                      key={notification.id}
-                      href={getNotificationLink(notification)}
-                      onClick={() => {
-                        handleMarkAsRead(notification)
-                        setIsOpen(false)
-                      }}
-                      className="block"
-                    >
-                      <div
-                        className={`p-4 rounded-lg border transition-all hover:shadow-md cursor-pointer ${
-                          !notification.is_read
-                            ? "bg-blue-50 border-blue-200 hover:bg-blue-100"
-                            : "bg-gray-50 border-gray-200 hover:bg-gray-100"
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={`p-2 rounded-full flex-shrink-0 ${
-                              notification.source === "trade"
-                                ? "bg-green-100 text-green-600"
-                                : "bg-purple-100 text-purple-600"
-                            }`}
-                          >
-                            <Bell className="h-4 w-4" />
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge
-                                variant="outline"
-                                className={`text-xs ${
-                                  notification.source === "trade"
-                                    ? "border-green-200 text-green-700 bg-green-50"
-                                    : "border-purple-200 text-purple-700 bg-purple-50"
-                                }`}
-                              >
-                                {notification.source === "trade" ? "トレード" : "デッキ"}
-                              </Badge>
-                              {!notification.is_read && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
-                              )}
-                              <span className="text-xs text-gray-500 ml-auto">
-                                {formatTimeAgo(notification.created_at)}
-                              </span>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                    <span className="ml-2 text-sm text-gray-600">読み込み中...</span>
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Bell className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                    <p className="text-sm text-gray-600 mb-1">通知はありません</p>
+                    <p className="text-xs text-gray-400">新しい通知があるとここに表示されます</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-96">
+                    <div className="space-y-2">
+                      {notifications.slice(0, 15).map((notification, index) => (
+                        <div
+                          key={notification.id}
+                          onClick={() => handleNotificationClick(notification)}
+                          className={`p-4 rounded-lg border transition-all hover:shadow-md cursor-pointer ${
+                            !notification.is_read
+                              ? "bg-blue-50 border-blue-200 hover:bg-blue-100"
+                              : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div
+                              className={`p-2 rounded-full flex-shrink-0 ${
+                                notification.source === "trade"
+                                  ? "bg-green-100 text-green-600"
+                                  : "bg-purple-100 text-purple-600"
+                              }`}
+                            >
+                              {getNotificationIcon(notification.type)}
                             </div>
 
-                            <p className="text-sm text-gray-800 leading-relaxed">{notification.content}</p>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Badge
+                                  variant="outline"
+                                  className={`text-xs ${
+                                    notification.source === "trade"
+                                      ? "border-green-200 text-green-700 bg-green-50"
+                                      : "border-purple-200 text-purple-700 bg-purple-50"
+                                  }`}
+                                >
+                                  {notification.source === "trade" ? "トレード" : "デッキ"}
+                                </Badge>
+                                {!notification.is_read && (
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
+                                )}
+                                <span className="text-xs text-gray-500 ml-auto">
+                                  {formatTimeAgo(notification.created_at)}
+                                </span>
+                              </div>
+
+                              <p className="text-sm text-gray-800 leading-relaxed line-clamp-2">
+                                {notification.content}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
 
-            {notifications.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="flex justify-between items-center">
-                  <Link href="/notifications">
-                    <Button variant="ghost" size="sm" className="text-sm">
-                      すべて表示
-                      <ExternalLink className="h-3 w-3 ml-1" />
-                    </Button>
-                  </Link>
-                  {unreadCount > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        if (!user) return
-                        const result = await markAllNotificationsAsRead(user.id)
-                        if (result.success) {
-                          setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
-                          setUnreadCount(0)
-                        }
-                      }}
-                      className="text-sm"
-                    >
-                      すべて既読
-                    </Button>
-                  )}
-                </div>
+                {notifications.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <Link href="/notifications" onClick={() => setIsOpen(false)}>
+                        <Button variant="ghost" size="sm" className="text-sm">
+                          すべて表示
+                          <ExternalLink className="h-3 w-3 ml-1" />
+                        </Button>
+                      </Link>
+                      {unreadCount > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            if (!user) return
+                            const result = await markAllNotificationsAsRead(user.id)
+                            if (result.success) {
+                              setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+                              setUnreadCount(0)
+                            }
+                          }}
+                          className="text-sm"
+                        >
+                          すべて既読
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          ) : (
+            // 通知詳細表示
+            selectedNotification && (
+              <>
+                <DialogHeader className="p-6 pb-4">
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleBackToList}
+                      className="h-8 w-8"
+                      aria-label="通知リストに戻る"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                    <DialogTitle className="flex items-center gap-2">
+                      <div
+                        className={`p-2 rounded-full ${
+                          selectedNotification.source === "trade"
+                            ? "bg-green-100 text-green-600"
+                            : "bg-purple-100 text-purple-600"
+                        }`}
+                      >
+                        {getNotificationIcon(selectedNotification.type)}
+                      </div>
+                      通知詳細
+                    </DialogTitle>
+                  </div>
+                </DialogHeader>
+
+                <div className="px-6 pb-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={`${
+                          selectedNotification.source === "trade"
+                            ? "border-green-200 text-green-700 bg-green-50"
+                            : "border-purple-200 text-purple-700 bg-purple-50"
+                        }`}
+                      >
+                        {selectedNotification.source === "trade" ? "トレード" : "デッキ"}
+                      </Badge>
+                      <span className="text-sm text-gray-500">{formatTimeAgo(selectedNotification.created_at)}</span>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-base text-gray-800 leading-relaxed">{selectedNotification.content}</p>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <Link
+                        href={getNotificationLink(selectedNotification)}
+                        onClick={() => setIsOpen(false)}
+                        className="flex-1"
+                      >
+                        <Button className="w-full">
+                          詳細ページを開く
+                          <ExternalLink className="h-4 w-4 ml-2" />
+                        </Button>
+                      </Link>
+                      <Button variant="outline" onClick={handleBackToList}>
+                        戻る
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )
+          )}
         </DialogContent>
       </Dialog>
     </div>
