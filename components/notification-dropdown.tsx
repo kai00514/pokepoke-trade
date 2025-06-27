@@ -2,7 +2,16 @@
 
 import Link from "next/link"
 import { useState, useEffect, useRef } from "react"
-import { Bell, Loader2, AlertCircle, ArrowLeft, MessageCircle, FileText, ExternalLink } from "lucide-react"
+import {
+  Bell,
+  Loader2,
+  AlertCircle,
+  ArrowLeft,
+  MessageCircle,
+  FileText,
+  ExternalLink,
+  ChevronRight,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -196,16 +205,43 @@ export default function NotificationDropdown() {
     return <FileText className="h-4 w-4" />
   }
 
+  // 通知カテゴリに応じたバッジスタイル
+  const getCategoryBadge = (source: string, type: string) => {
+    if (source === "trade") {
+      if (type.includes("comment")) {
+        return {
+          text: "障害情報",
+          className: "bg-red-500 text-white text-xs px-2 py-1 rounded",
+        }
+      }
+      return {
+        text: "メンテナンス",
+        className: "bg-blue-500 text-white text-xs px-2 py-1 rounded",
+      }
+    } else {
+      if (type.includes("comment")) {
+        return {
+          text: "更新情報",
+          className: "bg-green-500 text-white text-xs px-2 py-1 rounded",
+        }
+      }
+      return {
+        text: "イベント",
+        className: "bg-orange-500 text-white text-xs px-2 py-1 rounded",
+      }
+    }
+  }
+
   // 時間のフォーマット
   const formatTimeAgo = (dateString: string) => {
-    const now = new Date()
     const date = new Date(dateString)
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+    const day = String(date.getDate()).padStart(2, "0")
+    const hours = String(date.getHours()).padStart(2, "0")
+    const minutes = String(date.getMinutes()).padStart(2, "0")
 
-    if (diffInMinutes < 1) return "たった今"
-    if (diffInMinutes < 60) return `${diffInMinutes}分前`
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}時間前`
-    return `${Math.floor(diffInMinutes / 1440)}日前`
+    return `${year}/${month}/${day} ${hours}:${minutes}`
   }
 
   // 認証中の場合は何も表示しない
@@ -287,55 +323,26 @@ export default function NotificationDropdown() {
                   </div>
                 ) : (
                   <ScrollArea className="h-96">
-                    <div className="space-y-2">
-                      {notifications.slice(0, 15).map((notification) => (
-                        <div
-                          key={notification.id}
-                          onClick={() => handleNotificationClick(notification)}
-                          className={`p-4 rounded-lg border transition-all hover:shadow-md cursor-pointer ${
-                            !notification.is_read
-                              ? "bg-blue-50 border-blue-200 hover:bg-blue-100"
-                              : "bg-gray-50 border-gray-200 hover:bg-gray-100"
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div
-                              className={`p-2 rounded-full flex-shrink-0 ${
-                                notification.source === "trade"
-                                  ? "bg-green-100 text-green-600"
-                                  : "bg-purple-100 text-purple-600"
-                              }`}
-                            >
-                              {getNotificationIcon(notification.type)}
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Badge
-                                  variant="outline"
-                                  className={`text-xs ${
-                                    notification.source === "trade"
-                                      ? "border-green-200 text-green-700 bg-green-50"
-                                      : "border-purple-200 text-purple-700 bg-purple-50"
-                                  }`}
-                                >
-                                  {notification.source === "trade" ? "トレード" : "デッキ"}
-                                </Badge>
-                                {!notification.is_read && (
-                                  <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
-                                )}
-                                <span className="text-xs text-gray-500 ml-auto">
-                                  {formatTimeAgo(notification.created_at)}
-                                </span>
+                    <div className="space-y-1">
+                      {notifications.slice(0, 15).map((notification) => {
+                        const categoryBadge = getCategoryBadge(notification.source, notification.type)
+                        return (
+                          <div
+                            key={notification.id}
+                            onClick={() => handleNotificationClick(notification)}
+                            className="p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <span className={categoryBadge.className}>{categoryBadge.text}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">{formatTimeAgo(notification.created_at)}</span>
+                                <ChevronRight className="h-4 w-4 text-gray-400" />
                               </div>
-
-                              <p className="text-sm text-gray-800 leading-relaxed line-clamp-2">
-                                {notification.content}
-                              </p>
                             </div>
+                            <p className="text-sm text-gray-800 leading-relaxed">{notification.content}</p>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </ScrollArea>
                 )}
