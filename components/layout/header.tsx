@@ -10,7 +10,7 @@ import NotificationDropdown from "@/components/notification-dropdown"
 import { PokepokeIdRegistrationModal } from "@/components/pokepoke-id-registration-modal"
 import { UsernameRegistrationModal } from "@/components/username-registration-modal"
 import { useState } from "react"
-import { updatePokepokeId, updateDisplayName } from "@/lib/actions/user-profile-actions"
+import { updateUserProfile } from "@/lib/actions/user-profile-actions"
 import { toast } from "@/components/ui/use-toast"
 
 export default function Header() {
@@ -34,13 +34,16 @@ export default function Header() {
   }
 
   const handlePokepokeIdSave = async (pokepokeId: string) => {
-    console.log("ポケポケIDを保存:", pokepokeId)
-    const result = await updatePokepokeId(pokepokeId)
+    console.log("🔄 Saving pokepoke_id:", pokepokeId)
+
+    const result = await updateUserProfile({ pokepoke_id: pokepokeId })
+
     if (result.success) {
       toast({
         title: "成功",
         description: "ポケポケIDが更新されました。",
       })
+      console.log("✅ PokepokeID updated successfully")
       await refreshUserProfile() // プロファイルを再フェッチしてヘッダーを更新
     } else {
       toast({
@@ -48,17 +51,21 @@ export default function Header() {
         description: result.error || "ポケポケIDの更新に失敗しました。",
         variant: "destructive",
       })
+      console.error("❌ Failed to update PokepokeID:", result.error)
     }
   }
 
   const handleUsernameSave = async (username: string) => {
-    console.log("ユーザー名を保存:", username)
-    const result = await updateDisplayName(username)
+    console.log("🔄 Saving display_name:", username)
+
+    const result = await updateUserProfile({ display_name: username })
+
     if (result.success) {
       toast({
         title: "成功",
         description: "ユーザー名が更新されました。",
       })
+      console.log("✅ Username updated successfully")
       await refreshUserProfile() // プロファイルを再フェッチしてヘッダーを更新
     } else {
       toast({
@@ -66,6 +73,7 @@ export default function Header() {
         description: result.error || "ユーザー名の更新に失敗しました。",
         variant: "destructive",
       })
+      console.error("❌ Failed to update username:", result.error)
     }
   }
 

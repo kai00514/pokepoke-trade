@@ -1,7 +1,8 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect, useCallback } from "react"
+
+import { createContext, useContext, useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import { getUserProfile, type UserProfile } from "@/lib/services/user-service"
@@ -22,75 +23,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
-  const fetchUserAndProfile = useCallback(async () => {
-    setLoading(true)
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser()
-    setUser(authUser)
-
-    if (authUser) {
-      const { success, profile } = await getUserProfile(authUser.id)
-      if (success) {
-        setUserProfile(profile || null)
-      } else {
-        setUserProfile(null)
-        console.error("Failed to fetch user profile for:", authUser.id)
-      }
+  const fetchUserProfile = async (userId: string) => {
+    console.log("🔄 Fetching user profile for:", userId)
+    const result = await getUserProfile(userId)
+    if (result.success && result.profile) {
+      console.log("✅ User profile fetched:", result.profile)
+      setUserProfile(result.profile)
     } else {
+      console.log("❌ Failed to fetch user profile:", result.error)
       setUserProfile(null)
     }
-    setLoading(false)
-  }, [supabase])
+  }
 
-  const refreshUserProfile = useCallback(async () => {
+  const refreshUserProfile = async () => {
     if (user) {
-      const { success, profile } = await getUserProfile(user.id)
-      if (success) {
-        setUserProfile(profile || null)
-      } else {
-        console.error("Failed to refresh user profile for:", user.id)
-      }
+      await fetchUserProfile(user.id)
     }
-  }, [user])
+  }
 
   useEffect(() => {
-    fetchUserAndProfile()
+    // 初期認証状態を取得
+    const getInitialSession = async () => {
+      console.log("🔄 Getting initial session...")
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession()
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state changed:", event, session?.user?.id)
-      setUser(session?.user || null)
-      // 認証状態が変わったらプロファイルも再フェッチ
-      if (session?.user) {
-        fetchUserAndProfile()
+      if (error) {
+        console.error("❌ Error getting session:", error)
+      } else if (session?.user) {
+        console.log("✅ Initial session found:", session.user.id)
+        setUser(session.user)
+        await fetchUserProfile(session.user.id)
       } else {
+        console.log("ℹ️ No initial session found")
+      }
+      setLoading(false)
+    }
+
+    getInitialSession()
+
+    // 認証状態の変更を監視
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("🔄 Auth state changed:", event, session?.user?.id)
+
+      if (session?.user) {
+        setUser(session.user)
+        await fetchUserProfile(session.user.id)
+      } else {
+        setUser(null)
         setUserProfile(null)
       }
+      setLoading(false)
     })
 
     return () => {
-      authListener.unsubscribe()
+      subscription.unsubscribe()
     }
-  }, [supabase, fetchUserAndProfile])
+  }, [])
 
-  const signOut = useCallback(async () => {
+  const signOut = async () => {
+    console.log("🔄 Signing out...")
     const { error } = await supabase.auth.signOut()
     if (error) {
-      console.error("Sign out error:", error)
+      console.error("❌ Sign out error:", error)
       throw error
     }
+    console.log("✅ Signed out successfully")
     setUser(null)
     setUserProfile(null)
-  }, [supabase])
+  }
 
-  return (
-    <AuthContext.Provider value={{ user, userProfile, loading, signOut, refreshUserProfile }}>
-      {children}
-    </AuthContext.Provider>
-  )
+  const value = {
+    user,
+    userProfile,
+    loading,
+    signOut,
+    refreshUserProfile,
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider")
