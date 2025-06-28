@@ -21,6 +21,7 @@ export interface Card {
   type?: string
   rarity?: string
   category?: string
+  pack_id?: string // pack_id を追加
 }
 
 const cardCategoriesForUI = ["全て", "ポケモン", "トレーナーズ", "グッズ", "どうぐ"]
@@ -76,6 +77,8 @@ export default function DetailedSearchModal({
   const [selectedCategoryUI, setSelectedCategoryUI] = useState("全て")
   const [selectedRarityDBValue, setSelectedRarityDBValue] = useState("all")
   const [selectedTypeUI, setSelectedTypeUI] = useState("all")
+  const [selectedPackId, setSelectedPackId] = useState<string | null>(null) // パックIDのステートを追加
+  const [packOptions, setPackOptions] = useState<{ id: string; name: string }[]>([]) // パックオプションのステートを追加
   const [currentSelectedCards, setCurrentSelectedCards] = useState<Card[]>([])
   const [fetchedCards, setFetchedCards] = useState<Card[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -110,13 +113,32 @@ export default function DetailedSearchModal({
     }
   }, [isOpen, initialSelectedCards])
 
+  // パックオプションの取得
+  useEffect(() => {
+    async function fetchPackOptions() {
+      if (!isOpen) return
+      const { data, error } = await supabase.from("packs").select("id, name").order("name", { ascending: true })
+      if (error) {
+        console.error("Error fetching packs:", error)
+        toast({
+          title: "パック情報取得エラー",
+          description: "パック情報の読み込みに失敗しました。",
+          variant: "destructive",
+        })
+      } else if (data) {
+        setPackOptions([{ id: "all", name: "全てのパック" }, ...data])
+      }
+    }
+    fetchPackOptions()
+  }, [isOpen, supabase, toast])
+
   useEffect(() => {
     async function fetchCardsFromSupabase() {
       if (!isOpen) return
       setIsLoading(true)
       let query = supabase
         .from("cards")
-        .select("id, name, image_url, type_code, rarity_code, category, thumb_url")
+        .select("id, name, image_url, type_code, rarity_code, category, thumb_url, pack_id") // pack_id を選択に追加
         .eq("is_visible", true)
 
       if (keyword.trim()) {
@@ -140,6 +162,10 @@ export default function DetailedSearchModal({
       } else {
         query = query.eq("rarity_code", selectedRarityDBValue)
       }
+      if (selectedPackId && selectedPackId !== "all") {
+        // パックIDによるフィルタリングを追加
+        query = query.eq("pack_id", selectedPackId)
+      }
       query = query.order("id", { ascending: true })
 
       const { data, error } = await query
@@ -159,13 +185,14 @@ export default function DetailedSearchModal({
           type: dbCard.type_code,
           rarity: dbCard.rarity_code,
           category: String(dbCard.category),
+          pack_id: dbCard.pack_id, // pack_id をマッピング
         }))
         setFetchedCards(mappedData)
       }
       setIsLoading(false)
     }
     fetchCardsFromSupabase()
-  }, [isOpen, keyword, selectedCategoryUI, selectedRarityDBValue, selectedTypeUI, supabase, toast])
+  }, [isOpen, keyword, selectedCategoryUI, selectedRarityDBValue, selectedTypeUI, selectedPackId, supabase, toast]) // selectedPackId を依存配列に追加
 
   const toggleCardSelection = (card: Card) => {
     setCurrentSelectedCards((prevSelected) => {
@@ -373,6 +400,25 @@ export default function DetailedSearchModal({
                         </span>
                       )}
                     </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-1 text-slate-700">パック名</p>
+                <div className="flex flex-wrap gap-2">
+                  {packOptions.map((pack) => (
+                    <Button
+                      key={pack.id}
+                      variant={selectedPackId === pack.id ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedPackId(pack.id)}
+                      className={cn(
+                        selectedPackId === pack.id && "bg-purple-600 hover:bg-purple-700 text-white",
+                        "text-xs px-3 py-1 h-auto",
+                      )}
+                    >
+                      {pack.name}
+                    </Button>
                   ))}
                 </div>
               </div>
