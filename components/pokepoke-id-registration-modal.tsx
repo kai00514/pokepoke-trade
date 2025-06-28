@@ -60,20 +60,20 @@ export function PokepokeIdRegistrationModal({
         <DialogHeader>
           <DialogTitle>ポケポケID登録</DialogTitle>
           <DialogDescription>
-            ポケモンポケットのIDを入力してください。トレード投稿時に自動入力されます。
+            あなたのポケポケIDを入力してください。トレード投稿時に自動入力されます。
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="pokepoke-id" className="text-right">
+            <Label htmlFor="pokepokeId" className="text-right">
               ポケポケID
             </Label>
             <Input
-              id="pokepoke-id"
+              id="pokepokeId"
               value={pokepokeId}
               onChange={(e) => setPokepokeId(e.target.value)}
               className="col-span-3"
-              placeholder="例: 1234567890"
+              placeholder="例: POKE12345"
               disabled={isLoading}
             />
           </div>

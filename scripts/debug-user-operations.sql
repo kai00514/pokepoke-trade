@@ -20,16 +20,10 @@ JOIN information_schema.key_column_usage kcu
 WHERE tc.table_schema = 'public' 
 AND tc.table_name = 'users';
 
--- RLS設定を確認
+-- RLSポリシーを確認
 SELECT 
     schemaname,
     tablename,
-    rowsecurity
-FROM pg_tables 
-WHERE tablename = 'users';
-
--- RLSポリシーを確認
-SELECT 
     policyname,
     permissive,
     roles,
@@ -37,7 +31,8 @@ SELECT
     qual,
     with_check
 FROM pg_policies 
-WHERE tablename = 'users';
+WHERE schemaname = 'public' 
+AND tablename = 'users';
 
 -- 現在のusersテーブルのデータを確認
 SELECT 
@@ -49,6 +44,15 @@ SELECT
     avatar_url,
     is_admin,
     created_at
-FROM users 
-ORDER BY created_at DESC 
+FROM public.users
+ORDER BY created_at DESC
 LIMIT 10;
+
+-- RLSが有効かどうか確認
+SELECT 
+    schemaname,
+    tablename,
+    rowsecurity
+FROM pg_tables 
+WHERE schemaname = 'public' 
+AND tablename = 'users';
