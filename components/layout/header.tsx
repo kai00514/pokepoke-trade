@@ -12,14 +12,15 @@ import { UsernameRegistrationModal } from "@/components/username-registration-mo
 import { useState } from "react"
 
 export default function Header() {
-  const { user, userProfile, loading, signOut } = useAuth()
+  const { user, userProfile, loading, displayName, signOut } = useAuth()
   const [isPokepokeIdModalOpen, setIsPokepokeIdModalOpen] = useState(false)
   const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false)
 
-  console.log("🔍 Header component - Auth state:", {
+  console.log("🔍 Header render - Auth state:", {
     user: user ? { id: user.id, email: user.email } : null,
-    userProfile,
+    userProfile: userProfile ? { id: userProfile.id, user_name: userProfile.user_name } : null,
     loading,
+    displayName,
   })
 
   const handleSignOut = async () => {
@@ -33,14 +34,38 @@ export default function Header() {
 
   const handlePokepokeIdSave = (pokepokeId: string) => {
     console.log("ポケポケIDを保存:", pokepokeId)
-    // ここにポケポケIDをデータベースに保存するロジックを追加
-    // 例: updateProfile({ pokepoke_id: pokepokeId })
+    // TODO: ポケポケIDをデータベースに保存するロジックを追加
+    setIsPokepokeIdModalOpen(false)
   }
 
   const handleUsernameSave = (username: string) => {
     console.log("ユーザー名を保存:", username)
-    // ここにユーザー名をデータベースに保存するロジックを追加
-    // 例: updateProfile({ user_name: username })
+    // TODO: ユーザー名をデータベースに保存するロジックを追加
+    setIsUsernameModalOpen(false)
+  }
+
+  // ローディング中は何も表示しない（またはローディングスピナーを表示）
+  if (loading) {
+    console.log("⏳ Header is loading...")
+    return (
+      <header className="bg-violet-500 text-white shadow-md">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/pokelink-logo.png"
+              alt="PokeLink ロゴ"
+              width={160}
+              height={40}
+              className="object-contain h-10"
+            />
+          </Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-20 h-8 bg-white/20 rounded animate-pulse"></div>
+            <div className="w-20 h-8 bg-white/20 rounded animate-pulse"></div>
+          </div>
+        </div>
+      </header>
+    )
   }
 
   return (
@@ -64,45 +89,46 @@ export default function Header() {
           {user && <NotificationDropdown />}
 
           {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5 hover:bg-white/20 transition-colors duration-200 cursor-pointer"
-                  aria-label="ユーザーメニューを開く"
-                >
-                  <div className="relative w-6 h-6 sm:w-8 sm:h-8">
-                    {userProfile?.avatar_url ? (
-                      <Image
-                        src={userProfile.avatar_url || "/placeholder.svg"}
-                        alt="ユーザーアバター"
-                        width={32}
-                        height={32}
-                        className="rounded-full object-cover w-full h-full"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-white/20 rounded-full flex items-center justify-center">
-                        <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                      </div>
-                    )}
-                  </div>
-                  <span className="text-white text-sm font-medium hidden sm:inline">
-                    {userProfile?.user_name || user.email?.split("@")[0] || "ユーザー"}
-                  </span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => setIsPokepokeIdModalOpen(true)} className="cursor-pointer">
-                  ポケポケID登録
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsUsernameModalOpen(true)} className="cursor-pointer">
-                  ユーザー名登録
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
-                  ログアウト
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5 hover:bg-white/20 transition-colors duration-200 cursor-pointer"
+                    aria-label="ユーザーメニューを開く"
+                  >
+                    <div className="relative w-6 h-6 sm:w-8 sm:h-8">
+                      {userProfile?.avatar_url ? (
+                        <Image
+                          src={userProfile.avatar_url || "/placeholder.svg"}
+                          alt="ユーザーアバター"
+                          width={32}
+                          height={32}
+                          className="rounded-full object-cover w-full h-full"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-white/20 rounded-full flex items-center justify-center">
+                          <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-white text-sm font-medium hidden sm:inline">{displayName}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => setIsPokepokeIdModalOpen(true)} className="cursor-pointer">
+                    ポケポケID登録
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsUsernameModalOpen(true)} className="cursor-pointer">
+                    ユーザー名登録
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+                    ログアウト
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <span className="text-xs text-white/80 hidden md:inline">ログイン中: {user.email}</span>
+            </>
           ) : (
             <>
               <Link href="/auth/signup">

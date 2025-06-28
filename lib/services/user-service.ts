@@ -1,70 +1,85 @@
 import { createClient } from "@/lib/supabase/client"
-import type { User } from "@supabase/supabase-js" // User型をインポート
+import type { User } from "@supabase/supabase-js"
 
 export interface UserProfile {
   id: string
   avatar_url: string | null
-  // user_name はこのサービスでは直接取得せず、AuthContextでuser.user_metadataから派生させる
+  user_name?: string | null
+  pokepoke_id?: string | null
 }
 
-export interface GetUserProfileResult {
+export async function getUserProfile(userId: string): Promise<{
   success: boolean
-  profile: UserProfile | null
-  error: string | null
-}
-
-export async function getUserProfile(userId: string): Promise<GetUserUserProfileResult> {
-  const supabase = createClient()
+  profile?: UserProfile | null
+  error?: string
+}> {
+  console.log("🔄 getUserProfile called for userId:", userId)
 
   try {
-    // auth.users テーブルから id と avatar_url のみを取得
-    // raw_user_meta_data は user.user_metadata としてAuthContextで利用可能
-    const { data, error } = await supabase
-      .from("users") // これは auth.users テーブルを指す
-      .select("id, avatar_url") // ここが重要: user_name や raw_user_meta_data を直接クエリしない
+    const supabase = createClient()
+
+    // まず auth.users から基本情報を取得
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError) {
+      console.error("❌ Auth error in getUserProfile:", authError)
+      return { success: false, error: authError.message }
+    }
+
+    if (!user || user.id !== userId) {
+      console.warn("⚠️ User not found or ID mismatch in getUserProfile")
+      return { success: false, error: "User not found" }
+    }
+
+    // public.users テーブルから追加情報を取得（存在する場合）
+    const { data: publicUserData, error: publicUserError } = await supabase
+      .from("users")
+      .select("user_name, pokepoke_id")
       .eq("id", userId)
-      .single()
+      .maybeSingle()
 
-    if (error) {
-      console.error("Error fetching user profile from DB:", error)
-      return { success: false, profile: null, error: error.message }
+    if (publicUserError && publicUserError.code !== "PGRST116") {
+      console.error("❌ Public user data error:", publicUserError)
+      // エラーがあってもauth情報は返す
     }
 
-    if (!data) {
-      console.warn(`User profile not found for ID: ${userId}`)
-      return { success: false, profile: null, error: "User profile not found" }
-    }
-
-    // 取得したデータでUserProfileを構築
     const profile: UserProfile = {
-      id: data.id,
-      avatar_url: data.avatar_url,
+      id: user.id,
+      avatar_url: user.user_metadata?.avatar_url || null,
+      user_name: publicUserData?.user_name || null,
+      pokepoke_id: publicUserData?.pokepoke_id || null,
     }
 
-    return { success: true, profile, error: null }
-  } catch (e) {
-    console.error("Unexpected error in getUserProfile:", e)
-    return { success: false, profile: null, error: (e as Error).message }
+    console.log("✅ getUserProfile success:", profile)
+    return { success: true, profile }
+  } catch (error) {
+    console.error("❌ Unexpected error in getUserProfile:", error)
+    return { success: false, error: "Unexpected error occurred" }
   }
 }
 
-// ユーザーの表示名を取得するヘルパー関数
-// この関数はAuthContext内で使用され、user.user_metadataから名前を抽出します
 export function getDisplayName(user: User | null, userProfile: UserProfile | null): string {
   if (!user) return "ゲスト"
 
-  // user.user_metadata (raw_user_meta_dataに相当) からdisplay_nameまたはfull_nameを優先
-  if (user.user_metadata?.display_name) {
-    return user.user_metadata.display_name as string
-  }
-  if (user.user_metadata?.full_name) {
-    return user.user_metadata.full_name as string
-  }
-  if (user.user_metadata?.name) {
-    // Googleプロバイダーの場合 'name' がある
-    return user.user_metadata.name as string
+  // 優先順位: user_name > user_metadata.full_name > user_metadata.name > email
+  if (userProfile?.user_name) {
+    return userProfile.user_name
   }
 
-  // メールアドレスの@より前をフォールバック
-  return user.email?.split("@")[0] || "匿名ユーザー"
+  if (user.user_metadata?.full_name) {
+    return user.user_metadata.full_name
+  }
+
+  if (user.user_metadata?.name) {
+    return user.user_metadata.name
+  }
+
+  if (user.email) {
+    return user.email.split("@")[0]
+  }
+
+  return "ユーザー"
 }

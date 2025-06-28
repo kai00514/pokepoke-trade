@@ -4,17 +4,11 @@ import type React from "react"
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
-import { getUserProfile, getDisplayName } from "@/lib/services/user-service" // UserProfileをインポート
-
-// UserProfileインターフェースをuser-service.tsと同期
-interface AuthUserProfile {
-  id: string
-  avatar_url: string | null
-}
+import { getUserProfile, getDisplayName, type UserProfile } from "@/lib/services/user-service"
 
 interface AuthContextType {
   user: User | null
-  userProfile: AuthUserProfile | null // 更新されたUserProfileを使用
+  userProfile: UserProfile | null
   loading: boolean
   displayName: string
   signOut: () => Promise<void>
@@ -25,7 +19,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [userProfile, setUserProfile] = useState<AuthUserProfile | null>(null) // 更新されたUserProfileを使用
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [displayName, setDisplayName] = useState<string>("ゲスト")
 
@@ -35,40 +29,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUserAndProfile = useCallback(async () => {
     console.log("🔄 fetchUserAndProfile called...")
     setLoading(true)
+
     try {
       const {
         data: { session },
         error: sessionError,
       } = await supabase.auth.getSession()
 
+      console.log(
+        "📋 Session data:",
+        session ? "exists" : "null",
+        sessionError ? `error: ${sessionError.message}` : "no error",
+      )
+
       if (sessionError) {
         console.error("❌ Error getting session in fetchUserAndProfile:", sessionError)
         setUser(null)
         setUserProfile(null)
         setDisplayName("ゲスト")
-      } else {
-        const currentUser = session?.user ?? null
-        setUser(currentUser)
-        console.log("✅ User set:", currentUser ? currentUser.id : "null")
+        return
+      }
 
-        if (currentUser) {
-          // getUserProfileからavatar_urlのみを取得
-          const profileResult = await getUserProfile(currentUser.id)
-          if (profileResult.success && profileResult.profile) {
-            setUserProfile(profileResult.profile)
-            // displayNameはuser.user_metadataとuserProfileのavatar_urlを組み合わせて生成
-            setDisplayName(getDisplayName(currentUser, profileResult.profile))
-            console.log("✅ User profile set:", profileResult.profile.id)
-          } else {
-            console.warn("⚠️ User profile (avatar_url) not found or error in fetchUserAndProfile:", profileResult.error)
-            setUserProfile(null)
-            setDisplayName(getDisplayName(currentUser, null)) // userProfileがnullの場合もdisplayNameを計算
-          }
+      const currentUser = session?.user ?? null
+      console.log("👤 Current user:", currentUser ? `${currentUser.id} (${currentUser.email})` : "null")
+
+      setUser(currentUser)
+
+      if (currentUser) {
+        // getUserProfileからプロフィール情報を取得
+        const profileResult = await getUserProfile(currentUser.id)
+        console.log("📋 Profile result:", profileResult)
+
+        if (profileResult.success && profileResult.profile) {
+          setUserProfile(profileResult.profile)
+          setDisplayName(getDisplayName(currentUser, profileResult.profile))
+          console.log("✅ User profile set:", profileResult.profile)
         } else {
+          console.warn("⚠️ User profile not found or error:", profileResult.error)
           setUserProfile(null)
-          setDisplayName("ゲスト")
-          console.log("ℹ️ No current user, userProfile cleared.")
+          setDisplayName(getDisplayName(currentUser, null))
         }
+      } else {
+        setUserProfile(null)
+        setDisplayName("ゲスト")
+        console.log("ℹ️ No current user, userProfile cleared.")
       }
     } catch (err) {
       console.error("❌ Unexpected error in fetchUserAndProfile:", err)
@@ -77,9 +81,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setDisplayName("ゲスト")
     } finally {
       setLoading(false)
-      console.log("✅ fetchUserAndProfile finished. Loading:", false)
+      console.log("✅ fetchUserAndProfile finished. Loading set to false")
     }
-  }, [supabase]) // supabase を依存配列に追加
+  }, [supabase])
 
   const signOut = useCallback(async () => {
     console.log("👋 Attempting to sign out...")
@@ -90,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error("❌ Supabase signOut error:", error)
         throw error
       }
-      console.log("✅ Supabase signOut successful. Forcing state refresh and redirect.")
+      console.log("✅ Supabase signOut successful")
       setUser(null)
       setUserProfile(null)
       setDisplayName("ゲスト")
@@ -104,27 +108,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUserProfile = useCallback(async () => {
     if (user?.id) {
-      await fetchUserAndProfile() // userProfileだけでなく、userも再フェッチ
+      console.log("🔄 Refreshing user profile for:", user.id)
+      await fetchUserAndProfile()
     }
   }, [user, fetchUserAndProfile])
 
   useEffect(() => {
+    console.log("🚀 AuthProvider useEffect - Initial setup")
     fetchUserAndProfile()
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("🔄 Auth state change detected:", event, session?.user ? "logged in" : "logged out")
+      console.log(
+        "🔄 Auth state change detected:",
+        event,
+        session?.user ? `logged in as ${session.user.email}` : "logged out",
+      )
+
       if (event === "SIGNED_OUT") {
-        console.log("👋 SIGNED_OUT event received. Clearing user state and redirecting.")
+        console.log("👋 SIGNED_OUT event received. Clearing user state")
         setUser(null)
         setUserProfile(null)
         setDisplayName("ゲスト")
         setLoading(false)
-        window.location.href = "/"
         return
       }
-      fetchUserAndProfile()
+
+      // その他のイベントでは再フェッチ
+      await fetchUserAndProfile()
     })
 
     return () => {
@@ -133,10 +145,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase.auth, fetchUserAndProfile])
 
+  // デバッグ用のログ
   useEffect(() => {
-    console.log("🔍 Auth Context State (Render):", {
+    console.log("🔍 Auth Context State Update:", {
       user: user ? { id: user.id, email: user.email } : null,
-      userProfile,
+      userProfile: userProfile ? { id: userProfile.id, user_name: userProfile.user_name } : null,
       loading,
       displayName,
     })
