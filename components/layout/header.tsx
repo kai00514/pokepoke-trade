@@ -7,20 +7,14 @@ import { Plus, User } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import NotificationDropdown from "@/components/notification-dropdown"
-import { PokepokeIdRegistrationModal } from "@/components/pokepoke-id-registration-modal"
-import { UsernameRegistrationModal } from "@/components/username-registration-modal"
-import { useState } from "react"
 
 export default function Header() {
-  const { user, userProfile, loading, displayName, signOut } = useAuth()
-  const [isPokepokeIdModalOpen, setIsPokepokeIdModalOpen] = useState(false)
-  const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false)
+  const { user, userProfile, loading, signOut } = useAuth()
 
-  console.log("🔍 Header render - Auth state:", {
+  console.log("🔍 Header component - Auth state:", {
     user: user ? { id: user.id, email: user.email } : null,
-    userProfile: userProfile ? { id: userProfile.id, user_name: userProfile.user_name } : null,
+    userProfile,
     loading,
-    displayName,
   })
 
   const handleSignOut = async () => {
@@ -30,18 +24,6 @@ export default function Header() {
     } catch (error) {
       console.error("❌ Sign out error:", error)
     }
-  }
-
-  const handlePokepokeIdSave = (pokepokeId: string) => {
-    console.log("ポケポケIDを保存:", pokepokeId)
-    // TODO: ポケポケIDをデータベースに保存するロジックを追加
-    setIsPokepokeIdModalOpen(false)
-  }
-
-  const handleUsernameSave = (username: string) => {
-    console.log("ユーザー名を保存:", username)
-    // TODO: ユーザー名をデータベースに保存するロジックを追加
-    setIsUsernameModalOpen(false)
   }
 
   return (
@@ -64,14 +46,7 @@ export default function Header() {
           {/* 通知ドロップダウンコンポーネントを使用 */}
           {user && <NotificationDropdown />}
 
-          {/* ローディング中の表示 */}
-          {loading ? (
-            <div className="flex items-center gap-2">
-              <div className="w-16 h-8 bg-white/20 rounded animate-pulse"></div>
-              <div className="w-16 h-8 bg-white/20 rounded animate-pulse"></div>
-            </div>
-          ) : user ? (
-            /* ログイン済みユーザーの表示 */
+          {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -94,23 +69,18 @@ export default function Header() {
                       </div>
                     )}
                   </div>
-                  <span className="text-white text-sm font-medium hidden sm:inline">{displayName}</span>
+                  <span className="text-white text-sm font-medium hidden sm:inline">
+                    {userProfile?.user_name || user.email?.split("@")[0] || "ユーザー"}
+                  </span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => setIsPokepokeIdModalOpen(true)} className="cursor-pointer">
-                  ポケポケID登録
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsUsernameModalOpen(true)} className="cursor-pointer">
-                  ユーザー名登録
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                   ログアウト
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            /* 未ログインユーザーの表示 */
             <>
               <Link href="/auth/signup">
                 <Button
@@ -132,22 +102,6 @@ export default function Header() {
           )}
         </div>
       </div>
-
-      {/* ポケポケID登録モーダル */}
-      <PokepokeIdRegistrationModal
-        isOpen={isPokepokeIdModalOpen}
-        onOpenChange={setIsPokepokeIdModalOpen}
-        currentPokepokeId={userProfile?.pokepoke_id}
-        onSave={handlePokepokeIdSave}
-      />
-
-      {/* ユーザー名登録モーダル */}
-      <UsernameRegistrationModal
-        isOpen={isUsernameModalOpen}
-        onOpenChange={setIsUsernameModalOpen}
-        currentUsername={userProfile?.user_name}
-        onSave={handleUsernameSave}
-      />
     </header>
   )
 }
