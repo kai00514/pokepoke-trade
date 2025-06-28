@@ -1,70 +1,53 @@
 import { createClient } from "@/lib/supabase/client"
-import type { User } from "@supabase/supabase-js" // User型をインポート
 
 export interface UserProfile {
   id: string
   avatar_url: string | null
-  // user_name はこのサービスでは直接取得せず、AuthContextでuser.user_metadataから派生させる
+  display_name: string | null
+  pokepoke_id: string | null
 }
 
-export interface GetUserProfileResult {
+export interface UserProfileResult {
   success: boolean
-  profile: UserProfile | null
-  error: string | null
+  profile?: UserProfile
+  error?: string
 }
 
-export async function getUserProfile(userId: string): Promise<GetUserUserProfileResult> {
-  const supabase = createClient()
-
+export async function getUserProfile(userId: string): Promise<UserProfileResult> {
   try {
-    // auth.users テーブルから id と avatar_url のみを取得
-    // raw_user_meta_data は user.user_metadata としてAuthContextで利用可能
+    const supabase = createClient()
+
     const { data, error } = await supabase
-      .from("users") // これは auth.users テーブルを指す
-      .select("id, avatar_url") // ここが重要: user_name や raw_user_meta_data を直接クエリしない
+      .from("users")
+      .select("id, avatar_url, display_name, pokepoke_id")
       .eq("id", userId)
       .single()
 
     if (error) {
-      console.error("Error fetching user profile from DB:", error)
-      return { success: false, profile: null, error: error.message }
+      console.error("Error fetching user profile:", error)
+      return { success: false, error: error.message }
     }
 
-    if (!data) {
-      console.warn(`User profile not found for ID: ${userId}`)
-      return { success: false, profile: null, error: "User profile not found" }
-    }
-
-    // 取得したデータでUserProfileを構築
-    const profile: UserProfile = {
-      id: data.id,
-      avatar_url: data.avatar_url,
-    }
-
-    return { success: true, profile, error: null }
+    return { success: true, profile: data }
   } catch (e) {
     console.error("Unexpected error in getUserProfile:", e)
-    return { success: false, profile: null, error: (e as Error).message }
+    return { success: false, error: (e as Error).message }
   }
 }
 
-// ユーザーの表示名を取得するヘルパー関数
-// この関数はAuthContext内で使用され、user.user_metadataから名前を抽出します
-export function getDisplayName(user: User | null, userProfile: UserProfile | null): string {
-  if (!user) return "ゲスト"
-
-  // user.user_metadata (raw_user_meta_dataに相当) からdisplay_nameまたはfull_nameを優先
-  if (user.user_metadata?.display_name) {
-    return user.user_metadata.display_name as string
-  }
-  if (user.user_metadata?.full_name) {
-    return user.user_metadata.full_name as string
-  }
-  if (user.user_metadata?.name) {
-    // Googleプロバイダーの場合 'name' がある
-    return user.user_metadata.name as string
+export function getDisplayName(user: any, userProfile: UserProfile | null): string {
+  // 優先順位: userProfile.display_name > user.user_metadata.display_name > user.email
+  if (userProfile?.display_name) {
+    return userProfile.display_name
   }
 
-  // メールアドレスの@より前をフォールバック
-  return user.email?.split("@")[0] || "匿名ユーザー"
+  if (user?.user_metadata?.display_name) {
+    return user.user_metadata.display_name
+  }
+
+  if (user?.email) {
+    return user.email.split("@")[0]
+  }
+
+  return "ユーザー"
 }

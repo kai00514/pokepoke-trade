@@ -10,9 +10,11 @@ import NotificationDropdown from "@/components/notification-dropdown"
 import { PokepokeIdRegistrationModal } from "@/components/pokepoke-id-registration-modal"
 import { UsernameRegistrationModal } from "@/components/username-registration-modal"
 import { useState } from "react"
+import { updatePokepokeId, updateDisplayName } from "@/lib/actions/user-profile-actions"
+import { toast } from "@/components/ui/use-toast"
 
 export default function Header() {
-  const { user, userProfile, loading, signOut } = useAuth()
+  const { user, userProfile, loading, signOut, refreshUserProfile } = useAuth()
   const [isPokepokeIdModalOpen, setIsPokepokeIdModalOpen] = useState(false)
   const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false)
 
@@ -31,16 +33,40 @@ export default function Header() {
     }
   }
 
-  const handlePokepokeIdSave = (pokepokeId: string) => {
+  const handlePokepokeIdSave = async (pokepokeId: string) => {
     console.log("ポケポケIDを保存:", pokepokeId)
-    // ここにポケポケIDをデータベースに保存するロジックを追加
-    // 例: updateProfile({ pokepoke_id: pokepokeId })
+    const result = await updatePokepokeId(pokepokeId)
+    if (result.success) {
+      toast({
+        title: "成功",
+        description: "ポケポケIDが更新されました。",
+      })
+      await refreshUserProfile() // プロファイルを再フェッチしてヘッダーを更新
+    } else {
+      toast({
+        title: "エラー",
+        description: result.error || "ポケポケIDの更新に失敗しました。",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleUsernameSave = (username: string) => {
+  const handleUsernameSave = async (username: string) => {
     console.log("ユーザー名を保存:", username)
-    // ここにユーザー名をデータベースに保存するロジックを追加
-    // 例: updateProfile({ user_name: username })
+    const result = await updateDisplayName(username)
+    if (result.success) {
+      toast({
+        title: "成功",
+        description: "ユーザー名が更新されました。",
+      })
+      await refreshUserProfile() // プロファイルを再フェッチしてヘッダーを更新
+    } else {
+      toast({
+        title: "エラー",
+        description: result.error || "ユーザー名の更新に失敗しました。",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -87,7 +113,7 @@ export default function Header() {
                     )}
                   </div>
                   <span className="text-white text-sm font-medium hidden sm:inline">
-                    {userProfile?.user_name || user.email?.split("@")[0] || "ユーザー"}
+                    {userProfile?.display_name || user.email?.split("@")[0] || "ユーザー"}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
@@ -138,7 +164,7 @@ export default function Header() {
       <UsernameRegistrationModal
         isOpen={isUsernameModalOpen}
         onOpenChange={setIsUsernameModalOpen}
-        currentUsername={userProfile?.user_name}
+        currentUsername={userProfile?.display_name}
         onSave={handleUsernameSave}
       />
     </header>
