@@ -43,7 +43,7 @@ export async function createTradePost(formData: TradeFormData) {
     // シンプルな認証判定：クライアントからuserIdが渡されていれば認証済み
     const isAuthenticated = !!formData.userId
     const finalUserId = formData.userId || null
-    const guestName = formData.guestName?.trim() || "ゲスト"
+    const guestName = formData.guestName?.trim() || "ゲ���ト"
 
     console.log("[createTradePost] Authentication decision:", {
       isAuthenticated,

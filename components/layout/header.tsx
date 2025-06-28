@@ -3,27 +3,71 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Plus, User } from "lucide-react"
+import { Plus, User, LogOut, Settings } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/contexts/auth-context"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import NotificationDropdown from "@/components/notification-dropdown"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function Header() {
   const { user, userProfile, loading, signOut } = useAuth()
-
-  console.log("🔍 Header component - Auth state:", {
-    user: user ? { id: user.id, email: user.email } : null,
-    userProfile,
-    loading,
-  })
+  const { toast } = useToast()
 
   const handleSignOut = async () => {
     try {
       await signOut()
-      console.log("✅ Signed out successfully from Header")
+      toast({
+        title: "ログアウト完了",
+        description: "ログアウトしました。",
+      })
     } catch (error) {
-      console.error("❌ Sign out error:", error)
+      toast({
+        title: "エラー",
+        description: "ログアウトに失敗しました。",
+        variant: "destructive",
+      })
     }
+  }
+
+  const getDisplayName = () => {
+    if (userProfile?.user_name) {
+      return userProfile.user_name
+    }
+    if (user?.user_metadata?.full_name) {
+      return user.user_metadata.full_name
+    }
+    if (user?.email) {
+      return user.email.split("@")[0]
+    }
+    return "ユーザー"
+  }
+
+  if (loading) {
+    return (
+      <header className="bg-violet-500 text-white shadow-md">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/pokelink-logo.png"
+              alt="PokeLink ロゴ"
+              width={160}
+              height={40}
+              className="object-contain h-10"
+            />
+          </Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-20 h-8 bg-white/20 rounded animate-pulse"></div>
+            <div className="w-20 h-8 bg-white/20 rounded animate-pulse"></div>
+          </div>
+        </div>
+      </header>
+    )
   }
 
   return (
@@ -32,6 +76,7 @@ export default function Header() {
         <Link href="/" className="flex items-center">
           <Image src="/pokelink-logo.png" alt="PokeLink ロゴ" width={160} height={40} className="object-contain h-10" />
         </Link>
+
         <div className="flex items-center gap-2 sm:gap-3">
           <Button
             variant="ghost"
@@ -43,7 +88,6 @@ export default function Header() {
             <span className="sr-only">新規投稿作成</span>
           </Button>
 
-          {/* 通知ドロップダウンコンポーネントを使用 */}
           {user && <NotificationDropdown />}
 
           {user ? (
@@ -69,13 +113,25 @@ export default function Header() {
                       </div>
                     )}
                   </div>
-                  <span className="text-white text-sm font-medium hidden sm:inline">
-                    {userProfile?.user_name || user.email?.split("@")[0] || "ユーザー"}
-                  </span>
+                  <span className="text-white text-sm font-medium hidden sm:inline">{getDisplayName()}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+                <DropdownMenuItem asChild>
+                  <Link href="/profile" className="flex items-center cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    プロフィール
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" className="flex items-center cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                    設定
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="flex items-center cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
                   ログアウト
                 </DropdownMenuItem>
               </DropdownMenuContent>

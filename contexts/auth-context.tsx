@@ -1,17 +1,25 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect, useCallback } from "react"
+import { createContext, useContext, useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { getUserProfile } from "@/lib/services/user-service"
 import type { User } from "@supabase/supabase-js"
-import { getUserProfile, type UserProfile } from "@/lib/services/user-service"
+
+interface UserProfile {
+  id: string
+  user_name: string | null
+  pokepoke_id: string | null
+  avatar_url: string | null
+  created_at: string
+  updated_at: string
+}
 
 interface AuthContextType {
   user: User | null
   userProfile: UserProfile | null
   loading: boolean
   signOut: () => Promise<void>
-  refreshUserProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -22,75 +30,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
-  const fetchUserAndProfile = useCallback(async () => {
-    setLoading(true)
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser()
-    setUser(authUser)
-
-    if (authUser) {
-      const { success, profile } = await getUserProfile(authUser.id)
-      if (success) {
-        setUserProfile(profile || null)
-      } else {
-        setUserProfile(null)
-        console.error("Failed to fetch user profile for:", authUser.id)
-      }
-    } else {
-      setUserProfile(null)
-    }
-    setLoading(false)
-  }, [supabase])
-
-  const refreshUserProfile = useCallback(async () => {
-    if (user) {
-      const { success, profile } = await getUserProfile(user.id)
-      if (success) {
-        setUserProfile(profile || null)
-      } else {
-        console.error("Failed to refresh user profile for:", user.id)
-      }
-    }
-  }, [user])
-
   useEffect(() => {
-    fetchUserAndProfile()
+    const getSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        setUser(session?.user ?? null)
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state changed:", event, session?.user?.id)
-      setUser(session?.user || null)
-      // 認証状態が変わったらプロファイルも再フェッチ
+        if (session?.user) {
+          const profile = await getUserProfile(session.user.id)
+          if (profile.success && profile.profile) {
+            setUserProfile(profile.profile)
+          }
+        }
+      } catch (error) {
+        console.error("Error getting session:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    getSession()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setUser(session?.user ?? null)
+
       if (session?.user) {
-        fetchUserAndProfile()
+        const profile = await getUserProfile(session.user.id)
+        if (profile.success && profile.profile) {
+          setUserProfile(profile.profile)
+        }
       } else {
         setUserProfile(null)
       }
+
+      setLoading(false)
     })
 
-    return () => {
-      authListener.unsubscribe()
-    }
-  }, [supabase, fetchUserAndProfile])
+    return () => subscription.unsubscribe()
+  }, [supabase.auth])
 
-  const signOut = useCallback(async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) {
-      console.error("Sign out error:", error)
-      throw error
-    }
+  const signOut = async () => {
+    await supabase.auth.signOut()
     setUser(null)
     setUserProfile(null)
-  }, [supabase])
+  }
 
-  return (
-    <AuthContext.Provider value={{ user, userProfile, loading, signOut, refreshUserProfile }}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={{ user, userProfile, loading, signOut }}>{children}</AuthContext.Provider>
 }
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider")
