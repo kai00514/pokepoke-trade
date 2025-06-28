@@ -2,16 +2,7 @@
 
 import Link from "next/link"
 import { useState, useEffect, useRef } from "react"
-import {
-  Bell,
-  Loader2,
-  AlertCircle,
-  ArrowLeft,
-  MessageCircle,
-  FileText,
-  ExternalLink,
-  ChevronRight,
-} from "lucide-react"
+import { Bell, Loader2, AlertCircle, ArrowLeft, MessageCircle, FileText, ExternalLink, ChevronRight } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -206,28 +197,16 @@ export default function NotificationDropdown() {
   }
 
   // 通知カテゴリに応じたバッジスタイル
-  const getCategoryBadge = (source: string, type: string) => {
+  const getCategoryBadge = (source: string) => {
     if (source === "trade") {
-      if (type.includes("comment")) {
-        return {
-          text: "障害情報",
-          className: "bg-red-500 text-white text-xs px-2 py-1 rounded",
-        }
-      }
       return {
-        text: "メンテナンス",
-        className: "bg-blue-500 text-white text-xs px-2 py-1 rounded",
+        text: "トレード",
+        className: "bg-green-500 text-white text-xs px-2 py-1 rounded",
       }
     } else {
-      if (type.includes("comment")) {
-        return {
-          text: "更新情報",
-          className: "bg-green-500 text-white text-xs px-2 py-1 rounded",
-        }
-      }
       return {
-        text: "イベント",
-        className: "bg-orange-500 text-white text-xs px-2 py-1 rounded",
+        text: "デッキ",
+        className: "bg-purple-500 text-white text-xs px-2 py-1 rounded",
       }
     }
   }
@@ -325,7 +304,7 @@ export default function NotificationDropdown() {
                   <ScrollArea className="h-96">
                     <div className="space-y-1">
                       {notifications.slice(0, 15).map((notification) => {
-                        const categoryBadge = getCategoryBadge(notification.source, notification.type)
+                        const categoryBadge = getCategoryBadge(notification.source)
                         return (
                           <div
                             key={notification.id}
