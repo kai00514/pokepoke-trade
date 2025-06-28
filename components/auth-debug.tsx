@@ -11,15 +11,16 @@ export default function AuthDebug() {
       <CardHeader>
         <CardTitle className="text-sm">認証デバッグ情報</CardTitle>
       </CardHeader>
-      <CardContent className="text-xs space-y-2">
+      <CardContent className="space-y-2 text-xs">
         <div>
           <strong>Loading:</strong> {loading ? "true" : "false"}
         </div>
         <div>
-          <strong>User:</strong> {user ? `${user.id} (${user.email})` : "null"}
+          <strong>User:</strong> {user ? `${user.email} (${user.id})` : "null"}
         </div>
         <div>
-          <strong>UserProfile:</strong> {userProfile ? `${userProfile.id} (${userProfile.user_name})` : "null"}
+          <strong>UserProfile:</strong>{" "}
+          {userProfile ? `${userProfile.user_name || "no name"} (${userProfile.id})` : "null"}
         </div>
         <div>
           <strong>DisplayName:</strong> {displayName}

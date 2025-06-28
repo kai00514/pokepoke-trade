@@ -44,30 +44,6 @@ export default function Header() {
     setIsUsernameModalOpen(false)
   }
 
-  // ローディング中は何も表示しない（またはローディングスピナーを表示）
-  if (loading) {
-    console.log("⏳ Header is loading...")
-    return (
-      <header className="bg-violet-500 text-white shadow-md">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center">
-            <Image
-              src="/pokelink-logo.png"
-              alt="PokeLink ロゴ"
-              width={160}
-              height={40}
-              className="object-contain h-10"
-            />
-          </Link>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-20 h-8 bg-white/20 rounded animate-pulse"></div>
-            <div className="w-20 h-8 bg-white/20 rounded animate-pulse"></div>
-          </div>
-        </div>
-      </header>
-    )
-  }
-
   return (
     <header className="bg-violet-500 text-white shadow-md">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -88,48 +64,53 @@ export default function Header() {
           {/* 通知ドロップダウンコンポーネントを使用 */}
           {user && <NotificationDropdown />}
 
-          {user ? (
-            <>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5 hover:bg-white/20 transition-colors duration-200 cursor-pointer"
-                    aria-label="ユーザーメニューを開く"
-                  >
-                    <div className="relative w-6 h-6 sm:w-8 sm:h-8">
-                      {userProfile?.avatar_url ? (
-                        <Image
-                          src={userProfile.avatar_url || "/placeholder.svg"}
-                          alt="ユーザーアバター"
-                          width={32}
-                          height={32}
-                          className="rounded-full object-cover w-full h-full"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-white/20 rounded-full flex items-center justify-center">
-                          <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-white text-sm font-medium hidden sm:inline">{displayName}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => setIsPokepokeIdModalOpen(true)} className="cursor-pointer">
-                    ポケポケID登録
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setIsUsernameModalOpen(true)} className="cursor-pointer">
-                    ユーザー名登録
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
-                    ログアウト
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <span className="text-xs text-white/80 hidden md:inline">ログイン中: {user.email}</span>
-            </>
+          {/* ローディング中の表示 */}
+          {loading ? (
+            <div className="flex items-center gap-2">
+              <div className="w-16 h-8 bg-white/20 rounded animate-pulse"></div>
+              <div className="w-16 h-8 bg-white/20 rounded animate-pulse"></div>
+            </div>
+          ) : user ? (
+            /* ログイン済みユーザーの表示 */
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5 hover:bg-white/20 transition-colors duration-200 cursor-pointer"
+                  aria-label="ユーザーメニューを開く"
+                >
+                  <div className="relative w-6 h-6 sm:w-8 sm:h-8">
+                    {userProfile?.avatar_url ? (
+                      <Image
+                        src={userProfile.avatar_url || "/placeholder.svg"}
+                        alt="ユーザーアバター"
+                        width={32}
+                        height={32}
+                        className="rounded-full object-cover w-full h-full"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-white/20 rounded-full flex items-center justify-center">
+                        <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-white text-sm font-medium hidden sm:inline">{displayName}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setIsPokepokeIdModalOpen(true)} className="cursor-pointer">
+                  ポケポケID登録
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsUsernameModalOpen(true)} className="cursor-pointer">
+                  ユーザー名登録
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+                  ログアウト
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
+            /* 未ログインユーザーの表示 */
             <>
               <Link href="/auth/signup">
                 <Button

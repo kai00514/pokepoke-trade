@@ -1,15 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -29,38 +22,37 @@ export function PokepokeIdRegistrationModal({
   const [pokepokeId, setPokepokeId] = useState(currentPokepokeId || "")
 
   const handleSave = () => {
-    onSave(pokepokeId)
-    onOpenChange(false)
+    if (pokepokeId.trim()) {
+      onSave(pokepokeId.trim())
+      onOpenChange(false)
+    }
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>ポケポケID登録</DialogTitle>
-          <DialogDescription>
-            あなたのポケポケIDを入力してください。トレード投稿時に自動入力されます。
-          </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="pokepokeId" className="text-right">
-              ポケポケID
-            </Label>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="pokepoke-id">ポケポケID</Label>
             <Input
-              id="pokepokeId"
+              id="pokepoke-id"
               value={pokepokeId}
               onChange={(e) => setPokepokeId(e.target.value)}
-              className="col-span-3"
-              placeholder="例: POKE12345"
+              placeholder="ポケポケIDを入力してください"
             />
           </div>
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              キャンセル
+            </Button>
+            <Button onClick={handleSave} disabled={!pokepokeId.trim()}>
+              保存
+            </Button>
+          </div>
         </div>
-        <DialogFooter>
-          <Button type="submit" onClick={handleSave}>
-            保存
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

@@ -28,7 +28,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // ユーザーとプロフィールをフェッチする共通関数
   const fetchUserAndProfile = useCallback(async () => {
     console.log("🔄 fetchUserAndProfile called...")
-    setLoading(true)
 
     try {
       const {
@@ -47,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null)
         setUserProfile(null)
         setDisplayName("ゲスト")
+        setLoading(false)
         return
       }
 
