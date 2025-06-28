@@ -1,33 +1,37 @@
--- 現在認証されているユーザーを確認
-SELECT auth.uid() as current_user_id;
+-- テスト用のユーザー操作を実行
+-- 注意: 実際のユーザーIDに置き換えてください
 
--- 現在のユーザーのプロファイルを確認
+-- 1. 既存ユーザーの確認
 SELECT 
-    id,
-    name,
-    email,
-    display_name,
-    pokepoke_id,
-    avatar_url,
-    is_admin,
-    created_at
-FROM public.users
-WHERE id = auth.uid();
+  id,
+  name,
+  email,
+  display_name,
+  pokepoke_id,
+  avatar_url,
+  is_admin
+FROM users 
+WHERE id = 'test-user-id-here';
 
--- テスト用のポケポケID更新を試行
-UPDATE public.users 
-SET pokepoke_id = 'TEST12345'
-WHERE id = auth.uid();
+-- 2. ポケポケIDの更新テスト
+UPDATE users 
+SET pokepoke_id = 'test-pokepoke-id-123'
+WHERE id = 'test-user-id-here';
 
--- 更新後の確認
+-- 3. ユーザー名の更新テスト
+UPDATE users 
+SET display_name = 'テストユーザー'
+WHERE id = 'test-user-id-here';
+
+-- 4. 更新後の確認
 SELECT 
-    id,
-    name,
-    email,
-    display_name,
-    pokepoke_id,
-    avatar_url,
-    is_admin,
-    created_at
-FROM public.users
-WHERE id = auth.uid();
+  id,
+  name,
+  email,
+  display_name,
+  pokepoke_id,
+  avatar_url,
+  is_admin,
+  updated_at
+FROM users 
+WHERE id = 'test-user-id-here';
