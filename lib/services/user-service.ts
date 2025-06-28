@@ -8,7 +8,6 @@ export interface UserProfile {
   pokepoke_id?: string | null
   avatar_url?: string | null
   is_admin?: boolean
-  created_at?: string
 }
 
 export interface UserServiceResult {
@@ -19,13 +18,13 @@ export interface UserServiceResult {
 
 export async function getUserProfile(userId: string): Promise<UserServiceResult> {
   try {
-    console.log("🔄 Getting user profile for:", userId)
+    console.log("🔄 getUserProfile called for userId:", userId)
 
     const supabase = createClient()
 
     const { data, error } = await supabase
       .from("users")
-      .select("id, name, email, display_name, pokepoke_id, avatar_url, is_admin, created_at")
+      .select("id, name, email, display_name, pokepoke_id, avatar_url, is_admin")
       .eq("id", userId)
       .maybeSingle()
 
