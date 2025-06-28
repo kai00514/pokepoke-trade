@@ -47,16 +47,18 @@ export default function Header() {
     console.log("🔄 Saving pokepoke_id:", pokepokeId, "for user:", user.id)
 
     try {
-      // 既存のレコードを確認
+      // まず既存のレコードを確認
       const { data: existingUser, error: fetchError } = await supabase
         .from("users")
-        .select("id, name, email, display_name, pokepoke_id, avatar_url, is_admin")
+        .select("*")
         .eq("id", user.id)
         .maybeSingle()
 
       console.log("📋 Existing user data:", existingUser)
+      console.log("📋 Fetch error:", fetchError)
 
-      if (fetchError) {
+      if (fetchError && fetchError.code !== "PGRST116") {
+        // PGRST116 は "no rows returned" エラーなので、これは問題ない
         console.error("❌ Error fetching existing user:", fetchError)
         toast({
           title: "エラー",
@@ -69,32 +71,36 @@ export default function Header() {
       let result
       if (existingUser) {
         // 既存レコードを更新
-        console.log("🔄 Updating existing user record")
+        console.log("🔄 Updating existing user record with pokepoke_id")
         result = await supabase
           .from("users")
           .update({
             pokepoke_id: pokepokeId,
+            updated_at: new Date().toISOString(),
           })
           .eq("id", user.id)
-          .select("id, name, email, display_name, pokepoke_id, avatar_url, is_admin")
+          .select("*")
       } else {
         // 新しいレコードを挿入
-        console.log("🔄 Inserting new user record")
-        result = await supabase
-          .from("users")
-          .insert({
-            id: user.id,
-            name: user.user_metadata?.full_name || user.user_metadata?.name || null,
-            email: user.email || null,
-            pokepoke_id: pokepokeId,
-            display_name: null,
-            avatar_url: user.user_metadata?.avatar_url || null,
-            is_admin: false,
-          })
-          .select("id, name, email, display_name, pokepoke_id, avatar_url, is_admin")
+        console.log("🔄 Inserting new user record with pokepoke_id")
+        const newUserData = {
+          id: user.id,
+          name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+          email: user.email || null,
+          pokepoke_id: pokepokeId,
+          display_name: null,
+          avatar_url: user.user_metadata?.avatar_url || null,
+          is_admin: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
+        console.log("📝 New user data:", newUserData)
+
+        result = await supabase.from("users").insert(newUserData).select("*")
       }
 
       const { data, error } = result
+      console.log("📊 Database operation result:", { data, error })
 
       if (error) {
         console.error("❌ Database operation error:", error)
@@ -113,8 +119,9 @@ export default function Header() {
         description: "ポケポケIDが更新されました。",
       })
 
-      await refreshUserProfile() // プロファイルを再フェッチしてヘッダーを更新
-      setIsPokepokeIdModalOpen(false) // モーダルを閉じる
+      // プロファイルを再フェッチしてヘッダーを更新
+      await refreshUserProfile()
+      setIsPokepokeIdModalOpen(false)
     } catch (error) {
       console.error("❌ Unexpected error:", error)
       toast({
@@ -138,16 +145,18 @@ export default function Header() {
     console.log("🔄 Saving display_name:", username, "for user:", user.id)
 
     try {
-      // 既存のレコードを確認
+      // まず既存のレコードを確認
       const { data: existingUser, error: fetchError } = await supabase
         .from("users")
-        .select("id, name, email, display_name, pokepoke_id, avatar_url, is_admin")
+        .select("*")
         .eq("id", user.id)
         .maybeSingle()
 
       console.log("📋 Existing user data:", existingUser)
+      console.log("📋 Fetch error:", fetchError)
 
-      if (fetchError) {
+      if (fetchError && fetchError.code !== "PGRST116") {
+        // PGRST116 は "no rows returned" エラーなので、これは問題ない
         console.error("❌ Error fetching existing user:", fetchError)
         toast({
           title: "エラー",
@@ -160,32 +169,36 @@ export default function Header() {
       let result
       if (existingUser) {
         // 既存レコードを更新
-        console.log("🔄 Updating existing user record")
+        console.log("🔄 Updating existing user record with display_name")
         result = await supabase
           .from("users")
           .update({
             display_name: username,
+            updated_at: new Date().toISOString(),
           })
           .eq("id", user.id)
-          .select("id, name, email, display_name, pokepoke_id, avatar_url, is_admin")
+          .select("*")
       } else {
         // 新しいレコードを挿入
-        console.log("🔄 Inserting new user record")
-        result = await supabase
-          .from("users")
-          .insert({
-            id: user.id,
-            name: user.user_metadata?.full_name || user.user_metadata?.name || null,
-            email: user.email || null,
-            display_name: username,
-            pokepoke_id: null,
-            avatar_url: user.user_metadata?.avatar_url || null,
-            is_admin: false,
-          })
-          .select("id, name, email, display_name, pokepoke_id, avatar_url, is_admin")
+        console.log("🔄 Inserting new user record with display_name")
+        const newUserData = {
+          id: user.id,
+          name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+          email: user.email || null,
+          display_name: username,
+          pokepoke_id: null,
+          avatar_url: user.user_metadata?.avatar_url || null,
+          is_admin: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
+        console.log("📝 New user data:", newUserData)
+
+        result = await supabase.from("users").insert(newUserData).select("*")
       }
 
       const { data, error } = result
+      console.log("📊 Database operation result:", { data, error })
 
       if (error) {
         console.error("❌ Database operation error:", error)
@@ -204,8 +217,9 @@ export default function Header() {
         description: "ユーザー名が更新されました。",
       })
 
-      await refreshUserProfile() // プロファイルを再フェッチしてヘッダーを更新
-      setIsUsernameModalOpen(false) // モーダルを閉じる
+      // プロファイルを再フェッチしてヘッダーを更新
+      await refreshUserProfile()
+      setIsUsernameModalOpen(false)
     } catch (error) {
       console.error("❌ Unexpected error:", error)
       toast({

@@ -8,6 +8,8 @@ export interface UserProfile {
   pokepoke_id?: string | null
   avatar_url?: string | null
   is_admin?: boolean
+  created_at?: string
+  updated_at?: string
 }
 
 export interface UserServiceResult {
@@ -22,13 +24,10 @@ export async function getUserProfile(userId: string): Promise<UserServiceResult>
 
     const supabase = createClient()
 
-    const { data, error } = await supabase
-      .from("users")
-      .select("id, name, email, display_name, pokepoke_id, avatar_url, is_admin")
-      .eq("id", userId)
-      .maybeSingle()
+    const { data, error } = await supabase.from("users").select("*").eq("id", userId).maybeSingle()
 
-    if (error) {
+    if (error && error.code !== "PGRST116") {
+      // PGRST116 は "no rows returned" エラーなので、これは問題ない
       console.error("❌ Error fetching user profile:", error)
       return { success: false, error: error.message }
     }
