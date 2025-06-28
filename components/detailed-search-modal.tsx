@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
-import { Check, X, Diamond, StarIcon, Loader2, type LucideIcon } from "lucide-react"
+import { Check, X, Loader2 } from "lucide-react" // Diamond, StarIcon を削除
 import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 import { createBrowserClient } from "@/lib/supabase/client"
@@ -40,18 +40,19 @@ const typesForUI = [
 ]
 
 interface RarityOption {
-  uiLabel: string
-  dbValue: string
-  Icon?: LucideIcon
+  uiLabel: string // "1", "2", "3", "4", "全レアリティ"
+  dbValue: string // "ダイヤ1", "ダイヤ2", "ダイヤ3", "ダイヤ4", "星1", "all"
+  iconPath?: string // Path to the image
+  fullUiLabel: string // "ダイヤ1", "星1", "全レアリティ"
 }
 
 const rarityOptions: RarityOption[] = [
-  { uiLabel: "全レアリティ", dbValue: "all" },
-  { uiLabel: "◇1", dbValue: "ダイヤ1", Icon: Diamond },
-  { uiLabel: "◇2", dbValue: "ダイヤ2", Icon: Diamond },
-  { uiLabel: "◇3", dbValue: "ダイヤ3", Icon: Diamond },
-  { uiLabel: "◇4", dbValue: "ダイヤ4", Icon: Diamond },
-  { uiLabel: "☆1", dbValue: "星1", Icon: StarIcon },
+  { uiLabel: "全レアリティ", dbValue: "all", fullUiLabel: "全レアリティ" },
+  { uiLabel: "1", dbValue: "ダイヤ1", iconPath: "/images/rarities/diamond_single.png", fullUiLabel: "ダイヤ1" },
+  { uiLabel: "2", dbValue: "ダイヤ2", iconPath: "/images/rarities/diamond_single.png", fullUiLabel: "ダイヤ2" },
+  { uiLabel: "3", dbValue: "ダイヤ3", iconPath: "/images/rarities/diamond_single.png", fullUiLabel: "ダイヤ3" },
+  { uiLabel: "4", dbValue: "ダイヤ4", iconPath: "/images/rarities/diamond_single.png", fullUiLabel: "ダイヤ4" },
+  { uiLabel: "1", dbValue: "星1", iconPath: "/images/rarities/star_single.png", fullUiLabel: "星1" },
 ]
 
 const allowedDisplayRaritiesDB = ["ダイヤ1", "ダイヤ2", "ダイヤ3", "ダイヤ4", "星1"]
@@ -373,7 +374,18 @@ export default function DetailedSearchModal({
                       "text-xs px-3 py-1 h-auto flex items-center gap-1",
                     )}
                   >
-                    {option.Icon && <option.Icon className="h-3 w-3" />} {option.uiLabel.replace(/[◇☆]/g, "")}
+                    {option.iconPath && option.dbValue !== "all" ? (
+                      <Image
+                        src={option.iconPath || "/placeholder.svg"}
+                        alt={option.fullUiLabel}
+                        width={16}
+                        height={16}
+                        className="object-contain"
+                      />
+                    ) : option.dbValue === "all" ? (
+                      <Check className="h-3 w-3" />
+                    ) : null}
+                    {option.uiLabel}
                   </Button>
                 ))}
               </div>
