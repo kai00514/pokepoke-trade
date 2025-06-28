@@ -1,8 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -10,7 +17,7 @@ interface UsernameRegistrationModalProps {
   isOpen: boolean
   onOpenChange: (open: boolean) => void
   currentUsername?: string | null
-  onSave: (username: string) => Promise<void>
+  onSave: (username: string) => void
 }
 
 export function UsernameRegistrationModal({
@@ -37,11 +44,22 @@ export function UsernameRegistrationModal({
     }
   }
 
+  const handleOpenChange = (open: boolean) => {
+    if (!isLoading) {
+      onOpenChange(open)
+      if (!open) {
+        // モーダルが閉じられる時に現在の値にリセット
+        setUsername(currentUsername || "")
+      }
+    }
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>ユーザー名登録</DialogTitle>
+          <DialogDescription>表示用のユーザー名を入力してください。</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
@@ -53,19 +71,19 @@ export function UsernameRegistrationModal({
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="col-span-3"
-              placeholder="ユーザー名を入力してください"
+              placeholder="例: ポケモントレーナー"
               disabled={isLoading}
             />
           </div>
         </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isLoading}>
             キャンセル
           </Button>
-          <Button onClick={handleSave} disabled={isLoading || !username.trim()}>
+          <Button type="submit" onClick={handleSave} disabled={isLoading || !username.trim()}>
             {isLoading ? "保存中..." : "保存"}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

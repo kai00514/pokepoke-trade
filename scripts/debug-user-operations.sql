@@ -43,8 +43,7 @@ SELECT
     pokepoke_id,
     avatar_url,
     is_admin,
-    created_at,
-    updated_at
+    created_at
 FROM public.users
 ORDER BY created_at DESC
 LIMIT 10;
@@ -57,6 +56,3 @@ SELECT
 FROM pg_tables 
 WHERE schemaname = 'public' 
 AND tablename = 'users';
-
--- 現在認証されているユーザーを確認
-SELECT auth.uid() as current_user_id;
