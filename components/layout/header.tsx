@@ -10,14 +10,13 @@ import NotificationDropdown from "@/components/notification-dropdown"
 import { PokepokeIdRegistrationModal } from "@/components/pokepoke-id-registration-modal"
 import { UsernameRegistrationModal } from "@/components/username-registration-modal"
 import { useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { toast } from "@/components/ui/use-toast"
+import { saveUserData } from "@/lib/services/user-service"
 
 export default function Header() {
   const { user, userProfile, loading, signOut, refreshUserProfile } = useAuth()
   const [isPokepokeIdModalOpen, setIsPokepokeIdModalOpen] = useState(false)
   const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false)
-  const supabase = createClient()
 
   console.log("🔍 Header component - Auth state:", {
     user: user ? { id: user.id, email: user.email } : null,
@@ -47,79 +46,25 @@ export default function Header() {
     console.log("🔄 Saving pokepoke_id:", pokepokeId, "for user:", user.id)
 
     try {
-      // まず既存のレコードを確認
-      const { data: existingUser, error: fetchError } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle()
+      const result = await saveUserData(user.id, { pokepoke_id: pokepokeId })
 
-      console.log("📋 Existing user data:", existingUser)
-      console.log("📋 Fetch error:", fetchError)
-
-      if (fetchError && fetchError.code !== "PGRST116") {
-        // PGRST116 は "no rows returned" エラーなので、これは問題ない
-        console.error("❌ Error fetching existing user:", fetchError)
+      if (!result.success) {
+        console.error("❌ Failed to save pokepoke_id:", result.error)
         toast({
           title: "エラー",
-          description: `データ取得エラー: ${fetchError.message}`,
+          description: `ポケポケIDの保存に失敗しました: ${result.error}`,
           variant: "destructive",
         })
         return
       }
 
-      let result
-      if (existingUser) {
-        // 既存レコードを更新
-        console.log("🔄 Updating existing user record with pokepoke_id")
-        result = await supabase
-          .from("users")
-          .update({
-            pokepoke_id: pokepokeId,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", user.id)
-          .select("*")
-      } else {
-        // 新しいレコードを挿入
-        console.log("🔄 Inserting new user record with pokepoke_id")
-        const newUserData = {
-          id: user.id,
-          name: user.user_metadata?.full_name || user.user_metadata?.name || null,
-          email: user.email || null,
-          pokepoke_id: pokepokeId,
-          display_name: null,
-          avatar_url: user.user_metadata?.avatar_url || null,
-          is_admin: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }
-        console.log("📝 New user data:", newUserData)
-
-        result = await supabase.from("users").insert(newUserData).select("*")
-      }
-
-      const { data, error } = result
-      console.log("📊 Database operation result:", { data, error })
-
-      if (error) {
-        console.error("❌ Database operation error:", error)
-        toast({
-          title: "エラー",
-          description: `データベースエラー: ${error.message}`,
-          variant: "destructive",
-        })
-        return
-      }
-
-      console.log("✅ Database operation successful:", data)
+      console.log("✅ Pokepoke ID saved successfully:", result.profile)
 
       toast({
         title: "成功",
-        description: "ポケポケIDが更新されました。",
+        description: "ポケポケIDが保存されました。",
       })
 
-      // プロファイルを再フェッチしてヘッダーを更新
       await refreshUserProfile()
       setIsPokepokeIdModalOpen(false)
     } catch (error) {
@@ -145,79 +90,25 @@ export default function Header() {
     console.log("🔄 Saving display_name:", username, "for user:", user.id)
 
     try {
-      // まず既存のレコードを確認
-      const { data: existingUser, error: fetchError } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle()
+      const result = await saveUserData(user.id, { display_name: username })
 
-      console.log("📋 Existing user data:", existingUser)
-      console.log("📋 Fetch error:", fetchError)
-
-      if (fetchError && fetchError.code !== "PGRST116") {
-        // PGRST116 は "no rows returned" エラーなので、これは問題ない
-        console.error("❌ Error fetching existing user:", fetchError)
+      if (!result.success) {
+        console.error("❌ Failed to save display_name:", result.error)
         toast({
           title: "エラー",
-          description: `データ取得エラー: ${fetchError.message}`,
+          description: `ユーザー名の保存に失敗しました: ${result.error}`,
           variant: "destructive",
         })
         return
       }
 
-      let result
-      if (existingUser) {
-        // 既存レコードを更新
-        console.log("🔄 Updating existing user record with display_name")
-        result = await supabase
-          .from("users")
-          .update({
-            display_name: username,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", user.id)
-          .select("*")
-      } else {
-        // 新しいレコードを挿入
-        console.log("🔄 Inserting new user record with display_name")
-        const newUserData = {
-          id: user.id,
-          name: user.user_metadata?.full_name || user.user_metadata?.name || null,
-          email: user.email || null,
-          display_name: username,
-          pokepoke_id: null,
-          avatar_url: user.user_metadata?.avatar_url || null,
-          is_admin: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }
-        console.log("📝 New user data:", newUserData)
-
-        result = await supabase.from("users").insert(newUserData).select("*")
-      }
-
-      const { data, error } = result
-      console.log("📊 Database operation result:", { data, error })
-
-      if (error) {
-        console.error("❌ Database operation error:", error)
-        toast({
-          title: "エラー",
-          description: `データベースエラー: ${error.message}`,
-          variant: "destructive",
-        })
-        return
-      }
-
-      console.log("✅ Database operation successful:", data)
+      console.log("✅ Display name saved successfully:", result.profile)
 
       toast({
         title: "成功",
-        description: "ユーザー名が更新されました。",
+        description: "ユーザー名が保存されました。",
       })
 
-      // プロファイルを再フェッチしてヘッダーを更新
       await refreshUserProfile()
       setIsUsernameModalOpen(false)
     } catch (error) {
@@ -247,7 +138,6 @@ export default function Header() {
             <span className="sr-only">新規投稿作成</span>
           </Button>
 
-          {/* 通知ドロップダウンコンポーネントを使用 */}
           {user && <NotificationDropdown />}
 
           {user ? (
@@ -313,7 +203,6 @@ export default function Header() {
         </div>
       </div>
 
-      {/* ポケポケID登録モーダル */}
       <PokepokeIdRegistrationModal
         isOpen={isPokepokeIdModalOpen}
         onOpenChange={setIsPokepokeIdModalOpen}
@@ -321,7 +210,6 @@ export default function Header() {
         onSave={handlePokepokeIdSave}
       />
 
-      {/* ユーザー名登録モーダル */}
       <UsernameRegistrationModal
         isOpen={isUsernameModalOpen}
         onOpenChange={setIsUsernameModalOpen}
