@@ -1,85 +1,70 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { getUserProfile } from "@/lib/services/user-service"
-import type { User } from "@supabase/supabase-js"
 
-interface UserProfile {
-  id: string
-  user_name: string | null
-  pokepoke_id: string | null
-  avatar_url: string | null
-  created_at: string
-  updated_at: string
-}
+import { createContext, useContext, useState, useEffect, useCallback } from "react"
+import { createClient } from "@/lib/supabase/client" // ここはclient.tsからcreateClientをインポート
+import type { User } from "@supabase/supabase-js"
+import { useRouter } from "next/navigation"
 
 interface AuthContextType {
   user: User | null
-  userProfile: UserProfile | null
-  loading: boolean
   signOut: () => Promise<void>
+  signInWithOAuth: (provider: "google" | "twitter" | "line") => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
   const supabase = createClient()
+  const router = useRouter()
+
+  const fetchUser = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    setUser(user)
+  }, [supabase])
 
   useEffect(() => {
-    const getSession = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-        setUser(session?.user ?? null)
+    fetchUser()
 
-        if (session?.user) {
-          const profile = await getUserProfile(session.user.id)
-          if (profile.success && profile.profile) {
-            setUserProfile(profile.profile)
-          }
-        }
-      } catch (error) {
-        console.error("Error getting session:", error)
-      } finally {
-        setLoading(false)
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+        setUser(session?.user || null)
+        router.refresh() // サーバーサイドセッションを更新するためにページをリフレッシュ
       }
-    }
-
-    getSession()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null)
-
-      if (session?.user) {
-        const profile = await getUserProfile(session.user.id)
-        if (profile.success && profile.profile) {
-          setUserProfile(profile.profile)
-        }
-      } else {
-        setUserProfile(null)
-      }
-
-      setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
-  }, [supabase.auth])
+    return () => {
+      authListener?.unsubscribe()
+    }
+  }, [fetchUser, supabase.auth, router])
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut()
     setUser(null)
-    setUserProfile(null)
-  }
+    router.refresh()
+  }, [supabase.auth, router])
 
-  return <AuthContext.Provider value={{ user, userProfile, loading, signOut }}>{children}</AuthContext.Provider>
+  const signInWithOAuth = useCallback(
+    async (provider: "google" | "twitter" | "line") => {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${location.origin}/auth/callback`,
+        },
+      })
+      // エラーハンドリングの改善は不要なので、エラーログのみ
+      if (error) {
+        console.error("OAuth sign in error:", error.message)
+      }
+    },
+    [supabase.auth],
+  )
+
+  return <AuthContext.Provider value={{ user, signOut, signInWithOAuth }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

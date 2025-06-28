@@ -1,4 +1,4 @@
-import { createServerClient } from "@/lib/supabase/server"
+import { createServerClient } from "@/lib/supabase/server" // ここを修正
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get("next") ?? "/"
 
   if (code) {
-    const supabase = await createServerClient()
+    const supabase = await createServerClient() // ここを修正
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
       const forwardedHost = request.headers.get("x-forwarded-host") // original origin before load balancer

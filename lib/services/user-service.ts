@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/client"
+import { createServerClient } from "@/lib/supabase/server"
+import type { User } from "@supabase/supabase-js"
 
 export interface UserProfile {
   id: string
@@ -9,42 +10,47 @@ export interface UserProfile {
   updated_at: string
 }
 
-export interface UserProfileResult {
-  success: boolean
-  profile: UserProfile | null
-  error?: string
-}
+export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  const supabase = await createServerClient()
 
-export async function getUserProfile(userId: string): Promise<UserProfileResult> {
-  try {
-    const supabase = createClient()
+  const { data: profile, error } = await supabase
+    .from("users") // 'users' はあなたの公開プロフィールテーブルを想定
+    .select("id, user_name, pokepoke_id, avatar_url, created_at, updated_at")
+    .eq("id", userId)
+    .single()
 
-    const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
-
-    if (error) {
-      console.error("Error fetching user profile:", error)
-      return {
-        success: false,
-        profile: null,
-        error: error.message,
-      }
-    }
-
-    return {
-      success: true,
-      profile: data,
-    }
-  } catch (error) {
-    console.error("Unexpected error fetching user profile:", error)
-    return {
-      success: false,
-      profile: null,
-      error: "Unexpected error occurred",
-    }
+  if (error) {
+    console.error("Error fetching user profile:", error.message)
+    return null
   }
+  return profile
 }
 
-export function getDisplayName(user: any, profile: UserProfile | null): string {
+export async function updateUserName(userId: string, userName: string) {
+  const supabase = await createServerClient()
+
+  const { data, error } = await supabase.from("users").update({ user_name: userName }).eq("id", userId).select()
+
+  if (error) {
+    console.error("Error updating user name:", error.message)
+    throw error
+  }
+  return data
+}
+
+export async function updatePokepokeId(userId: string, pokepokeId: string) {
+  const supabase = await createServerClient()
+
+  const { data, error } = await supabase.from("users").update({ pokepoke_id: pokepokeId }).eq("id", userId).select()
+
+  if (error) {
+    console.error("Error updating pokepoke ID:", error.message)
+    throw error
+  }
+  return data
+}
+
+export function getDisplayName(user: User | null, profile: UserProfile | null): string {
   if (profile?.user_name) {
     return profile.user_name
   }
@@ -55,33 +61,4 @@ export function getDisplayName(user: any, profile: UserProfile | null): string {
     return user.email.split("@")[0]
   }
   return "ユーザー"
-}
-
-export async function updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfileResult> {
-  try {
-    const supabase = createClient()
-
-    const { data, error } = await supabase.from("users").update(updates).eq("id", userId).select().single()
-
-    if (error) {
-      console.error("Error updating user profile:", error)
-      return {
-        success: false,
-        profile: null,
-        error: error.message,
-      }
-    }
-
-    return {
-      success: true,
-      profile: data,
-    }
-  } catch (error) {
-    console.error("Unexpected error updating user profile:", error)
-    return {
-      success: false,
-      profile: null,
-      error: "Unexpected error occurred",
-    }
-  }
 }

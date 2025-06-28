@@ -16,29 +16,18 @@ import NotificationDropdown from "@/components/notification-dropdown"
 import { useToast } from "@/components/ui/use-toast"
 
 export default function Header() {
-  const { user, userProfile, loading, signOut } = useAuth()
+  const { user, signOut } = useAuth()
   const { toast } = useToast()
 
   const handleSignOut = async () => {
-    try {
-      await signOut()
-      toast({
-        title: "ログアウト完了",
-        description: "ログアウトしました。",
-      })
-    } catch (error) {
-      toast({
-        title: "エラー",
-        description: "ログアウトに失敗しました。",
-        variant: "destructive",
-      })
-    }
+    await signOut()
+    toast({
+      title: "ログアウト完了",
+      description: "ログアウトしました。",
+    })
   }
 
   const getDisplayName = () => {
-    if (userProfile?.user_name) {
-      return userProfile.user_name
-    }
     if (user?.user_metadata?.full_name) {
       return user.user_metadata.full_name
     }
@@ -46,28 +35,6 @@ export default function Header() {
       return user.email.split("@")[0]
     }
     return "ユーザー"
-  }
-
-  if (loading) {
-    return (
-      <header className="bg-violet-500 text-white shadow-md">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center">
-            <Image
-              src="/pokelink-logo.png"
-              alt="PokeLink ロゴ"
-              width={160}
-              height={40}
-              className="object-contain h-10"
-            />
-          </Link>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-20 h-8 bg-white/20 rounded animate-pulse"></div>
-            <div className="w-20 h-8 bg-white/20 rounded animate-pulse"></div>
-          </div>
-        </div>
-      </header>
-    )
   }
 
   return (
@@ -99,9 +66,9 @@ export default function Header() {
                   aria-label="ユーザーメニューを開く"
                 >
                   <div className="relative w-6 h-6 sm:w-8 sm:h-8">
-                    {userProfile?.avatar_url ? (
+                    {user?.user_metadata?.avatar_url ? (
                       <Image
-                        src={userProfile.avatar_url || "/placeholder.svg"}
+                        src={(user.user_metadata.avatar_url as string) || "/placeholder.svg"}
                         alt="ユーザーアバター"
                         width={32}
                         height={32}
