@@ -18,7 +18,7 @@ export interface UserServiceResult {
 
 export async function getUserProfile(userId: string): Promise<UserServiceResult> {
   try {
-    console.log("🔄 getUserProfile called for userId:", userId)
+    console.log("🔄 Fetching user profile for:", userId)
 
     const supabase = createClient()
 

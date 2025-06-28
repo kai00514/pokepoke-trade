@@ -59,9 +59,7 @@ export function UsernameRegistrationModal({
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>ユーザー名登録</DialogTitle>
-          <DialogDescription>
-            表示用のユーザー名を入力してください。コメントやトレード投稿で表示されます。
-          </DialogDescription>
+          <DialogDescription>表示用のユーザー名を入力してください。</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
