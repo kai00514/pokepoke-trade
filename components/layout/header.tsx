@@ -10,7 +10,7 @@ import NotificationDropdown from "@/components/notification-dropdown"
 import { PokepokeIdRegistrationModal } from "@/components/pokepoke-id-registration-modal"
 import { UsernameRegistrationModal } from "@/components/username-registration-modal"
 import { useState } from "react"
-import { updateUserProfile } from "@/lib/actions/user-profile-actions"
+import { updatePokepokeId, updateDisplayName } from "@/lib/actions/user-profile-actions"
 import { toast } from "@/components/ui/use-toast"
 
 export default function Header() {
@@ -36,15 +36,16 @@ export default function Header() {
   const handlePokepokeIdSave = async (pokepokeId: string) => {
     console.log("🔄 Saving pokepoke_id:", pokepokeId)
 
-    const result = await updateUserProfile({ pokepoke_id: pokepokeId })
+    const result = await updatePokepokeId(pokepokeId)
 
     if (result.success) {
       toast({
         title: "成功",
         description: "ポケポケIDが更新されました。",
       })
-      console.log("✅ PokepokeID updated successfully")
+      console.log("✅ PokepokeID updated successfully:", result.data)
       await refreshUserProfile() // プロファイルを再フェッチしてヘッダーを更新
+      setIsPokepokeIdModalOpen(false) // モーダルを閉じる
     } else {
       toast({
         title: "エラー",
@@ -58,15 +59,16 @@ export default function Header() {
   const handleUsernameSave = async (username: string) => {
     console.log("🔄 Saving display_name:", username)
 
-    const result = await updateUserProfile({ display_name: username })
+    const result = await updateDisplayName(username)
 
     if (result.success) {
       toast({
         title: "成功",
         description: "ユーザー名が更新されました。",
       })
-      console.log("✅ Username updated successfully")
+      console.log("✅ Username updated successfully:", result.data)
       await refreshUserProfile() // プロファイルを再フェッチしてヘッダーを更新
+      setIsUsernameModalOpen(false) // モーダルを閉じる
     } else {
       toast({
         title: "エラー",
@@ -121,7 +123,7 @@ export default function Header() {
                     )}
                   </div>
                   <span className="text-white text-sm font-medium hidden sm:inline">
-                    {userProfile?.display_name || user.email?.split("@")[0] || "ユーザー"}
+                    {userProfile?.display_name || userProfile?.name || user.email?.split("@")[0] || "ユーザー"}
                   </span>
                 </Button>
               </DropdownMenuTrigger>

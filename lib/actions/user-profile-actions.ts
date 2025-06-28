@@ -2,17 +2,18 @@
 
 import { createServerClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { cookies } from "next/headers"
 
 export interface ActionResult {
   success: boolean
   error?: string
+  data?: any
 }
 
 export async function updatePokepokeId(pokepokeId: string): Promise<ActionResult> {
   try {
-    const cookieStore = cookies()
-    const supabase = createServerClient(cookieStore)
+    console.log("🔄 Starting updatePokepokeId with value:", pokepokeId)
+
+    const supabase = await createServerClient()
 
     // 現在のユーザーを取得
     const {
@@ -20,47 +21,86 @@ export async function updatePokepokeId(pokepokeId: string): Promise<ActionResult
       error: authError,
     } = await supabase.auth.getUser()
 
-    if (authError || !user) {
-      console.error("Auth error:", authError)
-      return { success: false, error: "認証エラー: ユーザーが見つかりません" }
+    if (authError) {
+      console.error("❌ Auth error:", authError)
+      return { success: false, error: `認証エラー: ${authError.message}` }
     }
 
-    console.log("Updating pokepoke_id for user:", user.id, "with value:", pokepokeId)
+    if (!user) {
+      console.error("❌ No user found")
+      return { success: false, error: "ユーザーが見つかりません" }
+    }
 
-    // UPSERTを使用してユーザーレコードを挿入または更新
-    const { error } = await supabase.from("users").upsert(
-      {
-        id: user.id,
-        pokepoke_id: pokepokeId,
-        display_name: null, // 既存の値を保持するため、別途取得が必要
-      },
-      {
-        onConflict: "id",
-      },
-    )
+    console.log("✅ User authenticated:", user.id)
+
+    // まず既存のレコードを確認
+    const { data: existingUser, error: fetchError } = await supabase
+      .from("users")
+      .select("id, name, email, display_name, pokepoke_id, avatar_url, is_admin")
+      .eq("id", user.id)
+      .maybeSingle()
+
+    console.log("📋 Existing user data:", existingUser)
+    console.log("📋 Fetch error:", fetchError)
+
+    if (fetchError) {
+      console.error("❌ Error fetching existing user:", fetchError)
+      return { success: false, error: `データ取得エラー: ${fetchError.message}` }
+    }
+
+    let result
+    if (existingUser) {
+      // 既存レコードを更新
+      console.log("🔄 Updating existing user record")
+      result = await supabase
+        .from("users")
+        .update({
+          pokepoke_id: pokepokeId,
+        })
+        .eq("id", user.id)
+        .select("id, name, email, display_name, pokepoke_id, avatar_url, is_admin")
+    } else {
+      // 新しいレコードを挿入
+      console.log("🔄 Inserting new user record")
+      result = await supabase
+        .from("users")
+        .insert({
+          id: user.id,
+          name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+          email: user.email || null,
+          pokepoke_id: pokepokeId,
+          display_name: null,
+          avatar_url: user.user_metadata?.avatar_url || null,
+          is_admin: false,
+        })
+        .select("id, name, email, display_name, pokepoke_id, avatar_url, is_admin")
+    }
+
+    const { data, error } = result
 
     if (error) {
-      console.error("Error updating pokepoke_id:", error)
+      console.error("❌ Database operation error:", error)
       return { success: false, error: `データベースエラー: ${error.message}` }
     }
 
-    console.log("Successfully updated pokepoke_id")
+    console.log("✅ Database operation successful:", data)
 
-    // 関連するページのキャッシュを再検証
+    // キャッシュを再検証
     revalidatePath("/")
     revalidatePath("/trades/create")
 
-    return { success: true }
+    return { success: true, data }
   } catch (e) {
-    console.error("Unexpected error in updatePokepokeId:", e)
+    console.error("❌ Unexpected error in updatePokepokeId:", e)
     return { success: false, error: `予期しないエラー: ${(e as Error).message}` }
   }
 }
 
 export async function updateDisplayName(displayName: string): Promise<ActionResult> {
   try {
-    const cookieStore = cookies()
-    const supabase = createServerClient(cookieStore)
+    console.log("🔄 Starting updateDisplayName with value:", displayName)
+
+    const supabase = await createServerClient()
 
     // 現在のユーザーを取得
     const {
@@ -68,105 +108,76 @@ export async function updateDisplayName(displayName: string): Promise<ActionResu
       error: authError,
     } = await supabase.auth.getUser()
 
-    if (authError || !user) {
-      console.error("Auth error:", authError)
-      return { success: false, error: "認証エラー: ユーザーが見つかりません" }
+    if (authError) {
+      console.error("❌ Auth error:", authError)
+      return { success: false, error: `認証エラー: ${authError.message}` }
     }
 
-    console.log("Updating display_name for user:", user.id, "with value:", displayName)
-
-    // UPSERTを使用してユーザーレコードを挿入または更新
-    const { error } = await supabase.from("users").upsert(
-      {
-        id: user.id,
-        display_name: displayName,
-        pokepoke_id: null, // 既存の値を保持するため、別途取得が必要
-      },
-      {
-        onConflict: "id",
-      },
-    )
-
-    if (error) {
-      console.error("Error updating display_name:", error)
-      return { success: false, error: `データベースエラー: ${error.message}` }
+    if (!user) {
+      console.error("❌ No user found")
+      return { success: false, error: "ユーザーが見つかりません" }
     }
 
-    console.log("Successfully updated display_name")
+    console.log("✅ User authenticated:", user.id)
 
-    // 関連するページのキャッシュを再検証
-    revalidatePath("/")
-
-    return { success: true }
-  } catch (e) {
-    console.error("Unexpected error in updateDisplayName:", e)
-    return { success: false, error: `予期しないエラー: ${(e as Error).message}` }
-  }
-}
-
-// より安全な更新方法：既存の値を保持しながら特定のフィールドのみ更新
-export async function updateUserProfile(updates: {
-  display_name?: string
-  pokepoke_id?: string
-}): Promise<ActionResult> {
-  try {
-    const cookieStore = cookies()
-    const supabase = createServerClient(cookieStore)
-
-    // 現在のユーザーを取得
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      console.error("Auth error:", authError)
-      return { success: false, error: "認証エラー: ユーザーが見つかりません" }
-    }
-
-    console.log("Updating user profile for user:", user.id, "with updates:", updates)
-
-    // 既存のユーザーレコードを取得
+    // まず既存のレコードを確認
     const { data: existingUser, error: fetchError } = await supabase
       .from("users")
-      .select("*")
+      .select("id, name, email, display_name, pokepoke_id, avatar_url, is_admin")
       .eq("id", user.id)
-      .single()
+      .maybeSingle()
 
-    if (fetchError && fetchError.code !== "PGRST116") {
-      // PGRST116 = レコードが見つからない（これは正常）
-      console.error("Error fetching existing user:", fetchError)
+    console.log("📋 Existing user data:", existingUser)
+    console.log("📋 Fetch error:", fetchError)
+
+    if (fetchError) {
+      console.error("❌ Error fetching existing user:", fetchError)
       return { success: false, error: `データ取得エラー: ${fetchError.message}` }
     }
 
-    // UPSERTでレコードを挿入または更新
-    const upsertData = {
-      id: user.id,
-      display_name: updates.display_name ?? existingUser?.display_name ?? null,
-      pokepoke_id: updates.pokepoke_id ?? existingUser?.pokepoke_id ?? null,
-      avatar_url: existingUser?.avatar_url ?? null,
-      created_at: existingUser?.created_at ?? new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    let result
+    if (existingUser) {
+      // 既存レコードを更新
+      console.log("🔄 Updating existing user record")
+      result = await supabase
+        .from("users")
+        .update({
+          display_name: displayName,
+        })
+        .eq("id", user.id)
+        .select("id, name, email, display_name, pokepoke_id, avatar_url, is_admin")
+    } else {
+      // 新しいレコードを挿入
+      console.log("🔄 Inserting new user record")
+      result = await supabase
+        .from("users")
+        .insert({
+          id: user.id,
+          name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+          email: user.email || null,
+          display_name: displayName,
+          pokepoke_id: null,
+          avatar_url: user.user_metadata?.avatar_url || null,
+          is_admin: false,
+        })
+        .select("id, name, email, display_name, pokepoke_id, avatar_url, is_admin")
     }
 
-    const { error } = await supabase.from("users").upsert(upsertData, {
-      onConflict: "id",
-    })
+    const { data, error } = result
 
     if (error) {
-      console.error("Error upserting user profile:", error)
+      console.error("❌ Database operation error:", error)
       return { success: false, error: `データベースエラー: ${error.message}` }
     }
 
-    console.log("Successfully updated user profile")
+    console.log("✅ Database operation successful:", data)
 
-    // 関連するページのキャッシュを再検証
+    // キャッシュを再検証
     revalidatePath("/")
-    revalidatePath("/trades/create")
 
-    return { success: true }
+    return { success: true, data }
   } catch (e) {
-    console.error("Unexpected error in updateUserProfile:", e)
+    console.error("❌ Unexpected error in updateDisplayName:", e)
     return { success: false, error: `予期しないエラー: ${(e as Error).message}` }
   }
 }

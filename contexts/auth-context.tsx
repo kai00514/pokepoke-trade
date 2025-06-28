@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { createContext, useContext, useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
@@ -26,9 +25,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUserProfile = async (userId: string) => {
     console.log("🔄 Fetching user profile for:", userId)
     const result = await getUserProfile(userId)
-    if (result.success && result.profile) {
+    if (result.success) {
       console.log("✅ User profile fetched:", result.profile)
-      setUserProfile(result.profile)
+      setUserProfile(result.profile || null)
     } else {
       console.log("❌ Failed to fetch user profile:", result.error)
       setUserProfile(null)
@@ -37,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUserProfile = async () => {
     if (user) {
+      console.log("🔄 Refreshing user profile for:", user.id)
       await fetchUserProfile(user.id)
     }
   }
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [])
+  }, [supabase])
 
   const signOut = async () => {
     console.log("🔄 Signing out...")
