@@ -7,9 +7,14 @@ import { Plus, User } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import NotificationDropdown from "@/components/notification-dropdown"
+import { PokepokeIdRegistrationModal } from "@/components/pokepoke-id-registration-modal"
+import { UsernameRegistrationModal } from "@/components/username-registration-modal"
+import { useState } from "react"
 
 export default function Header() {
   const { user, userProfile, loading, signOut } = useAuth()
+  const [isPokepokeIdModalOpen, setIsPokepokeIdModalOpen] = useState(false)
+  const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false)
 
   console.log("🔍 Header component - Auth state:", {
     user: user ? { id: user.id, email: user.email } : null,
@@ -26,16 +31,16 @@ export default function Header() {
     }
   }
 
-  // 仮のハンドラ関数
-  const handlePokepokeIdRegistration = () => {
-    console.log("ポケポケID登録がクリックされました。")
-    // ここにポケポケID登録ページへの遷移ロジックなどを追加
+  const handlePokepokeIdSave = (pokepokeId: string) => {
+    console.log("ポケポケIDを保存:", pokepokeId)
+    // ここにポケポケIDをデータベースに保存するロジックを追加
+    // 例: updateProfile({ pokepoke_id: pokepokeId })
   }
 
-  // 仮のハンドラ関数
-  const handleUsernameRegistration = () => {
-    console.log("ユーザー名登録がクリックされました。")
-    // ここにユーザー名登録ページへの遷移ロジックなどを追加
+  const handleUsernameSave = (username: string) => {
+    console.log("ユーザー名を保存:", username)
+    // ここにユーザー名をデータベースに保存するロジックを追加
+    // 例: updateProfile({ user_name: username })
   }
 
   return (
@@ -87,10 +92,10 @@ export default function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={handlePokepokeIdRegistration} className="cursor-pointer">
+                <DropdownMenuItem onClick={() => setIsPokepokeIdModalOpen(true)} className="cursor-pointer">
                   ポケポケID登録
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleUsernameRegistration} className="cursor-pointer">
+                <DropdownMenuItem onClick={() => setIsUsernameModalOpen(true)} className="cursor-pointer">
                   ユーザー名登録
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
@@ -120,6 +125,22 @@ export default function Header() {
           )}
         </div>
       </div>
+
+      {/* ポケポケID登録モーダル */}
+      <PokepokeIdRegistrationModal
+        isOpen={isPokepokeIdModalOpen}
+        onOpenChange={setIsPokepokeIdModalOpen}
+        currentPokepokeId={userProfile?.pokepoke_id}
+        onSave={handlePokepokeIdSave}
+      />
+
+      {/* ユーザー名登録モーダル */}
+      <UsernameRegistrationModal
+        isOpen={isUsernameModalOpen}
+        onOpenChange={setIsUsernameModalOpen}
+        currentUsername={userProfile?.user_name}
+        onSave={handleUsernameSave}
+      />
     </header>
   )
 }
