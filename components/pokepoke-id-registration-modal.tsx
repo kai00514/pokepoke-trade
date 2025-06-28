@@ -27,35 +27,14 @@ export function PokepokeIdRegistrationModal({
   onSave,
 }: PokepokeIdRegistrationModalProps) {
   const [pokepokeId, setPokepokeId] = useState(currentPokepokeId || "")
-  const [isLoading, setIsLoading] = useState(false)
 
-  const handleSave = async () => {
-    if (!pokepokeId.trim()) {
-      return
-    }
-
-    setIsLoading(true)
-    try {
-      await onSave(pokepokeId.trim())
-    } catch (error) {
-      console.error("Error saving pokepoke ID:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleOpenChange = (open: boolean) => {
-    if (!isLoading) {
-      onOpenChange(open)
-      if (!open) {
-        // モーダルが閉じられる時に現在の値にリセット
-        setPokepokeId(currentPokepokeId || "")
-      }
-    }
+  const handleSave = () => {
+    onSave(pokepokeId)
+    onOpenChange(false)
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>ポケポケID登録</DialogTitle>
@@ -74,16 +53,12 @@ export function PokepokeIdRegistrationModal({
               onChange={(e) => setPokepokeId(e.target.value)}
               className="col-span-3"
               placeholder="例: POKE12345"
-              disabled={isLoading}
             />
           </div>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isLoading}>
-            キャンセル
-          </Button>
-          <Button type="submit" onClick={handleSave} disabled={isLoading || !pokepokeId.trim()}>
-            {isLoading ? "保存中..." : "保存"}
+          <Button type="submit" onClick={handleSave}>
+            保存
           </Button>
         </DialogFooter>
       </DialogContent>
