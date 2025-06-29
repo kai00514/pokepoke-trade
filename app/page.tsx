@@ -7,7 +7,7 @@ import TradePostCard from "@/components/trade-post-card"
 import AdPlaceholder from "@/components/ad-placeholder"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { PlusCircle, Search, Loader2 } from "lucide-react"
+import { PlusCircle, Search } from "lucide-react"
 import DetailedSearchModal from "@/components/detailed-search-modal"
 import type { Card as SelectedCardType } from "@/components/detailed-search-modal"
 import { getTradePostsWithCards } from "@/lib/actions/trade-actions"
@@ -16,14 +16,12 @@ import { useRouter } from "next/navigation"
 
 export default function TradeBoardPage() {
   const [isDetailedSearchOpen, setIsDetailedSearchOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
   const [tradePosts, setTradePosts] = useState<any[]>([])
   const [searchKeyword, setSearchKeyword] = useState("")
   const { toast } = useToast()
   const router = useRouter()
 
   const fetchTradePosts = useCallback(async () => {
-    setIsLoading(true)
     try {
       const result = await getTradePostsWithCards(20, 0)
       if (result.success) {
@@ -44,8 +42,6 @@ export default function TradeBoardPage() {
         variant: "destructive",
       })
       setTradePosts([])
-    } finally {
-      setIsLoading(false)
     }
   }, [toast])
 
@@ -125,11 +121,7 @@ export default function TradeBoardPage() {
               </div>
             </div>
 
-            {isLoading ? (
-              <div className="flex justify-center items-center py-20">
-                <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
-              </div>
-            ) : filteredPosts.length > 0 ? (
+            {filteredPosts.length > 0 ? (
               <div className="space-y-6">
                 {filteredPosts.map((post) => (
                   <TradePostCard key={post.id} post={post} />
