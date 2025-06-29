@@ -10,15 +10,15 @@ import { useState, useEffect } from "react"
 import { getNotifications } from "@/lib/services/notification-service"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
-export default function Header() {
-  const { user, userProfile, loading, signOut, displayName } = useAuth() // displayName を取得
+function Header() {
+  const { user, userProfile, loading, signOut, displayName } = useAuth()
   const [unreadCount, setUnreadCount] = useState(0)
 
   console.log("🔍 Header component - Auth state:", {
     user: user ? { id: user.id, email: user.email } : null,
     userProfile,
     loading,
-    displayName, // displayNameもログに出力
+    displayName,
   })
 
   // 未読通知数を取得
@@ -43,8 +43,10 @@ export default function Header() {
       }
     }
 
-    fetchUnreadCount()
-  }, [user])
+    if (user && !loading) {
+      fetchUnreadCount()
+    }
+  }, [user, loading])
 
   const handleSignOut = async () => {
     try {
@@ -132,9 +134,7 @@ export default function Header() {
                       </div>
                     )}
                   </div>
-                  <span className="text-white text-sm font-medium hidden sm:inline">
-                    {displayName} {/* displayName を使用 */}
-                  </span>
+                  <span className="text-white text-sm font-medium hidden sm:inline">{displayName}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -174,3 +174,9 @@ export default function Header() {
     </header>
   )
 }
+
+// Named export
+export { Header }
+
+// Default export for compatibility
+export default Header

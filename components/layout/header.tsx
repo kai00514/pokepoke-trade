@@ -1,162 +1,174 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Menu, User, LogOut, Settings, Heart } from "lucide-react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
+import { Plus, Bell, User } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import NotificationDropdown from "@/components/notification-dropdown"
-import { getUserProfile } from "@/lib/services/user-service"
-
-interface UserProfile {
-  pokepoke_id?: string
-  display_name?: string
-}
+import { useState, useEffect } from "react"
+import { getNotifications } from "@/lib/services/notification-service"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 function Header() {
-  const { user, loading, signOut } = useAuth()
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
-  const [displayName, setDisplayName] = useState<string>("")
+  const { user, userProfile, loading, signOut, displayName } = useAuth()
+  const [unreadCount, setUnreadCount] = useState(0)
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (user?.id) {
-        try {
-          const profile = await getUserProfile(user.id)
-          setUserProfile(profile)
-
-          // 表示名の優先順位: display_name > pokepoke_id > email
-          const name = profile?.display_name || profile?.pokepoke_id || user.email?.split("@")[0] || "ユーザー"
-          setDisplayName(name)
-        } catch (error) {
-          console.error("Error fetching user profile:", error)
-          setDisplayName(user.email?.split("@")[0] || "ユーザー")
-        }
-      }
-    }
-
-    if (user && !loading) {
-      fetchUserProfile()
-    }
-  }, [user, loading])
-
-  // デバッグ用ログ
-  console.log("🔍 Header component - Auth state:", {
-    user: user?.email || null,
+  console.log("🔍 Layout Header component - Auth state:", {
+    user: user ? { id: user.id, email: user.email } : null,
     userProfile,
     loading,
     displayName,
   })
 
-  if (loading) {
-    return (
-      <header className="border-b bg-white">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="text-xl font-bold text-blue-600">
-              PokeLink
-            </Link>
-            <div className="flex items-center space-x-4">
-              <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />
-            </div>
-          </div>
-        </div>
-      </header>
-    )
-  }
+  // 未読通知数を取得
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      if (!user) {
+        setUnreadCount(0)
+        return
+      }
+
+      try {
+        console.log("📡 Fetching notifications for unread count:", user.id)
+        const result = await getNotifications(user.id)
+        if (result.success && result.notifications) {
+          const unread = result.notifications.filter((n) => !n.is_read).length
+          setUnreadCount(unread)
+          console.log(`📊 Unread notifications count: ${unread}`)
+        }
+      } catch (error) {
+        console.error("❌ Error fetching unread count:", error)
+        setUnreadCount(0)
+      }
+    }
+
+    if (user && !loading) {
+      fetchUnreadCount()
+    }
+  }, [user, loading])
 
   const handleSignOut = async () => {
     try {
       await signOut()
-      setUserProfile(null)
-      setDisplayName("")
+      console.log("✅ Signed out successfully from Layout Header")
     } catch (error) {
-      console.error("Error signing out:", error)
+      console.error("❌ Sign out error:", error)
     }
   }
 
-  console.log("Header render - user:", user ? `logged in as ${user.email}` : "not logged in")
+  const handleNotificationClick = () => {
+    console.log("🔔 Notification icon clicked - redirecting to /notifications")
+    window.location.href = "/notifications"
+  }
+
+  // ポケポケID登録のハンドラ (仮)
+  const handlePokepokeIdRegistration = () => {
+    console.log("ポケポケID登録がクリックされました。")
+    // ここにポケポケID登録ページへの遷移ロジックなどを追加
+  }
+
+  // ユーザー名登録のハンドラ (仮)
+  const handleUsernameRegistration = () => {
+    console.log("ユーザー名登録がクリックされました。")
+    // ここにユーザー名登録ページへの遷移ロジックなどを追加
+  }
 
   return (
-    <header className="border-b bg-white">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold text-blue-600">
-            PokeLink
-          </Link>
+    <header className="bg-violet-500 text-white shadow-md">
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+        <Link href="/" className="flex items-center">
+          <Image src="/pokelink-logo.png" alt="PokeLink ロゴ" width={160} height={40} className="object-contain h-10" />
+        </Link>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="bg-white text-violet-600 hover:bg-violet-100 rounded-full h-9 w-9 sm:h-10 sm:w-10"
+            aria-label="新規投稿作成"
+          >
+            <Plus className="h-5 w-5 sm:h-6 sm:w-6" />
+            <span className="sr-only">新規投稿作成</span>
+          </Button>
 
-          <nav className="hidden md:flex items-center space-x-6">
-            <Link href="/trades/create" className="text-gray-600 hover:text-gray-900">
-              トレード投稿
-            </Link>
-            <Link href="/decks" className="text-gray-600 hover:text-gray-900">
-              デッキ
-            </Link>
-            <Link href="/matching" className="text-gray-600 hover:text-gray-900">
-              マッチング
-            </Link>
-            <Link href="/history" className="text-gray-600 hover:text-gray-900">
-              履歴
-            </Link>
-            <Link href="/info" className="text-gray-600 hover:text-gray-900">
-              お知らせ
-            </Link>
-          </nav>
-
-          <div className="flex items-center space-x-4">
-            {user ? (
-              <>
-                <NotificationDropdown />
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                      <User className="h-4 w-4" />
-                      <span className="hidden sm:inline">{displayName}</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem asChild>
-                      <Link href="/favorites" className="flex items-center">
-                        <Heart className="mr-2 h-4 w-4" />
-                        お気に入り
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/settings" className="flex items-center">
-                        <Settings className="mr-2 h-4 w-4" />
-                        設定
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleSignOut} className="flex items-center text-red-600">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      ログアウト
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <Button asChild variant="ghost" size="sm">
-                  <Link href="/auth/login">ログイン</Link>
-                </Button>
-                <Button asChild size="sm">
-                  <Link href="/auth/signup">新規登録</Link>
-                </Button>
-              </div>
-            )}
-
-            <Button variant="ghost" size="sm" className="md:hidden">
-              <Menu className="h-4 w-4" />
+          {user && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative text-white hover:bg-white/20 rounded-full h-9 w-9 sm:h-10 sm:w-10 transition-all duration-200"
+              onClick={handleNotificationClick}
+              aria-label={`通知 ${unreadCount > 0 ? `(${unreadCount}件の未読)` : ""}`}
+            >
+              <Bell className="h-5 w-5 sm:h-6 sm:w-6" />
+              {unreadCount > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold border-2 border-violet-500"
+                >
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </Badge>
+              )}
             </Button>
-          </div>
+          )}
+
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5 hover:bg-white/20 transition-colors duration-200 cursor-pointer"
+                  aria-label="ユーザーメニューを開く"
+                >
+                  <div className="relative w-6 h-6 sm:w-8 sm:h-8">
+                    {userProfile?.avatar_url ? (
+                      <Image
+                        src={userProfile.avatar_url || "/placeholder.svg"}
+                        alt="ユーザーアバター"
+                        width={32}
+                        height={32}
+                        className="rounded-full object-cover w-full h-full"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-white/20 rounded-full flex items-center justify-center">
+                        <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-white text-sm font-medium hidden sm:inline">{displayName}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handlePokepokeIdRegistration} className="cursor-pointer">
+                  ポケポケID登録
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleUsernameRegistration} className="cursor-pointer">
+                  ユーザー名登録
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+                  ログアウト
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <>
+              <Link href="/auth/signup">
+                <Button
+                  variant="default"
+                  className="bg-white text-violet-600 hover:bg-violet-100 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2"
+                >
+                  新規登録
+                </Button>
+              </Link>
+              <Link href="/auth/login">
+                <Button
+                  variant="outline"
+                  className="bg-white text-violet-600 border-violet-600 hover:bg-violet-100 hover:text-violet-700 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2"
+                >
+                  ログイン
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
@@ -166,5 +178,5 @@ function Header() {
 // Named export
 export { Header }
 
-// Default export
+// Default export for compatibility
 export default Header

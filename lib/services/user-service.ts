@@ -1,66 +1,82 @@
-import { createClient } from "@/lib/supabase/client"
-import type { User } from "@supabase/supabase-js"
+import { createBrowserClient } from "@/lib/supabase/client"
 
-export interface UserProfile {
+interface UserProfile {
   id: string
-  user_name: string | null
-  pokepoke_id: string | null
-  avatar_url: string | null
-  created_at: string
-  updated_at: string
+  pokepoke_id?: string
+  display_name?: string
+  email?: string
+  created_at?: string
+  updated_at?: string
 }
 
-export interface UserServiceResult {
-  success: boolean
-  profile?: UserProfile | null
-  error?: string
-}
+export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  const supabase = createBrowserClient()
 
-export async function getUserProfile(userId: string): Promise<UserServiceResult> {
   try {
-    const supabase = createClient()
-
     const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
 
     if (error) {
       console.error("Error fetching user profile:", error)
-      return { success: false, error: error.message }
+      return null
     }
 
-    return { success: true, profile: data }
+    return data
   } catch (error) {
-    console.error("Unexpected error in getUserProfile:", error)
-    return { success: false, error: "Unexpected error occurred" }
+    console.error("Error in getUserProfile:", error)
+    return null
   }
 }
 
-export function getDisplayName(user: User | null, profile: UserProfile | null): string {
-  if (profile?.user_name) {
-    return profile.user_name
-  }
-  if (user?.user_metadata?.full_name) {
-    return user.user_metadata.full_name
-  }
-  if (user?.email) {
-    return user.email.split("@")[0]
-  }
-  return "ゲスト"
-}
+export async function createUserProfile(userId: string, email: string): Promise<UserProfile | null> {
+  const supabase = createBrowserClient()
 
-export async function updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserServiceResult> {
   try {
-    const supabase = createClient()
+    const { data, error } = await supabase
+      .from("users")
+      .insert({
+        id: userId,
+        email: email,
+        display_name: email.split("@")[0],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
 
-    const { data, error } = await supabase.from("users").update(updates).eq("id", userId).select().single()
+    if (error) {
+      console.error("Error creating user profile:", error)
+      return null
+    }
+
+    return data
+  } catch (error) {
+    console.error("Error in createUserProfile:", error)
+    return null
+  }
+}
+
+export async function updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile | null> {
+  const supabase = createBrowserClient()
+
+  try {
+    const { data, error } = await supabase
+      .from("users")
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId)
+      .select()
+      .single()
 
     if (error) {
       console.error("Error updating user profile:", error)
-      return { success: false, error: error.message }
+      return null
     }
 
-    return { success: true, profile: data }
+    return data
   } catch (error) {
-    console.error("Unexpected error in updateUserProfile:", error)
-    return { success: false, error: "Unexpected error occurred" }
+    console.error("Error in updateUserProfile:", error)
+    return null
   }
 }
