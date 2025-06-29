@@ -1,4 +1,4 @@
-import { createBrowserClient } from "@/lib/supabase/client"
+import { createClient } from "@/lib/supabase/client"
 
 interface Notification {
   id: string
@@ -11,22 +11,17 @@ interface Notification {
   related_id?: string
 }
 
-interface NotificationResult {
-  success: boolean
-  notifications?: Notification[]
-  error?: string
-}
-
-export async function getNotifications(userId: string): Promise<NotificationResult> {
-  const supabase = createBrowserClient()
-
+export async function getNotifications(
+  userId: string,
+): Promise<{ success: boolean; notifications?: Notification[]; error?: string }> {
   try {
+    const supabase = createClient()
+
     const { data, error } = await supabase
       .from("deck_notifications")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
-      .limit(50)
 
     if (error) {
       console.error("Error fetching notifications:", error)
@@ -40,28 +35,28 @@ export async function getNotifications(userId: string): Promise<NotificationResu
   }
 }
 
-export async function markNotificationAsRead(notificationId: string): Promise<boolean> {
-  const supabase = createBrowserClient()
-
+export async function markNotificationAsRead(notificationId: string): Promise<{ success: boolean; error?: string }> {
   try {
+    const supabase = createClient()
+
     const { error } = await supabase.from("deck_notifications").update({ is_read: true }).eq("id", notificationId)
 
     if (error) {
       console.error("Error marking notification as read:", error)
-      return false
+      return { success: false, error: error.message }
     }
 
-    return true
+    return { success: true }
   } catch (error) {
     console.error("Error in markNotificationAsRead:", error)
-    return false
+    return { success: false, error: "Failed to mark notification as read" }
   }
 }
 
-export async function markAllNotificationsAsRead(userId: string): Promise<boolean> {
-  const supabase = createBrowserClient()
-
+export async function markAllNotificationsAsRead(userId: string): Promise<{ success: boolean; error?: string }> {
   try {
+    const supabase = createClient()
+
     const { error } = await supabase
       .from("deck_notifications")
       .update({ is_read: true })
@@ -70,12 +65,12 @@ export async function markAllNotificationsAsRead(userId: string): Promise<boolea
 
     if (error) {
       console.error("Error marking all notifications as read:", error)
-      return false
+      return { success: false, error: error.message }
     }
 
-    return true
+    return { success: true }
   } catch (error) {
     console.error("Error in markAllNotificationsAsRead:", error)
-    return false
+    return { success: false, error: "Failed to mark all notifications as read" }
   }
 }

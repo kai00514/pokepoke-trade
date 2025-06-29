@@ -1,18 +1,18 @@
-import { createBrowserClient } from "@/lib/supabase/client"
+import { createClient } from "@/lib/supabase/client"
 
 interface UserProfile {
   id: string
   pokepoke_id?: string
   display_name?: string
-  email?: string
-  created_at?: string
-  updated_at?: string
+  avatar_url?: string
+  created_at: string
+  updated_at: string
 }
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
-  const supabase = createBrowserClient()
-
   try {
+    const supabase = createClient()
+
     const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
 
     if (error) {
@@ -27,16 +27,18 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
   }
 }
 
-export async function createUserProfile(userId: string, email: string): Promise<UserProfile | null> {
-  const supabase = createBrowserClient()
-
+export async function createUserProfile(
+  userId: string,
+  profileData: Partial<UserProfile>,
+): Promise<UserProfile | null> {
   try {
+    const supabase = createClient()
+
     const { data, error } = await supabase
       .from("users")
       .insert({
         id: userId,
-        email: email,
-        display_name: email.split("@")[0],
+        ...profileData,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -55,14 +57,17 @@ export async function createUserProfile(userId: string, email: string): Promise<
   }
 }
 
-export async function updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile | null> {
-  const supabase = createBrowserClient()
-
+export async function updateUserProfile(
+  userId: string,
+  profileData: Partial<UserProfile>,
+): Promise<UserProfile | null> {
   try {
+    const supabase = createClient()
+
     const { data, error } = await supabase
       .from("users")
       .update({
-        ...updates,
+        ...profileData,
         updated_at: new Date().toISOString(),
       })
       .eq("id", userId)

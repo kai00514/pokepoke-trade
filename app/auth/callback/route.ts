@@ -1,4 +1,4 @@
-import { createServerClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
@@ -11,12 +11,13 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     try {
-      const supabase = await createServerClient()
+      const supabase = await createClient()
       const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
       if (!error && data.session) {
         console.log("Session exchange successful, user:", data.session.user.email)
 
+        // デプロイ環境でのリダイレクト処理を改善
         const forwardedHost = request.headers.get("x-forwarded-host")
         const isLocalEnv = process.env.NODE_ENV === "development"
 
@@ -25,7 +26,9 @@ export async function GET(request: NextRequest) {
         } else if (forwardedHost) {
           return NextResponse.redirect(`https://${forwardedHost}${next}`)
         } else {
-          return NextResponse.redirect(`${origin}${next}`)
+          // Vercelなどのデプロイ環境での処理
+          const deployUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : origin
+          return NextResponse.redirect(`${deployUrl}${next}`)
         }
       } else {
         console.error("Session exchange failed:", error)

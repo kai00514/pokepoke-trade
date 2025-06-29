@@ -4,7 +4,7 @@ import type React from "react"
 
 import { createContext, useContext, useEffect, useState } from "react"
 import type { User } from "@supabase/supabase-js"
-import { createBrowserClient } from "@/lib/supabase/client"
+import { createClient } from "@/lib/supabase/client"
 import { getUserProfile } from "@/lib/services/user-service"
 
 interface UserProfile {
@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [displayName, setDisplayName] = useState<string>("")
 
-  const supabase = createBrowserClient()
+  const supabase = createClient()
 
   useEffect(() => {
     // 初期セッション取得

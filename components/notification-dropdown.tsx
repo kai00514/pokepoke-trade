@@ -8,16 +8,16 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useAuth } from "@/contexts/auth-context"
 import {
   getNotifications,
   markNotificationAsRead,
   markAllNotificationsAsRead,
 } from "@/lib/services/notification-service"
+import { useAuth } from "@/contexts/auth-context"
 
 interface Notification {
   id: string
@@ -61,35 +61,28 @@ export function NotificationDropdown() {
   }
 
   const handleMarkAsRead = async (notificationId: string) => {
-    const success = await markNotificationAsRead(notificationId)
-    if (success) {
-      setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n)))
-      setUnreadCount((prev) => Math.max(0, prev - 1))
+    try {
+      const result = await markNotificationAsRead(notificationId)
+      if (result.success) {
+        setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n)))
+        setUnreadCount((prev) => Math.max(0, prev - 1))
+      }
+    } catch (error) {
+      console.error("Error marking notification as read:", error)
     }
   }
 
   const handleMarkAllAsRead = async () => {
     if (!user) return
 
-    const success = await markAllNotificationsAsRead(user.id)
-    if (success) {
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
-      setUnreadCount(0)
-    }
-  }
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
-
-    if (diffInHours < 1) {
-      return "たった今"
-    } else if (diffInHours < 24) {
-      return `${diffInHours}時間前`
-    } else {
-      const diffInDays = Math.floor(diffInHours / 24)
-      return `${diffInDays}日前`
+    try {
+      const result = await markAllNotificationsAsRead(user.id)
+      if (result.success) {
+        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+        setUnreadCount(0)
+      }
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error)
     }
   }
 
@@ -98,12 +91,17 @@ export function NotificationDropdown() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="relative text-white hover:bg-white/20">
-          <Bell className="h-4 w-4" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative text-white hover:bg-white/20 rounded-full h-9 w-9 sm:h-10 sm:w-10 transition-all duration-200"
+          aria-label={`通知 ${unreadCount > 0 ? `(${unreadCount}件の未読)` : ""}`}
+        >
+          <Bell className="h-5 w-5 sm:h-6 sm:w-6" />
           {unreadCount > 0 && (
             <Badge
               variant="destructive"
-              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold"
+              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold border-2 border-violet-500"
             >
               {unreadCount > 99 ? "99+" : unreadCount}
             </Badge>
@@ -114,18 +112,18 @@ export function NotificationDropdown() {
         <div className="flex items-center justify-between p-2">
           <h3 className="font-semibold">通知</h3>
           {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead}>
+            <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead} className="text-xs">
               <CheckCheck className="h-4 w-4 mr-1" />
-              すべて既読
+              全て既読
             </Button>
           )}
         </div>
         <DropdownMenuSeparator />
         <ScrollArea className="h-96">
           {loading ? (
-            <div className="p-4 text-center text-gray-500">読み込み中...</div>
+            <div className="p-4 text-center text-sm text-muted-foreground">読み込み中...</div>
           ) : notifications.length === 0 ? (
-            <div className="p-4 text-center text-gray-500">通知はありません</div>
+            <div className="p-4 text-center text-sm text-muted-foreground">通知はありません</div>
           ) : (
             notifications.map((notification) => (
               <DropdownMenuItem
@@ -133,15 +131,27 @@ export function NotificationDropdown() {
                 className={`p-3 cursor-pointer ${!notification.is_read ? "bg-blue-50" : ""}`}
                 onClick={() => !notification.is_read && handleMarkAsRead(notification.id)}
               >
-                <div className="flex items-start space-x-2 w-full">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{notification.title}</p>
-                    <p className="text-xs text-gray-500 mt-1">{notification.message}</p>
-                    <p className="text-xs text-gray-400 mt-1">{formatDate(notification.created_at)}</p>
+                <div className="flex items-start gap-2 w-full">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-medium">{notification.title}</h4>
+                      {!notification.is_read && <div className="w-2 h-2 bg-blue-500 rounded-full" />}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{notification.message}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {new Date(notification.created_at).toLocaleString("ja-JP")}
+                    </p>
                   </div>
                   {!notification.is_read && (
-                    <Button variant="ghost" size="sm" className="p-1">
-                      <Check className="h-3 w-3" />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleMarkAsRead(notification.id)
+                      }}
+                    >
+                      <Check className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
@@ -153,6 +163,3 @@ export function NotificationDropdown() {
     </DropdownMenu>
   )
 }
-
-// Named export and default export for compatibility
-export { NotificationDropdown as default }
