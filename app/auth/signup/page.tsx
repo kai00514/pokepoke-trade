@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input"
 import { Mail, Lock, Eye, EyeOff } from "lucide-react"
 import { GoogleIcon } from "@/components/icons/google-icon"
 import { LineIcon } from "@/components/icons/line-icon"
-import { XIcon } from "@/components/icons/twitter-icon" // TwitterIconをインポート
 import { createBrowserClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
@@ -27,11 +26,11 @@ export default function SignUpPage() {
   const router = useRouter()
   const supabase = createBrowserClient()
 
-  const handleSocialSignUp = async (provider: "google" | "twitter") => {
+  const handleGoogleSignUp = async () => {
     try {
       setIsLoading(true)
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: provider,
+        provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth/callback?next=/`,
         },
@@ -214,24 +213,12 @@ export default function SignUpPage() {
         <Button
           variant="outline"
           className="w-full justify-between items-center p-6 bg-white"
-          onClick={() => handleSocialSignUp("google")}
+          onClick={handleGoogleSignUp}
           disabled={isLoading}
         >
           <div className="flex items-center">
             <GoogleIcon className="h-5 w-5 mr-3" />
             <span className="font-semibold text-slate-700">Googleで登録</span>
-          </div>
-          <span className="text-slate-400">→</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="w-full justify-between items-center p-6 bg-white"
-          onClick={() => handleSocialSignUp("twitter")}
-          disabled={isLoading}
-        >
-          <div className="flex items-center">
-            <XIcon className="h-5 w-5 mr-3" />
-            <span className="font-semibold text-slate-700">Xで登録</span>
           </div>
           <span className="text-slate-400">→</span>
         </Button>

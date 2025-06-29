@@ -21,8 +21,6 @@ export async function addDeckComment(
       commentType,
       commentTypeType: typeof commentType,
     })
-    console.log("🗄️ [addDeckComment] Debug: userId received:", userId, " (type:", typeof userId, ")") // ここを追加
-    console.log("🗄️ [addDeckComment] Debug: isGuest received:", isGuest, " (type:", typeof isGuest, ")") // ここを追加
 
     const supabase = await createServerClient()
     console.log("🗄️ [addDeckComment] Supabase client created successfully")
@@ -32,7 +30,6 @@ export async function addDeckComment(
     let finalUserId = null
 
     if (isGuest || !userId) {
-      // userIdがundefinedや空文字列の場合もゲスト扱い
       finalUserName = "ゲスト"
       finalUserId = null
       console.log("🗄️ [addDeckComment] Guest user detected")
