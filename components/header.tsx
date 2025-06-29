@@ -60,6 +60,18 @@ export default function Header() {
     window.location.href = "/notifications"
   }
 
+  // ポケポケID登録のハンドラ (仮)
+  const handlePokepokeIdRegistration = () => {
+    console.log("ポケポケID登録がクリックされました。")
+    // ここにポケポケID登録ページへの遷移ロジックなどを追加
+  }
+
+  // ユーザー名登録のハンドラ (仮)
+  const handleUsernameRegistration = () => {
+    console.log("ユーザー名登録がクリックされました。")
+    // ここにユーザー名登録ページへの遷移ロジックなどを追加
+  }
+
   return (
     <header className="bg-violet-500 text-white shadow-md">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -126,6 +138,12 @@ export default function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handlePokepokeIdRegistration} className="cursor-pointer">
+                  ポケポケID登録
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleUsernameRegistration} className="cursor-pointer">
+                  ユーザー名登録
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                   ログアウト
                 </DropdownMenuItem>

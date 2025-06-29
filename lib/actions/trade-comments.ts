@@ -16,15 +16,13 @@ export async function addComment(
 ) {
   try {
     console.log("[addComment] Starting with params:", { postId, content, userId, userName, isGuest })
-    console.log("[addComment] Received userId:", userId)
-    console.log("[addComment] Received userName:", userName)
-    console.log("[addComment] Received isGuest:", isGuest)
-    console.log("[addComment] Received guestId:", guestId)
+    console.log("[addComment] Debug: userId received:", userId, " (type:", typeof userId, ")") // ここを追加
+    console.log("[addComment] Debug: isGuest received:", isGuest, " (type:", typeof isGuest, ")") // ここを追加
 
     const commentData = {
       trade_id: postId,
       content,
-      user_id: userId || null,
+      user_id: userId || null, // userIdがundefinedや空文字列の場合にnullにする
       user_name: userName || "ゲスト",
       is_guest: isGuest || false,
       guest_id: guestId || null,
@@ -47,8 +45,6 @@ export async function addComment(
       return { success: false, error: insertError.message }
     }
     console.log("[addComment] Comment inserted successfully. Data:", comment)
-
-    console.log("[addComment] Comment inserted successfully:", comment)
 
     // コメント数を更新
     const { error: updateError } = await supabase.rpc("increment_trade_comment_count", {
