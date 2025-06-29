@@ -1,19 +1,18 @@
-import { createBrowserSupabaseClient } from "@supabase/auth-helpers-nextjs"
+import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs"
 
 // シングルトンパターンでクライアントを提供
-let clientInstance: ReturnType<typeof createBrowserSupabaseClient> | null = null
+let clientInstance: ReturnType<typeof createPagesBrowserClient> | null = null
 
-export function createBrowserClient() {
+export function createClient() {
   if (!clientInstance) {
-    clientInstance = createBrowserSupabaseClient({
-      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      options: { auth: { flowType: "pkce" } } // PKCE 明示（任意）
-    })
+    clientInstance = createPagesBrowserClient()
   }
   return clientInstance
 }
 
-// 互換エクスポート
-export const createClient = createBrowserClient
-export const supabase     = createBrowserClient()
+// 互換エクスポート（既存コードとの互換性のため）
+export const createBrowserClient = createClient
+export const supabase = createClient()
+
+// Default export for compatibility
+export default createClient

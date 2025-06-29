@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js"
 
 interface AuthContextType {
   user: User | null
+  loading: boolean
   signOut: () => Promise<void>
 }
 
@@ -14,24 +15,34 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
   useEffect(() => {
-    // 初期セッション取得（Implicit Flow処理を削除）
-    const getSession = async () => {
+    // 初期セッション取得
+    const getInitialSession = async () => {
       try {
         const {
           data: { session },
+          error,
         } = await supabase.auth.getSession()
-        console.log("Initial session:", session?.user?.email || "no user")
-        setUser(session?.user ?? null)
+
+        if (error) {
+          console.error("Error getting session:", error)
+          setUser(null)
+        } else {
+          console.log("Initial session:", session?.user?.email || "no user")
+          setUser(session?.user ?? null)
+        }
       } catch (error) {
-        console.error("Error getting session:", error)
+        console.error("Error in getInitialSession:", error)
         setUser(null)
+      } finally {
+        setLoading(false)
       }
     }
 
-    getSession()
+    getInitialSession()
 
     // 認証状態の変更を監視
     const {
@@ -39,17 +50,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth state changed:", event, session?.user?.email || "no user")
       setUser(session?.user ?? null)
+      setLoading(false)
     })
 
     return () => subscription.unsubscribe()
   }, [supabase.auth])
 
   const signOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
+    try {
+      await supabase.auth.signOut()
+      setUser(null)
+    } catch (error) {
+      console.error("Error signing out:", error)
+    }
   }
 
-  return <AuthContext.Provider value={{ user, signOut }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, loading, signOut }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
