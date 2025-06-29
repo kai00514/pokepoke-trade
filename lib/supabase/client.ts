@@ -11,7 +11,15 @@ export function createBrowserClient() {
     if (!supabaseUrl || !supabaseAnonKey) {
       throw new Error("Supabase URL or Anon Key is missing")
     }
-    clientInstance = createSupabaseClient(supabaseUrl, supabaseAnonKey)
+    clientInstance = createSupabaseClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      {
+        auth: {
+          flowType: "pkce",    // ← ここで PKCE（Authorization Code Flow）のみを指定
+        },
+      }
+    )
   }
   return clientInstance
 }

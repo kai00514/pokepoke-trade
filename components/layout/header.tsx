@@ -19,24 +19,27 @@ export default function Header() {
   const { user, signOut } = useAuth()
   const { toast } = useToast()
 
-  // デバッグログ追加
   console.log("Header render - user:", user?.email || "not logged in")
 
   const handleSignOut = async () => {
-    await signOut()
-    toast({
-      title: "ログアウト完了",
-      description: "ログアウトしました。",
-    })
+    try {
+      await signOut()
+      toast({
+        title: "ログアウト完了",
+        description: "ログアウトしました。",
+      })
+    } catch (error) {
+      toast({
+        title: "エラー",
+        description: "ログアウトに失敗しました。",
+        variant: "destructive",
+      })
+    }
   }
 
   const getDisplayName = () => {
-    // user_metadataから情報を取得（管理者APIは使用しない）
     if (user?.user_metadata?.full_name) {
       return user.user_metadata.full_name
-    }
-    if (user?.user_metadata?.name) {
-      return user.user_metadata.name
     }
     if (user?.email) {
       return user.email.split("@")[0]
@@ -75,7 +78,7 @@ export default function Header() {
                   <div className="relative w-6 h-6 sm:w-8 sm:h-8">
                     {user?.user_metadata?.avatar_url ? (
                       <Image
-                        src={(user.user_metadata.avatar_url as string) || "/placeholder.svg"}
+                        src={user.user_metadata.avatar_url || "/placeholder.svg"}
                         alt="ユーザーアバター"
                         width={32}
                         height={32}

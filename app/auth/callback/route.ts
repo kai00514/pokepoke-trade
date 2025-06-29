@@ -7,27 +7,36 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code")
   const next = searchParams.get("next") ?? "/"
 
+  console.log("Callback route called with code:", code ? "present" : "missing")
+
   if (code) {
-    const supabase = await createServerClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    try {
+      const supabase = await createServerClient()
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
-    if (!error) {
-      console.log("Session exchange successful")
-      const forwardedHost = request.headers.get("x-forwarded-host")
-      const isLocalEnv = process.env.NODE_ENV === "development"
+      if (!error && data.session) {
+        console.log("Session exchange successful, user:", data.session.user.email)
 
-      if (isLocalEnv) {
-        return NextResponse.redirect(`${origin}${next}`)
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`)
+        const forwardedHost = request.headers.get("x-forwarded-host")
+        const isLocalEnv = process.env.NODE_ENV === "development"
+
+        if (isLocalEnv) {
+          return NextResponse.redirect(`${origin}${next}`)
+        } else if (forwardedHost) {
+          return NextResponse.redirect(`https://${forwardedHost}${next}`)
+        } else {
+          return NextResponse.redirect(`${origin}${next}`)
+        }
       } else {
-        return NextResponse.redirect(`${origin}${next}`)
+        console.error("Session exchange failed:", error)
+        return NextResponse.redirect(`${origin}/auth/login?error=callback_error`)
       }
-    } else {
-      console.error("Session exchange failed:", error)
+    } catch (error) {
+      console.error("Callback error:", error)
+      return NextResponse.redirect(`${origin}/auth/login?error=callback_error`)
     }
   }
 
-  // エラーの場合はログインページにリダイレクト
-  return NextResponse.redirect(`${origin}/auth/login`)
+  console.log("No code parameter found")
+  return NextResponse.redirect(`${origin}/auth/login?error=no_code`)
 }

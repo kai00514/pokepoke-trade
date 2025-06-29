@@ -17,7 +17,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
 
   useEffect(() => {
-    // 初期セッション取得
+    // 初期セッション取得（Implicit Flow処理を削除）
     const getSession = async () => {
       try {
         const {

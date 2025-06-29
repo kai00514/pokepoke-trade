@@ -57,10 +57,13 @@ export default function LoginPage() {
 
   const handleSocialLogin = async (provider: "google" | "twitter") => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            prompt: "consent",  // access_type:"offline" は必要に応じて残せます
+          },
         },
       })
 
@@ -70,6 +73,12 @@ export default function LoginPage() {
           description: error.message,
           variant: "destructive",
         })
+        return
+      }
+
+      // Code Flow 用の URL を受け取って自前でリダイレクト
+      if (data?.url) {
+        window.location.href = data.url
       }
     } catch (error) {
       toast({
