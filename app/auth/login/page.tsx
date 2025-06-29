@@ -1,8 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,18 +11,57 @@ import { GoogleIcon } from "@/components/icons/google-icon"
 import { XIcon } from "@/components/icons/twitter-icon"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/use-toast"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const supabase = createClient()
+
+  // URLパラメータからエラーメッセージを取得
+  useEffect(() => {
+    const error = searchParams.get("error")
+    const message = searchParams.get("message")
+    const reset = searchParams.get("reset")
+
+    if (error) {
+      let errorText = "認証エラーが発生しました。"
+      
+      switch (error) {
+        case "callback_error":
+          errorText = message || "認証プロセスでエラーが発生しました。"
+          break
+        case "no_code":
+          errorText = "認証コードが見つかりませんでした。"
+          break
+        case "no_session":
+          errorText = "セッションの作成に失敗しました。"
+          break
+        default:
+          errorText = message || "予期しないエラーが発生しました。"
+      }
+      
+      setErrorMessage(errorText)
+    }
+
+    if (reset === "success") {
+      toast({
+        title: "パスワード更新完了",
+        description: "新しいパスワードでログインしてください。",
+      })
+    }
+  }, [searchParams, toast])
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setErrorMessage(null)
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -31,6 +70,7 @@ export default function LoginPage() {
       })
 
       if (error) {
+        setErrorMessage(error.message)
         toast({
           title: "ログインエラー",
           description: error.message,
@@ -41,13 +81,19 @@ export default function LoginPage() {
           title: "ログイン成功",
           description: "ログインしました。",
         })
-        router.push("/")
+        
+        // リダイレクト先を取得（クリーンなURL）
+        const redirect = searchParams.get("redirect") || "/"
+        const cleanUrl = redirect.startsWith("/") ? redirect : "/"
+        router.push(cleanUrl)
         router.refresh()
       }
     } catch (error) {
+      const errorMsg = "ログインに失敗しました。"
+      setErrorMessage(errorMsg)
       toast({
         title: "エラー",
-        description: "ログインに失敗しました。",
+        description: errorMsg,
         variant: "destructive",
       })
     } finally {
@@ -56,18 +102,21 @@ export default function LoginPage() {
   }
 
   const handleSocialLogin = async (provider: "google" | "twitter") => {
+    setErrorMessage(null)
+    
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
-            prompt: "consent",  // access_type:"offline" は必要に応じて残せます
+            prompt: "consent",
           },
         },
       })
 
       if (error) {
+        setErrorMessage(error.message)
         toast({
           title: "ログインエラー",
           description: error.message,
@@ -81,9 +130,11 @@ export default function LoginPage() {
         window.location.href = data.url
       }
     } catch (error) {
+      const errorMsg = "ソーシャルログインに失敗しました。"
+      setErrorMessage(errorMsg)
       toast({
         title: "エラー",
-        description: "ソーシャルログインに失敗しました。",
+        description: errorMsg,
         variant: "destructive",
       })
     }
@@ -97,6 +148,13 @@ export default function LoginPage() {
           <CardDescription className="text-center">アカウントにログインしてください</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {errorMessage && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
+          )}
+
           <form onSubmit={handleEmailLogin} className="space-y-4">
             <div className="space-y-2">
               <Input

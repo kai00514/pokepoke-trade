@@ -1,12 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Plus, Bell, LogOut } from "lucide-react"
-import { createBrowserClient } from "@/lib/supabase/client"
-import type { User } from "@supabase/supabase-js"
+import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import {
@@ -19,68 +17,25 @@ import {
 import { UserIcon } from "lucide-react"
 
 export default function AuthHeader() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const supabase = createBrowserClient()
+  const { user, loading, signOut, displayName } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
-  useEffect(() => {
-    // Get initial session
-    const getSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
-      setLoading(false)
-    }
-
-    getSession()
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [supabase.auth])
-
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut()
-      if (error) {
-        toast({
-          title: "ログアウトエラー",
-          description: error.message,
-          variant: "destructive",
-        })
-      } else {
-        toast({
-          title: "ログアウト完了",
-          description: "ログアウトしました。",
-        })
-        router.push("/")
-      }
+      await signOut()
+      toast({
+        title: "ログアウト完了",
+        description: "ログアウトしました。",
+      })
+      router.push("/")
     } catch (error) {
       toast({
-        title: "エラー",
-        description: "予期しないエラーが発生しました。",
+        title: "ログアウトエラー",
+        description: "ログアウトに失敗しました。",
         variant: "destructive",
       })
     }
-  }
-
-  const getUserDisplayName = () => {
-    if (user?.user_metadata?.full_name) {
-      return user.user_metadata.full_name
-    }
-    if (user?.email) {
-      return user.email.split("@")[0]
-    }
-    return "ユーザー"
   }
 
   const getUserAvatar = () => {
@@ -145,7 +100,7 @@ export default function AuthHeader() {
                     ) : (
                       <UserIcon className="h-5 w-5" />
                     )}
-                    <span className="text-sm font-medium hidden sm:inline">{getUserDisplayName()}</span>
+                    <span className="text-sm font-medium hidden sm:inline">{displayName}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">

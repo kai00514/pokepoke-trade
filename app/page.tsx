@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import Header from "@/components/layout/header" // AuthHeader から Header に変更
 import Footer from "@/components/footer"
 import TradePostCard from "@/components/trade-post-card"
@@ -13,6 +14,7 @@ import type { Card as SelectedCardType } from "@/components/detailed-search-moda
 import { getTradePostsWithCards } from "@/lib/actions/trade-actions"
 import { useToast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
+import { AuthDebug } from "@/components/auth-debug"
 
 export default function TradeBoardPage() {
   const [isDetailedSearchOpen, setIsDetailedSearchOpen] = useState(false)
@@ -21,6 +23,18 @@ export default function TradeBoardPage() {
   const [searchKeyword, setSearchKeyword] = useState("")
   const { toast } = useToast()
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // URLパラメータのクリーンアップ
+  useEffect(() => {
+    const code = searchParams.get("code")
+    if (code) {
+      console.log("🧹 Cleaning up URL parameters")
+      const url = new URL(window.location.href)
+      url.searchParams.delete("code")
+      window.history.replaceState({}, "", url.toString())
+    }
+  }, [searchParams])
 
   const fetchTradePosts = useCallback(async () => {
     setIsLoading(true)
@@ -155,6 +169,7 @@ export default function TradeBoardPage() {
         onSelectionComplete={handleDetailedSearchSelectionComplete}
         modalTitle="カード詳細検索"
       />
+      <AuthDebug />
     </div>
   )
 }
