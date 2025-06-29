@@ -31,8 +31,12 @@ export default function Header() {
   }
 
   const getDisplayName = () => {
+    // user_metadataから情報を取得（管理者APIは使用しない）
     if (user?.user_metadata?.full_name) {
       return user.user_metadata.full_name
+    }
+    if (user?.user_metadata?.name) {
+      return user.user_metadata.name
     }
     if (user?.email) {
       return user.email.split("@")[0]

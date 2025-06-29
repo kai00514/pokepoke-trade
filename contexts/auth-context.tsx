@@ -23,6 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const {
           data: { session },
         } = await supabase.auth.getSession()
+        console.log("Initial session:", session?.user?.email || "no user")
         setUser(session?.user ?? null)
       } catch (error) {
         console.error("Error getting session:", error)
@@ -36,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event, session?.user?.email) // デバッグログ追加
+      console.log("Auth state changed:", event, session?.user?.email || "no user")
       setUser(session?.user ?? null)
     })
 

@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
-      console.log("Session exchange successful") // デバッグログ
+      console.log("Session exchange successful")
       const forwardedHost = request.headers.get("x-forwarded-host")
       const isLocalEnv = process.env.NODE_ENV === "development"
 
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(`${origin}${next}`)
       }
     } else {
-      console.error("Session exchange failed:", error) // デバッグログ
+      console.error("Session exchange failed:", error)
     }
   }
 
