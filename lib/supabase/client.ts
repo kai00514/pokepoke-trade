@@ -1,31 +1,19 @@
-import { createClient as createSupabaseClient } from "@supabase/supabase-js"
+import { createBrowserSupabaseClient } from "@supabase/auth-helpers-nextjs"
 
 // シングルトンパターンでクライアントを提供
-let clientInstance: ReturnType<typeof createSupabaseClient> | null = null
+let clientInstance: ReturnType<typeof createBrowserSupabaseClient> | null = null
 
 export function createBrowserClient() {
   if (!clientInstance) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error("Supabase URL or Anon Key is missing")
-    }
-    clientInstance = createSupabaseClient(
-      supabaseUrl,
-      supabaseAnonKey,
-      {
-        auth: {
-          flowType: "pkce",    // ← ここで PKCE（Authorization Code Flow）のみを指定
-        },
-      }
-    )
+    clientInstance = createBrowserSupabaseClient({
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      options: { auth: { flowType: "pkce" } } // PKCE 明示（任意）
+    })
   }
   return clientInstance
 }
 
-// Named export for createClient (required for deployment)
+// 互換エクスポート
 export const createClient = createBrowserClient
-
-// 既存のクライアントインスタンスをエクスポート
-export const supabase = createBrowserClient()
+export const supabase     = createBrowserClient()
