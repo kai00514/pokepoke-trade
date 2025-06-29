@@ -1,16 +1,13 @@
 "use client"
 
 import type React from "react"
-
-import { createContext, useContext, useState, useEffect, useCallback } from "react"
-import { createClient } from "@/lib/supabase/client" // ここはclient.tsからcreateClientをインポート
+import { createContext, useContext, useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
-import { useRouter } from "next/navigation"
 
 interface AuthContextType {
   user: User | null
   signOut: () => Promise<void>
-  signInWithOAuth: (provider: "google" | "twitter" | "line") => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -18,53 +15,40 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const supabase = createClient()
-  const router = useRouter()
-
-  const fetchUser = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    setUser(user)
-  }, [supabase])
 
   useEffect(() => {
-    fetchUser()
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
-        setUser(session?.user || null)
-        router.refresh() // サーバーサイドセッションを更新するためにページをリフレッシュ
+    // 初期セッション取得
+    const getSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        setUser(session?.user ?? null)
+      } catch (error) {
+        console.error("Error getting session:", error)
+        setUser(null)
       }
+    }
+
+    getSession()
+
+    // 認証状態の変更を監視
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event, session?.user?.email) // デバッグログ追加
+      setUser(session?.user ?? null)
     })
 
-    return () => {
-      authListener?.unsubscribe()
-    }
-  }, [fetchUser, supabase.auth, router])
+    return () => subscription.unsubscribe()
+  }, [supabase.auth])
 
-  const signOut = useCallback(async () => {
+  const signOut = async () => {
     await supabase.auth.signOut()
     setUser(null)
-    router.refresh()
-  }, [supabase.auth, router])
+  }
 
-  const signInWithOAuth = useCallback(
-    async (provider: "google" | "twitter" | "line") => {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${location.origin}/auth/callback`,
-        },
-      })
-      // エラーハンドリングの改善は不要なので、エラーログのみ
-      if (error) {
-        console.error("OAuth sign in error:", error.message)
-      }
-    },
-    [supabase.auth],
-  )
-
-  return <AuthContext.Provider value={{ user, signOut, signInWithOAuth }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, signOut }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

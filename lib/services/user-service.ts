@@ -1,4 +1,4 @@
-import { createServerClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 
 export interface UserProfile {
@@ -11,43 +11,22 @@ export interface UserProfile {
 }
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
-  const supabase = await createServerClient()
+  try {
+    const supabase = createClient()
 
-  const { data: profile, error } = await supabase
-    .from("users") // 'users' はあなたの公開プロフィールテーブルを想定
-    .select("id, user_name, pokepoke_id, avatar_url, created_at, updated_at")
-    .eq("id", userId)
-    .single()
+    // 管理者APIではなく、通常のクエリを使用
+    const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
 
-  if (error) {
-    console.error("Error fetching user profile:", error.message)
+    if (error) {
+      console.error("Error fetching user profile:", error)
+      return null
+    }
+
+    return data
+  } catch (error) {
+    console.error("Unexpected error fetching user profile:", error)
     return null
   }
-  return profile
-}
-
-export async function updateUserName(userId: string, userName: string) {
-  const supabase = await createServerClient()
-
-  const { data, error } = await supabase.from("users").update({ user_name: userName }).eq("id", userId).select()
-
-  if (error) {
-    console.error("Error updating user name:", error.message)
-    throw error
-  }
-  return data
-}
-
-export async function updatePokepokeId(userId: string, pokepokeId: string) {
-  const supabase = await createServerClient()
-
-  const { data, error } = await supabase.from("users").update({ pokepoke_id: pokepokeId }).eq("id", userId).select()
-
-  if (error) {
-    console.error("Error updating pokepoke ID:", error.message)
-    throw error
-  }
-  return data
 }
 
 export function getDisplayName(user: User | null, profile: UserProfile | null): string {

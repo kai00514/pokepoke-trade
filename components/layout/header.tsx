@@ -19,6 +19,9 @@ export default function Header() {
   const { user, signOut } = useAuth()
   const { toast } = useToast()
 
+  // デバッグログ追加
+  console.log("Header render - user:", user?.email || "not logged in")
+
   const handleSignOut = async () => {
     await signOut()
     toast({
