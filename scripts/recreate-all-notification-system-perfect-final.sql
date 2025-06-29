@@ -92,7 +92,7 @@ BEGIN
 EXCEPTION
   WHEN OTHERS THEN
     RAISE LOG 'create_trade_comment_notification: An error occurred: %', SQLERRM;
-    -- エラーが発生してもコメント挿入は成功���せるため、ここでエラーを捕捉し何もしない
+    -- エラーが発生してもコメント挿入は成功させるため、ここでエラーを捕捉し何もしない
     NULL; 
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

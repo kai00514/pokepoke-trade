@@ -21,7 +21,7 @@ BEGIN
         ADD CONSTRAINT deck_evaluations_pkey PRIMARY KEY (deck_page_id, user_id);
     END IF;
 
-    -- 必要��応じてインデックスを追加 (パフォーマンスのため)
+    -- 必要に応じてインデックスを追加 (パフォーマンスのため)
     CREATE INDEX IF NOT EXISTS idx_deck_evaluations_deck_page_id ON deck_evaluations (deck_page_id);
     CREATE INDEX IF NOT EXISTS idx_deck_evaluations_user_id ON deck_evaluations (user_id);
 

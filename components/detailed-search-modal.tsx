@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
-import { Check, X, Loader2 } from "lucide-react" // Diamond, StarIcon を削除
+import { Check, X, Diamond, StarIcon, Loader2, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 import { createBrowserClient } from "@/lib/supabase/client"
@@ -21,7 +21,6 @@ export interface Card {
   type?: string
   rarity?: string
   category?: string
-  pack_id?: string // pack_id を追加
 }
 
 const cardCategoriesForUI = ["全て", "ポケモン", "トレーナーズ", "グッズ", "どうぐ"]
@@ -40,19 +39,18 @@ const typesForUI = [
 ]
 
 interface RarityOption {
-  uiLabel: string // "1", "2", "3", "4", "全レアリティ"
-  dbValue: string // "ダイヤ1", "ダイヤ2", "ダイヤ3", "ダイヤ4", "星1", "all"
-  iconPath?: string // Path to the image
-  fullUiLabel: string // "ダイヤ1", "星1", "全レアリティ"
+  uiLabel: string
+  dbValue: string
+  Icon?: LucideIcon
 }
 
 const rarityOptions: RarityOption[] = [
-  { uiLabel: "全レアリティ", dbValue: "all", fullUiLabel: "全レアリティ" },
-  { uiLabel: "1", dbValue: "ダイヤ1", iconPath: "/images/rarities/diamond_single.png", fullUiLabel: "ダイヤ1" },
-  { uiLabel: "2", dbValue: "ダイヤ2", iconPath: "/images/rarities/diamond_single.png", fullUiLabel: "ダイヤ2" },
-  { uiLabel: "3", dbValue: "ダイヤ3", iconPath: "/images/rarities/diamond_single.png", fullUiLabel: "ダイヤ3" },
-  { uiLabel: "4", dbValue: "ダイヤ4", iconPath: "/images/rarities/diamond_single.png", fullUiLabel: "ダイヤ4" },
-  { uiLabel: "1", dbValue: "星1", iconPath: "/images/rarities/star_single.png", fullUiLabel: "星1" },
+  { uiLabel: "全レアリティ", dbValue: "all" },
+  { uiLabel: "◇1", dbValue: "ダイヤ1", Icon: Diamond },
+  { uiLabel: "◇2", dbValue: "ダイヤ2", Icon: Diamond },
+  { uiLabel: "◇3", dbValue: "ダイヤ3", Icon: Diamond },
+  { uiLabel: "◇4", dbValue: "ダイヤ4", Icon: Diamond },
+  { uiLabel: "☆1", dbValue: "星1", Icon: StarIcon },
 ]
 
 const allowedDisplayRaritiesDB = ["ダイヤ1", "ダイヤ2", "ダイヤ3", "ダイヤ4", "星1"]
@@ -78,8 +76,6 @@ export default function DetailedSearchModal({
   const [selectedCategoryUI, setSelectedCategoryUI] = useState("全て")
   const [selectedRarityDBValue, setSelectedRarityDBValue] = useState("all")
   const [selectedTypeUI, setSelectedTypeUI] = useState("all")
-  const [selectedPackId, setSelectedPackId] = useState<string | null>(null) // パックIDのステートを追加
-  const [packOptions, setPackOptions] = useState<{ id: string; name: string }[]>([]) // パックオプションのステートを追加
   const [currentSelectedCards, setCurrentSelectedCards] = useState<Card[]>([])
   const [fetchedCards, setFetchedCards] = useState<Card[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -114,32 +110,13 @@ export default function DetailedSearchModal({
     }
   }, [isOpen, initialSelectedCards])
 
-  // パックオプションの取得
-  useEffect(() => {
-    async function fetchPackOptions() {
-      if (!isOpen) return
-      const { data, error } = await supabase.from("packs").select("id, name").order("name", { ascending: true })
-      if (error) {
-        console.error("Error fetching packs:", error)
-        toast({
-          title: "パック情報取得エラー",
-          description: "パック情報の読み込みに失敗しました。",
-          variant: "destructive",
-        })
-      } else if (data) {
-        setPackOptions([{ id: "all", name: "全てのパック" }, ...data])
-      }
-    }
-    fetchPackOptions()
-  }, [isOpen, supabase, toast])
-
   useEffect(() => {
     async function fetchCardsFromSupabase() {
       if (!isOpen) return
       setIsLoading(true)
       let query = supabase
         .from("cards")
-        .select("id, name, image_url, type_code, rarity_code, category, thumb_url, pack_id") // pack_id を選択に追加
+        .select("id, name, image_url, type_code, rarity_code, category, thumb_url")
         .eq("is_visible", true)
 
       if (keyword.trim()) {
@@ -163,10 +140,6 @@ export default function DetailedSearchModal({
       } else {
         query = query.eq("rarity_code", selectedRarityDBValue)
       }
-      if (selectedPackId && selectedPackId !== "all") {
-        // パックIDによるフィルタリングを追加
-        query = query.eq("pack_id", selectedPackId)
-      }
       query = query.order("id", { ascending: true })
 
       const { data, error } = await query
@@ -186,14 +159,13 @@ export default function DetailedSearchModal({
           type: dbCard.type_code,
           rarity: dbCard.rarity_code,
           category: String(dbCard.category),
-          pack_id: dbCard.pack_id, // pack_id をマッピング
         }))
         setFetchedCards(mappedData)
       }
       setIsLoading(false)
     }
     fetchCardsFromSupabase()
-  }, [isOpen, keyword, selectedCategoryUI, selectedRarityDBValue, selectedTypeUI, selectedPackId, supabase, toast]) // selectedPackId を依存配列に追加
+  }, [isOpen, keyword, selectedCategoryUI, selectedRarityDBValue, selectedTypeUI, supabase, toast])
 
   const toggleCardSelection = (card: Card) => {
     setCurrentSelectedCards((prevSelected) => {
@@ -374,18 +346,7 @@ export default function DetailedSearchModal({
                       "text-xs px-3 py-1 h-auto flex items-center gap-1",
                     )}
                   >
-                    {option.iconPath && option.dbValue !== "all" ? (
-                      <Image
-                        src={option.iconPath || "/placeholder.svg"}
-                        alt={option.fullUiLabel}
-                        width={16}
-                        height={16}
-                        className="object-contain"
-                      />
-                    ) : option.dbValue === "all" ? (
-                      <Check className="h-3 w-3" />
-                    ) : null}
-                    {option.uiLabel}
+                    {option.Icon && <option.Icon className="h-3 w-3" />} {option.uiLabel.replace(/[◇☆]/g, "")}
                   </Button>
                 ))}
               </div>
@@ -412,25 +373,6 @@ export default function DetailedSearchModal({
                         </span>
                       )}
                     </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-medium mb-1 text-slate-700">パック名</p>
-                <div className="flex flex-wrap gap-2">
-                  {packOptions.map((pack) => (
-                    <Button
-                      key={pack.id}
-                      variant={selectedPackId === pack.id ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedPackId(pack.id)}
-                      className={cn(
-                        selectedPackId === pack.id && "bg-purple-600 hover:bg-purple-700 text-white",
-                        "text-xs px-3 py-1 h-auto",
-                      )}
-                    >
-                      {pack.name}
-                    </Button>
                   ))}
                 </div>
               </div>

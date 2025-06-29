@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ArrowLeft, ChevronDown, ChevronUp, Trash2, Save, Loader2, Check, ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { Card as CardType } from "@/types/card"
+import type { Card as CardType } from "@/components/detailed-search-modal"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/use-toast"
 import { createDeck, type CreateDeckInput } from "@/lib/actions/deck-posts"
@@ -35,30 +35,6 @@ const energyTypes = [
 
 const cardCategoriesForFilter = ["全て", "ポケモン", "トレーナーズ", "グッズ", "どうぐ"]
 
-// レアリティオプションの定義
-interface RarityOption {
-  dbValue: string // データベースに保存されているレアリティコード
-  uiLabel: string // UIに表示するラベル (数字や名称)
-  iconPath: string // アイコン画像のパス
-}
-
-const rarityOptions: RarityOption[] = [
-  { dbValue: "all", uiLabel: "全てのレアリティ", iconPath: "" }, // 全ての場合アイコンなし
-  { dbValue: "ダイヤ1", uiLabel: "1", iconPath: "/images/rarities/diamond_single.png" },
-  { dbValue: "ダイヤ2", uiLabel: "2", iconPath: "/images/rarities/diamond_single.png" },
-  { dbValue: "ダイヤ3", uiLabel: "3", iconPath: "/images/rarities/diamond_single.png" },
-  { dbValue: "ダイヤ4", uiLabel: "4", iconPath: "/images/rarities/diamond_single.png" },
-  { dbValue: "星1", uiLabel: "1", iconPath: "/images/rarities/star_single.png" },
-  { dbValue: "星2", uiLabel: "2", iconPath: "/images/rarities/star_single.png" },
-  { dbValue: "星3", uiLabel: "3", iconPath: "/images/rarities/star_single.png" },
-  { dbValue: "クラウン", uiLabel: "クラウン", iconPath: "/images/rarities/crown.png" },
-  { dbValue: "色1", uiLabel: "色1", iconPath: "/images/rarities/color1.png" },
-  { dbValue: "色2", uiLabel: "色2", iconPath: "/images/rarities/color2.png" },
-]
-
-// データベースから取得する際にフィルターするレアリティコードのリスト
-const allowedRarityDbValues = rarityOptions.filter((opt) => opt.dbValue !== "all").map((opt) => opt.dbValue)
-
 export default function CreateDeckPage() {
   const [deckName, setDeckName] = useState("")
   const [deckDescription, setDeckDescription] = useState("")
@@ -80,13 +56,6 @@ export default function CreateDeckPage() {
   const [searchedCards, setSearchedCards] = useState<CardType[]>([])
   const [isLoadingSearch, setIsLoadingSearch] = useState(false)
 
-  // フィルターの状態
-  const [selectedRarity, setSelectedRarity] = useState("all") // dbValue を保持
-  const [selectedPackId, setSelectedPackId] = useState<string | null>(null)
-  const [packOptions, setPackOptions] = useState<{ id: string | null; name: string }[]>([
-    { id: null, name: "全てのパック" },
-  ])
-
   const supabase = createBrowserClient()
   const { toast } = useToast()
 
@@ -99,31 +68,13 @@ export default function CreateDeckPage() {
   const maxDeckSize = 20
   const displaySlotsCount = 20
 
-  // Fetch packs
-  useEffect(() => {
-    async function fetchPacks() {
-      const { data, error } = await supabase.from("packs").select("id, name").order("name", { ascending: true })
-      if (error) {
-        console.error("Error fetching packs:", error)
-        toast({
-          title: "パック情報エラー",
-          description: "パック情報の読み込みに失敗しました。",
-          variant: "destructive",
-        })
-      } else if (data) {
-        setPackOptions([{ id: null, name: "全てのパック" }, ...data.map((p) => ({ id: String(p.id), name: p.name }))])
-      }
-    }
-    fetchPacks()
-  }, [supabase, toast])
-
   // Fetch cards for search
   useEffect(() => {
     async function fetchCards() {
       setIsLoadingSearch(true)
       let query = supabase
         .from("cards")
-        .select("id, name, image_url, type_code, rarity_code, category, thumb_url, pack_id")
+        .select("id, name, image_url, type_code, rarity_code, category, thumb_url")
         .eq("is_visible", true)
         .limit(100)
 
@@ -140,19 +91,6 @@ export default function CreateDeckPage() {
         if (dbCategory) {
           query = query.eq("category", dbCategory)
         }
-      }
-
-      // レアリティフィルター (selectedRarity が "all" でない場合のみ適用)
-      if (selectedRarity !== "all") {
-        query = query.eq("rarity_code", selectedRarity)
-      } else {
-        // "全てのレアリティ" が選択された場合、許可されたレアリティのみを表示
-        query = query.in("rarity_code", allowedRarityDbValues)
-      }
-
-      // パックフィルター
-      if (selectedPackId !== null) {
-        query = query.eq("pack_id", selectedPackId)
       }
 
       query = query.order("id", { ascending: true })
@@ -175,7 +113,6 @@ export default function CreateDeckPage() {
           type: dbCard.type_code,
           rarity: dbCard.rarity_code,
           category: String(dbCard.category),
-          pack_id: String(dbCard.pack_id),
         }))
         setSearchedCards(mappedData)
       }
@@ -186,7 +123,7 @@ export default function CreateDeckPage() {
       fetchCards()
     }, 300)
     return () => clearTimeout(debounceFetch)
-  }, [searchKeyword, searchCategory, selectedRarity, selectedPackId, supabase, toast])
+  }, [searchKeyword, searchCategory, supabase, toast])
 
   useEffect(() => {
     async function getUser() {
@@ -567,51 +504,6 @@ export default function CreateDeckPage() {
             )}
           >
             {category}
-          </Button>
-        ))}
-      </div>
-
-      {/* レアリティフィルター */}
-      <div className="flex flex-wrap gap-2 items-center">
-        {rarityOptions.map((option) => (
-          <Button
-            key={option.dbValue}
-            variant={selectedRarity === option.dbValue ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedRarity(option.dbValue)}
-            className={cn(
-              selectedRarity === option.dbValue && "bg-purple-600 hover:bg-purple-700 text-white",
-              "text-xs px-3 py-1 h-auto flex items-center gap-1",
-            )}
-          >
-            {option.iconPath && (
-              <Image
-                src={option.iconPath || "/placeholder.svg"}
-                alt={option.uiLabel}
-                width={option.dbValue.includes("ダイヤ") || option.dbValue.includes("星") ? 16 : 20} // ダイヤと星は小さめ、他は大きめ
-                height={option.dbValue.includes("ダイヤ") || option.dbValue.includes("星") ? 16 : 20}
-                className="object-contain"
-              />
-            )}
-            {option.uiLabel}
-          </Button>
-        ))}
-      </div>
-
-      {/* パック名フィルター */}
-      <div className="flex flex-wrap gap-2">
-        {packOptions.map((pack) => (
-          <Button
-            key={pack.id || "all"}
-            variant={selectedPackId === pack.id ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedPackId(pack.id)}
-            className={cn(
-              selectedPackId === pack.id && "bg-purple-600 hover:bg-purple-700 text-white",
-              "text-xs px-3 py-1 h-auto",
-            )}
-          >
-            {pack.name}
           </Button>
         ))}
       </div>

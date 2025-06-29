@@ -127,7 +127,7 @@ BEGIN
     );
   END IF;
 
-  -- ���じデッキにコメントした他の会員ユーザーに通知 (コメント投稿者自身とデッキ作成者は除く)
+  -- 同じデッキにコメントした他の会員ユーザーに通知 (コメント投稿者自身とデッキ作成者は除く)
   FOR commenters IN
     SELECT DISTINCT user_id, user_name
     FROM public.deck_comments 

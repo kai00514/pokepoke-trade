@@ -1,5 +1,11 @@
-import { supabase } from "@/lib/supabase/client"
+import { createClient } from "@supabase/supabase-js"
 import type { Notification } from "@/types/notification"
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+// クライアントサイド用のSupabaseクライアント
+const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 export async function getNotifications(userId: string): Promise<{
   success: boolean
